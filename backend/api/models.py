@@ -30,6 +30,19 @@ class User:
         "updated_at": datetime,
         "created_by": str  # Email of the admin who created this user
     }
+    
+class Product:
+    """Schema for Product collection in MongoDB"""
+    schema = {
+        "shop_id": str,  # References the shop this product belongs to
+        "name": str,
+        "quantity": int,
+        "buying_price": float,
+        "selling_price": float,
+        "created_at": datetime,
+        "updated_at": datetime,
+        "created_by": str  # Email of the user who created this product
+    }
 
 # These models are not used directly with Django's ORM
 # We'll use PyMongo to interact with MongoDB

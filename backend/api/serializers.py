@@ -30,3 +30,14 @@ class AdminRegistrationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
     email = serializers.EmailField()
     password = serializers.CharField(min_length=6, write_only=True)
+
+
+class ProductSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100)
+    quantity = serializers.IntegerField(min_value=0)
+    buying_price = serializers.FloatField(min_value=0)
+    selling_price = serializers.FloatField(min_value=0)
+
+class UpdateProductPriceSerializer(serializers.Serializer):
+    product_id = serializers.CharField()
+    selling_price = serializers.FloatField(min_value=0)

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
+import 'add_product_screen.dart';
+import 'product_list_screen.dart';
+import 'price_list_screen.dart';
 
 class SellerHomeScreen extends StatelessWidget {
   static const routeName = '/seller-home';

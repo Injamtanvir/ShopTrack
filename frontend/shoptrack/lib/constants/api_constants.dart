@@ -12,4 +12,7 @@ class ApiConstants {
   static const String registerSalesPerson = '$baseUrl/register-sales-person/';
   static const String registerAdmin = '$baseUrl/register-admin/';
   static const String verifyToken = '$baseUrl/verify-token/';
+  static const String products = '$baseUrl/products/';
+  static const String updateProductPrice = '$baseUrl/update-product-price/';
+  static const String productPriceList = '$baseUrl/product-price-list/';
 }

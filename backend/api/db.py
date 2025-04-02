@@ -11,6 +11,7 @@ db = client[settings.MONGODB_DB]
 # Collections
 shops_collection = db["shops"]
 users_collection = db["users"]
+products_collection = db["products"]
 
 def generate_shop_id():
     """Generate a unique 8-digit shop ID"""

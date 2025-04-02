@@ -270,3 +270,177 @@ class VerifyTokenView(APIView):
             })
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return Response({"valid": False})
+        
+class ProductView(APIView):
+    def post(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Validate request data
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            
+            # Check if product already exists in this shop
+            existing_product = products_collection.find_one({
+                "shop_id": shop_id,
+                "name": data['name']
+            })
+            
+            if existing_product:
+                # Update existing product
+                products_collection.update_one(
+                    {"_id": existing_product['_id']},
+                    {"$set": {
+                        "quantity": existing_product['quantity'] + data['quantity'],
+                        "buying_price": data['buying_price'],
+                        "selling_price": data['selling_price'],
+                        "updated_at": datetime.now()
+                    }}
+                )
+                return Response({
+                    "message": "Product updated successfully",
+                    "product_id": str(existing_product['_id'])
+                }, status=status.HTTP_200_OK)
+            else:
+                # Create new product
+                product_data = {
+                    "shop_id": shop_id,
+                    "name": data['name'],
+                    "quantity": data['quantity'],
+                    "buying_price": data['buying_price'],
+                    "selling_price": data['selling_price'],
+                    "created_at": datetime.now(),
+                    "updated_at": datetime.now(),
+                    "created_by": user_email
+                }
+                result = products_collection.insert_one(product_data)
+                
+                return Response({
+                    "message": "Product added successfully",
+                    "product_id": str(result.inserted_id)
+                }, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def get(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Get all products for this shop
+        products = list(products_collection.find({"shop_id": shop_id}))
+        
+        # Convert ObjectId to string for JSON serialization
+        for product in products:
+            product['_id'] = str(product['_id'])
+        
+        return Response(products)
+
+class UpdateProductPriceView(APIView):
+    def post(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            
+            # Check if user is admin
+            if payload['role'] != 'admin':
+                return Response(
+                    {"error": "Only admins can update product prices"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            shop_id = payload['shop_id']
+            
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Validate request data
+        serializer = UpdateProductPriceSerializer(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            
+            from bson.objectid import ObjectId
+            
+            # Update product price
+            result = products_collection.update_one(
+                {"_id": ObjectId(data['product_id']), "shop_id": shop_id},
+                {"$set": {
+                    "selling_price": data['selling_price'],
+                    "updated_at": datetime.now()
+                }}
+            )
+            
+            if result.modified_count == 0:
+                return Response(
+                    {"error": "Product not found or not updated"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            return Response({
+                "message": "Product price updated successfully"
+            }, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ProductPriceListView(APIView):
+    def get(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Get shop details
+        shop = shops_collection.find_one({"shop_id": shop_id})
+        if not shop:
+            return Response(
+                {"error": "Shop not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get all products for this shop with only needed fields
+        products = list(products_collection.find(
+            {"shop_id": shop_id},
+            {"name": 1, "selling_price": 1, "quantity": 1}
+        ))
+        
+        # Convert ObjectId to string for JSON serialization
+        for product in products:
+            product['_id'] = str(product['_id'])
+        
+        # Add shop information
+        result = {
+            "shop_name": shop['name'],
+            "shop_address": shop['address'],
+            "shop_id": shop_id,
+            "products": products,
+            "generated_at": datetime.now().isoformat()
+        }
+        
+        return Response(result)
