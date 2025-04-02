@@ -92,6 +92,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+
   // Register a sales person (for admin)
   Future<bool> registerSalesPerson({
     required String name,
@@ -187,13 +188,6 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-
-
-
-
-
-
-
 
 
 
