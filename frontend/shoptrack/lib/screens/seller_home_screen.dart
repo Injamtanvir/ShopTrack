@@ -1,127 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:provider/provider.dart';
-// import '../providers/auth_provider.dart';
-// import 'login_screen.dart';
-//
-// class SellerHomeScreen extends StatelessWidget {
-//   static const routeName = '/seller-home';
-//
-//   const SellerHomeScreen({Key? key}) : super(key: key);
-//
-//   Future<void> _logout(BuildContext context) async {
-//     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-//     await authProvider.logout();
-//     if (context.mounted) {
-//       Navigator.pushReplacementNamed(context, LoginScreen.routeName);
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final authProvider = Provider.of<AuthProvider>(context);
-//     final user = authProvider.user;
-//
-//     if (user == null) {
-//       Future.microtask(() {
-//         if (context.mounted) {
-//           Navigator.pushReplacementNamed(context, LoginScreen.routeName);
-//         }
-//       });
-//       return const Scaffold(
-//         body: Center(child: CircularProgressIndicator()),
-//       );
-//     }
-//
-//     return Scaffold(
-//       appBar: AppBar(
-//         // title: const Text('Sales Dashboard'),
-//         title: Text('${user.shopName} Dashboard'),
-//         backgroundColor: Colors.indigo,
-//         actions: [
-//           IconButton(
-//             icon: const Icon(Icons.logout),
-//             onPressed: () => _logout(context),
-//             tooltip: 'Logout',
-//           ),
-//         ],
-//       ),
-//       body: SafeArea(
-//         child: SingleChildScrollView(
-//           padding: const EdgeInsets.all(24),
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               // Welcome header
-//               Card(
-//                 elevation: 4,
-//                 shape: RoundedRectangleBorder(
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//                 child: Padding(
-//                   padding: const EdgeInsets.all(16),
-//                   child: Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Text(
-//                         'Welcome, ${user.name}',
-//                         style: const TextStyle(
-//                           fontSize: 24,
-//                           fontWeight: FontWeight.bold,
-//                         ),
-//                       ),
-//                       const SizedBox(height: 8),
-//                       Text(
-//                         'Shop: ${user.shopName}',
-//                         style: const TextStyle(
-//                           fontSize: 16,
-//                           color: Colors.black54,
-//                         ),
-//                       ),
-//                       const SizedBox(height: 4),
-//                       Text(
-//                         'Shop ID: ${user.shopId}',
-//                         style: const TextStyle(
-//                           fontSize: 16,
-//                           color: Colors.black54,
-//                         ),
-//                       ),
-//                       const SizedBox(height: 4),
-//                       Text(
-//                         'Email: ${user.email}',
-//                         style: const TextStyle(
-//                           fontSize: 16,
-//                           color: Colors.black54,
-//                         ),
-//                       ),
-//                       const SizedBox(height: 4),
-//                       Text(
-//                         'Designation: ${user.designation}',
-//                         style: const TextStyle(
-//                           fontSize: 16,
-//                           color: Colors.black54,
-//                         ),
-//                       ),
-//                       const SizedBox(height: 4),
-//                       Text(
-//                         'Seller ID: ${user.sellerId}',
-//                         style: const TextStyle(
-//                           fontSize: 16,
-//                           color: Colors.black54,
-//                         ),
-//                       ),
-//                       const SizedBox(height: 4),
-//                       const Text(
-//                         'Role: Sales Person',
-//                         style: TextStyle(
-//                           fontSize: 16,
-//                           fontWeight: FontWeight.bold,
-//                           color: Colors.green,
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ),
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -158,6 +34,7 @@ class SellerHomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        // title: const Text('Sales Dashboard'),
         title: Text('${user.shopName} Dashboard'),
         backgroundColor: Colors.indigo,
         actions: [
@@ -174,6 +51,7 @@ class SellerHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Welcome header
               Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(
@@ -216,34 +94,8 @@ class SellerHomeScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      // Ensure designation is not null or empty
-                      // Text(
-                      //   'Designation: ${user.designation ?? 'Not Specified'}',
-                      //   style: const TextStyle(
-                      //     fontSize: 16,
-                      //     color: Colors.black54,
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 4),
-                      // // Ensure seller ID is not null or empty
-                      // Text(
-                      //   'Seller ID: ${user.sellerId ?? 'Not Assigned'}',
-                      //   style: const TextStyle(
-                      //     fontSize: 16,
-                      //     color: Colors.black54,
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 4),
-                      // Text(
-                      //   'Role: ${user.role ?? 'Sales Person'}',
-                      //   style: const TextStyle(
-                      //     fontSize: 16,
-                      //     fontWeight: FontWeight.bold,
-                      //     color: Colors.green,
-                      //   ),
-                      // ),
                       Text(
-                        'Designation: ${user.designation ?? 'Not Specified'}',
+                        'Designation: ${user.designation}',
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black54,
@@ -251,16 +103,16 @@ class SellerHomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Seller ID: ${user.sellerId ?? 'Not Assigned'}',
+                        'Seller ID: ${user.sellerId}',
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black54,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Role: ${user.role}',
-                        style: const TextStyle(
+                      const Text(
+                        'Role: Sales Person',
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.green,
@@ -270,6 +122,7 @@ class SellerHomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
+
               const SizedBox(height: 32),
 
               // Seller actions - Placeholder for future features
