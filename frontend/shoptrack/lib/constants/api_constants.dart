@@ -1,6 +1,6 @@
 class ApiConstants {
   // Base URL - Production Render URL
-  static const String baseUrl = 'https://api.render.com/deploy/srv-cvmgifffte5s739i07eg?key=CZYEy-bGCFI';
+  static const String baseUrl = 'https://shoptrack-w8wu.onrender.com';
 
   // For local development (comment out when using production)
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; // For Android emulator
