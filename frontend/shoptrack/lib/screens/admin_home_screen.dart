@@ -6,6 +6,9 @@ import '../widgets/custom_button.dart';
 import 'login_screen.dart';
 import 'register_admin_screen.dart';
 import 'register_sales_person_screen.dart';
+import 'add_product_screen.dart';
+import 'product_list_screen.dart';
+import 'price_list_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   static const routeName = '/admin-home';
