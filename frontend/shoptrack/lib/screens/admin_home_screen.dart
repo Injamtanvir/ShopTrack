@@ -26,10 +26,6 @@ class AdminHomeScreen extends StatelessWidget {
     final user = authProvider.user;
 
     if (user == null) {
-      // If user data is not available, redirect to login
-      // Future.microtask(() =>
-      //     Navigator.pushReplacementNamed(context, LoginScreen.routeName)
-      // );
       Future.microtask(() {
         if (context.mounted) {
           Navigator.pushReplacementNamed(context, LoginScreen.routeName);
@@ -43,7 +39,8 @@ class AdminHomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
+        // title: const Text('Admin Dashboard'),
+        title: Text('${user.shopName} Dashboard'),
         backgroundColor: Colors.indigo,
         actions: [
           IconButton(

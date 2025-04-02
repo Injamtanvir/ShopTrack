@@ -22,10 +22,6 @@ class SellerHomeScreen extends StatelessWidget {
     final user = authProvider.user;
 
     if (user == null) {
-      // If user data is not available, redirect to login
-      // Future.microtask(() =>
-      //     Navigator.pushReplacementNamed(context, LoginScreen.routeName)
-      // );
       Future.microtask(() {
         if (context.mounted) {
           Navigator.pushReplacementNamed(context, LoginScreen.routeName);
@@ -38,7 +34,8 @@ class SellerHomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sales Dashboard'),
+        // title: const Text('Sales Dashboard'),
+        title: Text('${user.shopName} Dashboard'),
         backgroundColor: Colors.indigo,
         actions: [
           IconButton(
@@ -98,7 +95,15 @@ class SellerHomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Designation: ${user.designation ?? "Sales Person"}',
+                        'Designation: ${user.designation}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Seller ID: ${user.sellerId}',
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black54,
@@ -329,3 +334,4 @@ class SellerHomeScreen extends StatelessWidget {
     );
   }
 }
+

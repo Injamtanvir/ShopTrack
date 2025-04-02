@@ -4,7 +4,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import 'login_screen.dart';
-
+import 'package:flutter/services.dart';
 
 
 class RegisterScreen extends StatefulWidget {
@@ -68,8 +68,95 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
 
+    // if (_generatedShopId != null) {
+    //   // Show success screen with generated Shop ID
+    //   return Scaffold(
+    //     body: SafeArea(
+    //       child: Center(
+    //         child: Padding(
+    //           padding: const EdgeInsets.all(24),
+    //           child: Column(
+    //             mainAxisAlignment: MainAxisAlignment.center,
+    //             children: [
+    //               const Icon(
+    //                 Icons.check_circle_outline,
+    //                 color: Colors.green,
+    //                 size: 80,
+    //               ),
+    //               const SizedBox(height: 24),
+    //               const Text(
+    //                 'Registration Successful!',
+    //                 style: TextStyle(
+    //                   fontSize: 24,
+    //                   fontWeight: FontWeight.bold,
+    //                 ),
+    //               ),
+    //               const SizedBox(height: 12),
+    //               const Text(
+    //                 'Your shop has been registered successfully.',
+    //                 textAlign: TextAlign.center,
+    //                 style: TextStyle(fontSize: 16),
+    //               ),
+    //               const SizedBox(height: 32),
+    //
+    //               // Shop ID display
+    //               Container(
+    //                 padding: const EdgeInsets.all(16),
+    //                 decoration: BoxDecoration(
+    //                   color: Colors.indigo.shade50,
+    //                   borderRadius: BorderRadius.circular(8),
+    //                   border: Border.all(color: Colors.indigo.shade200),
+    //                 ),
+    //                 child: Column(
+    //                   children: [
+    //                     const Text(
+    //                       'Your Shop ID',
+    //                       style: TextStyle(
+    //                         fontSize: 16,
+    //                         // color: Colors.indigo.shade800,
+    //                         color: Color(0xFF1A237E),
+    //                       ),
+    //                     ),
+    //                     const SizedBox(height: 8),
+    //                     Text(
+    //                       _generatedShopId!,
+    //                       style: const TextStyle(
+    //                         fontSize: 32,
+    //                         fontWeight: FontWeight.bold,
+    //                         letterSpacing: 2,
+    //                       ),
+    //                     ),
+    //                     const SizedBox(height: 8),
+    //                     const Text(
+    //                       'Please save this Shop ID. You will need it to login.',
+    //                       textAlign: TextAlign.center,
+    //                       style: TextStyle(
+    //                         fontSize: 14,
+    //                         color: Colors.red,
+    //                       ),
+    //                     ),
+    //                   ],
+    //                 ),
+    //               ),
+    //               const SizedBox(height: 32),
+    //
+    //               // Login button
+    //               CustomButton(
+    //                 text: 'Proceed to Login',
+    //                 onPressed: () {
+    //                   Navigator.pushReplacementNamed(
+    //                       context, LoginScreen.routeName);
+    //                 },
+    //               ),
+    //             ],
+    //           ),
+    //         ),
+    //       ),
+    //     ),
+    //   );
+    // }
+
     if (_generatedShopId != null) {
-      // Show success screen with generated Shop ID
       return Scaffold(
         body: SafeArea(
           child: Center(
@@ -98,8 +185,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: TextStyle(fontSize: 16),
                   ),
                   const SizedBox(height: 32),
-
-                  // Shop ID display
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -113,18 +198,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           'Your Shop ID',
                           style: TextStyle(
                             fontSize: 16,
-                            // color: Colors.indigo.shade800,
                             color: Color(0xFF1A237E),
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          _generatedShopId!,
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _generatedShopId!,
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.copy),
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: _generatedShopId!),
+                                );
+                              },
+                              tooltip: 'Copy to Clipboard',
+                              padding: EdgeInsets.zero,
+                              iconSize: 28,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         const Text(
@@ -139,8 +240,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // Login button
                   CustomButton(
                     text: 'Proceed to Login',
                     onPressed: () {
@@ -155,6 +254,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     }
+
 
 
 // Show registration form
