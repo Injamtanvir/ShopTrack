@@ -26,6 +26,9 @@ def hash_password(password):
     """Create a SHA-256 hash of the password"""
     return hashlib.sha256(password.encode()).hexdigest()
 
+
+# Rest of your existing code...
+
 class ShopRegistrationView(APIView):
     def post(self, request):
         serializer = ShopRegistrationSerializer(data=request.data)
