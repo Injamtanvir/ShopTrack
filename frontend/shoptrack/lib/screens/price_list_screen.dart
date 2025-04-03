@@ -1305,26 +1305,21 @@
 
 
 
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_button.dart';
 import '../utils/sharing_utils.dart';
 
-
 class PriceListScreen extends StatefulWidget {
   static const routeName = '/price-list';
   final bool showShareOptions;
 
-
   const PriceListScreen({Key? key, this.showShareOptions = false}) : super(key: key);
-
 
   @override
   State<PriceListScreen> createState() => _PriceListScreenState();
 }
-
 
 class _PriceListScreenState extends State<PriceListScreen> {
   final ApiService _apiService = ApiService();
@@ -1333,20 +1328,30 @@ class _PriceListScreenState extends State<PriceListScreen> {
   bool _isProcessing = false;
   String? _errorMessage;
 
-
   @override
   void initState() {
     super.initState();
     _loadPriceList();
   }
 
+  // Synchronous wrapper methods
+  void _handleShareButtonPress() {
+    _sharePriceList();
+  }
+
+  void _handleRefreshButtonPress() {
+    _loadPriceList();
+  }
+
+  void _handleRetryButtonPress() {
+    _loadPriceList();
+  }
 
   void _loadPriceList() {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
 
     _apiService.getProductPriceList().then((data) {
       if (mounted) {
@@ -1365,15 +1370,12 @@ class _PriceListScreenState extends State<PriceListScreen> {
     });
   }
 
-
   Future<void> _sharePriceList() async {
     if (_priceListData == null || _isProcessing) return;
-
 
     setState(() {
       _isProcessing = true;
     });
-
 
     try {
       // Generate PDF using the utility class
@@ -1383,7 +1385,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
         shopId: _priceListData!['shop_id'],
         products: _priceListData!['products'],
       );
-
 
       // If we want to show sharing options
       if (widget.showShareOptions) {
@@ -1417,7 +1418,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1437,15 +1437,12 @@ class _PriceListScreenState extends State<PriceListScreen> {
                 ),
               )
                   : const Icon(Icons.share),
-              onPressed: _isProcessing ? null : () {
-                // Simply call the function directly without returning anything
-                _sharePriceList();
-              },
+              onPressed: _isProcessing ? null : _handleShareButtonPress,
               tooltip: 'Share',
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadPriceList,
+            onPressed: _handleRefreshButtonPress,
             tooltip: 'Refresh',
           ),
         ],
@@ -1467,7 +1464,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
               const SizedBox(height: 16),
               CustomButton(
                 text: 'Retry',
-                onPressed: _loadPriceList,
+                onPressed: _handleRetryButtonPress,
               ),
             ],
           ),
@@ -1522,7 +1519,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
             ),
             const SizedBox(height: 16),
 
-
             // Products price list heading
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1537,10 +1533,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
                 // Share button
                 if (widget.showShareOptions)
                   ElevatedButton.icon(
-                    onPressed: _isProcessing ? null : () {
-                      // Simply call the function directly
-                      _sharePriceList();
-                    },
+                    onPressed: _isProcessing ? null : _handleShareButtonPress,
                     icon: const Icon(Icons.share, size: 18),
                     label: const Text('Share'),
                     style: ElevatedButton.styleFrom(
@@ -1552,7 +1545,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
               ],
             ),
             const SizedBox(height: 8),
-
 
             // Products Table
             Card(
@@ -1607,7 +1599,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
                       ],
                     ),
 
-
                     // Table rows for each product
                     for (var product in _priceListData!['products'])
                       TableRow(
@@ -1638,7 +1629,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
               ),
             ),
 
-
             // Footer
             const SizedBox(height: 32),
             Center(
@@ -1658,10 +1648,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: CustomButton(
                     text: 'Generate PDF & Share',
-                    onPressed: _isProcessing ? null : () {
-                      // Simply call the function directly
-                      _sharePriceList();
-                    },
+                    onPressed: _isProcessing ? null : _handleShareButtonPress,
                     isLoading: _isProcessing,
                   ),
                 ),
