@@ -1,8 +1,27 @@
+# services:
+#   - type: web
+#     name: shoptrack-backend
+#     env: python
+#     region: oregon  # Choose a region close to you
+#     buildCommand: pip install -r requirements.txt
+#     startCommand: gunicorn shoptrack_backend.wsgi:application -c gunicorn_config.py
+#     envVars:
+#       - key: SECRET_KEY
+#         generateValue: true
+#       - key: DEBUG
+#         value: false
+#       - key: ALLOWED_HOSTS
+#         value: "shoptrack-backend.onrender.com,*.onrender.com"
+#       - key: MONGODB_URI
+#         sync: false  # You'll set this manually in Render dashboard
+#       - key: MONGODB_DB
+#         value: "shoptrackdb"
+
 services:
   - type: web
     name: shoptrack-backend
     env: python
-    region: oregon  # Choose a region close to you
+    region: oregon # Choose a region close to you
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn shoptrack_backend.wsgi:application -c gunicorn_config.py
     envVars:
@@ -13,6 +32,6 @@ services:
       - key: ALLOWED_HOSTS
         value: "shoptrack-backend.onrender.com,*.onrender.com"
       - key: MONGODB_URI
-        sync: false  # You'll set this manually in Render dashboard
+        sync: false # You'll set this manually in Render dashboard
       - key: MONGODB_DB
         value: "shoptrackdb"
