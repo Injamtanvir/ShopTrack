@@ -10,6 +10,13 @@ import 'screens/seller_home_screen.dart';
 import 'screens/add_product_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/price_list_screen.dart';
+import 'screens/seller_product_list_screen.dart';
+
+// Add these imports
+import 'screens/create_invoice_screen.dart';
+import 'screens/pending_invoices_screen.dart';
+import 'screens/invoice_history_screen.dart';
+
 
 
 
@@ -69,10 +76,14 @@ class MyApp extends StatelessWidget {
           SellerHomeScreen.routeName: (ctx) => const SellerHomeScreen(),
           RegisterSalesPersonScreen.routeName: (ctx) => const RegisterSalesPersonScreen(),
           RegisterAdminScreen.routeName: (ctx) => const RegisterAdminScreen(),
-
+          SellerProductListScreen.routeName: (ctx) => const SellerProductListScreen(),
           AddProductScreen.routeName: (ctx) => const AddProductScreen(),
           ProductListScreen.routeName: (ctx) => const ProductListScreen(),
           PriceListScreen.routeName: (ctx) => const PriceListScreen(),
+
+          CreateInvoiceScreen.routeName: (ctx) => const CreateInvoiceScreen(),
+          PendingInvoicesScreen.routeName: (ctx) => const PendingInvoicesScreen(),
+          InvoiceHistoryScreen.routeName: (ctx) => const InvoiceHistoryScreen(),
         },
       ),
     );

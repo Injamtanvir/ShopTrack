@@ -1,4 +1,4 @@
-package gnvox.example.shoptrack
+package com.gnvox.shoptrack
 
 import io.flutter.embedding.android.FlutterActivity
 
