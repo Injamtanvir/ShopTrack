@@ -7,6 +7,11 @@ import 'screens/register_admin_screen.dart';
 import 'screens/register_sales_person_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/seller_home_screen.dart';
+import 'screens/add_product_screen.dart';
+import 'screens/product_list_screen.dart';
+import 'screens/price_list_screen.dart';
+
+
 
 void main() {
   runApp(const MyApp());
@@ -64,6 +69,10 @@ class MyApp extends StatelessWidget {
           SellerHomeScreen.routeName: (ctx) => const SellerHomeScreen(),
           RegisterSalesPersonScreen.routeName: (ctx) => const RegisterSalesPersonScreen(),
           RegisterAdminScreen.routeName: (ctx) => const RegisterAdminScreen(),
+
+          AddProductScreen.routeName: (ctx) => const AddProductScreen(),
+          ProductListScreen.routeName: (ctx) => const ProductListScreen(),
+          PriceListScreen.routeName: (ctx) => const PriceListScreen(),
         },
       ),
     );
@@ -115,3 +124,4 @@ class _InitScreenState extends State<InitScreen> {
     }
   }
 }
+
