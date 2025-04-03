@@ -3,6 +3,7 @@ import pymongo
 from django.conf import settings
 import random
 import string
+from rest_framework.views import APIView
 
 # MongoDB connection
 client = pymongo.MongoClient(settings.MONGODB_URI)
