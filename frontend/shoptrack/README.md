@@ -1,6 +1,6 @@
 # shoptrack
 
-A new ShopTrack Flutter Project. Connected to Render(Django Framework and Python), MongoDB for Database
+A new Flutter project.
 
 ## Getting Started
 

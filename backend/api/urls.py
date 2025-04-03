@@ -10,4 +10,12 @@ urlpatterns = [
     path('products/', views.ProductView.as_view(), name='products'),
     path('update-product-price/', views.UpdateProductPriceView.as_view(), name='update-product-price'),
     path('product-price-list/', views.ProductPriceListView.as_view(), name='product-price-list'),
+    
+    path('next-invoice-number/<str:shop_id>/', views.NextInvoiceNumberView.as_view(), name='next-invoice-number'),
+    path('invoices/', views.SaveInvoiceView.as_view(), name='save-invoice'),
+    path('generate-invoice/<str:invoice_id>/', views.GenerateInvoiceView.as_view(), name='generate-invoice'),
+    path('pending-invoices/<str:shop_id>/', views.PendingInvoicesView.as_view(), name='pending-invoices'),
+    path('invoice-history/<str:shop_id>/', views.InvoiceHistoryView.as_view(), name='invoice-history'),
+    path('invoice/<str:invoice_id>/', views.InvoiceDetailView.as_view(), name='invoice-detail'),
+    path('search-products/<str:shop_id>/', views.SearchProductsView.as_view(), name='search-products'),
 ]

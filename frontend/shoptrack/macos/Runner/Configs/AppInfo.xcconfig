@@ -8,7 +8,7 @@
 PRODUCT_NAME = shoptrack
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = gnvox.example.shoptrack
+PRODUCT_BUNDLE_IDENTIFIER = com.gnvox.shoptrack
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 gnvox.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 com.gnvox. All rights reserved.
