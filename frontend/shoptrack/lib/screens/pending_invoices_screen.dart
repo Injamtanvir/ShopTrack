@@ -53,20 +53,68 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
     }
   }
 
+  // Future<void> _generateInvoice(Invoice invoice) async {
+  //   setState(() {
+  //     _isProcessing = true;
+  //   });
+  //
+  //   try {
+  //     // Generate the invoice (update product quantities)
+  //     await _invoiceService.generateInvoice(invoice.id!);
+  //
+  //     // Get the complete invoice data
+  //     final completeInvoice = await _invoiceService.getInvoiceById(invoice.id!);
+  //
+  //     // Generate PDF
+  //     final pdfFile = await InvoiceUtils.generateInvoicePdf(completeInvoice);
+  //
+  //     // Show sharing options
+  //     if (mounted) {
+  //       SharingUtils.showSharingOptions(
+  //           context,
+  //           pdfFile,
+  //           'Invoice ${completeInvoice.invoiceNumber}'
+  //       );
+  //     }
+  //
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Invoice generated successfully')),
+  //     );
+  //
+  //     _loadPendingInvoices(); // Refresh the list
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Error: ${e.toString()}')),
+  //     );
+  //   } finally {
+  //     setState(() {
+  //       _isProcessing = false;
+  //     });
+  //   }
+  // }
+
+  // In lib/screens/pending_invoices_screen.dart
+  // Update the _generateInvoice method:
+
   Future<void> _generateInvoice(Invoice invoice) async {
     setState(() {
       _isProcessing = true;
     });
 
     try {
+      print('Generating invoice with ID: ${invoice.id}');
+
       // Generate the invoice (update product quantities)
       await _invoiceService.generateInvoice(invoice.id!);
+      print('Invoice generation completed successfully');
 
       // Get the complete invoice data
       final completeInvoice = await _invoiceService.getInvoiceById(invoice.id!);
+      print('Retrieved complete invoice data');
 
       // Generate PDF
       final pdfFile = await InvoiceUtils.generateInvoicePdf(completeInvoice);
+      print('PDF generation completed');
 
       // Show sharing options
       if (mounted) {
@@ -83,6 +131,7 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
 
       _loadPendingInvoices(); // Refresh the list
     } catch (e) {
+      print('Error in _generateInvoice: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),
       );
@@ -92,6 +141,9 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
       });
     }
   }
+
+
+
 
   @override
   Widget build(BuildContext context) {

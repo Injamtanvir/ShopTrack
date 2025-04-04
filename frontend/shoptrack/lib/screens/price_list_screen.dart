@@ -80,10 +80,16 @@ class _PriceListScreenState extends State<PriceListScreen> {
 
       // Share the PDF
       if (mounted) {
-        SharingUtils.shareFile(
+        // SharingUtils.shareFile(
+        //     context,
+        //     pdfFile,
+        //     'Price List - ${_priceListData!['shop_name']}'
+        // );
+        SharingUtils.showSharingOptions(
             context,
             pdfFile,
-            'Price List - ${_priceListData!['shop_name']}'
+            // 'Price List - ${_priceListData['shop_name']}'
+            'Price List - ${_priceListData?['shop_name'] ?? 'Shop'}'
         );
       }
     } catch (error) {

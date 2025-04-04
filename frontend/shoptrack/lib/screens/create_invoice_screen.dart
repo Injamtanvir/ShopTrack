@@ -9,6 +9,11 @@ import '../utils/invoice_utils.dart';
 import '../utils/sharing_utils.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
+import '../constants/api_constants.dart'; // Add this import for ApiConstants
+
+
+
+
 
 class CreateInvoiceScreen extends StatefulWidget {
   static const routeName = '/create-invoice';
@@ -239,6 +244,84 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     }
   }
 
+  // Future<void> _generateInvoice() async {
+  //   if (!_formKey.currentState!.validate()) {
+  //     return;
+  //   }
+  //
+  //   if (_invoiceItems.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Please add at least one product')),
+  //     );
+  //     return;
+  //   }
+  //
+  //   setState(() {
+  //     _isProcessing = true;
+  //   });
+  //
+  //   try {
+  //     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  //     final user = authProvider.user!;
+  //
+  //     final invoice = Invoice(
+  //       invoiceNumber: _invoiceNumber,
+  //       shopId: user.shopId,
+  //       shopName: user.shopName ?? 'Unknown Shop',
+  //       shopAddress: '', // This would need to be fetched from somewhere
+  //       shopLicense: '', // This would need to be fetched from somewhere
+  //       customerName: _customerNameController.text,
+  //       customerAddress: _customerAddressController.text,
+  //       date: DateTime.now(),
+  //       items: _invoiceItems,
+  //       status: 'completed', // Mark as completed directly
+  //       createdBy: user.email,
+  //     );
+  //
+  //     // Save and get the saved invoice
+  //     final result = await _invoiceService.savePendingInvoice(invoice);
+  //     final invoiceId = result['invoice_id'];
+  //
+  //     // Generate the invoice (update product quantities)
+  //     await _invoiceService.generateInvoice(invoiceId);
+  //
+  //     // Get the complete invoice data
+  //     final completeInvoice = await _invoiceService.getInvoiceById(invoiceId);
+  //
+  //     // Generate PDF
+  //     final pdfFile = await InvoiceUtils.generateInvoicePdf(completeInvoice);
+  //
+  //     // Show sharing options
+  //     if (mounted) {
+  //       SharingUtils.showSharingOptions(
+  //           context,
+  //           pdfFile,
+  //           'Invoice ${completeInvoice.invoiceNumber}'
+  //       );
+  //     }
+  //
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Invoice generated successfully')),
+  //     );
+  //
+  //     _resetForm();
+  //     _initInvoice(); // Get new invoice number
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Error: ${e.toString()}')),
+  //     );
+  //   } finally {
+  //     setState(() {
+  //       _isProcessing = false;
+  //     });
+  //   }
+  // }
+
+
+
+  // In lib/screens/create_invoice_screen.dart
+  // Update the _generateInvoice method:
+
   Future<void> _generateInvoice() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -256,35 +339,64 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     });
 
     try {
+      // Debug API constants
+      print("API Constants check:");
+      ApiConstants.printEndpoints();
+
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.user!;
+
+      // Get shop details from the price list to get shop address and license
+      Map<String, dynamic> shopDetails;
+      try {
+        final priceListData = await _apiService.getProductPriceList();
+        shopDetails = {
+          'shopAddress': priceListData['shop_address'],
+          'shopLicense': priceListData['shop_id'], // Using shop_id as license if no license is available
+        };
+        print('Got shop details: ${shopDetails.toString()}');
+      } catch (e) {
+        print('Error fetching shop details: $e');
+        // Fallback values
+        shopDetails = {
+          'shopAddress': 'Shop Address',
+          'shopLicense': 'License',
+        };
+      }
 
       final invoice = Invoice(
         invoiceNumber: _invoiceNumber,
         shopId: user.shopId,
         shopName: user.shopName ?? 'Unknown Shop',
-        shopAddress: '', // This would need to be fetched from somewhere
-        shopLicense: '', // This would need to be fetched from somewhere
+        shopAddress: shopDetails['shopAddress'],
+        shopLicense: shopDetails['shopLicense'],
         customerName: _customerNameController.text,
         customerAddress: _customerAddressController.text,
         date: DateTime.now(),
         items: _invoiceItems,
-        status: 'completed', // Mark as completed directly
+        status: 'pending', // Start as pending first
         createdBy: user.email,
       );
 
-      // Save and get the saved invoice
+      print('Saving invoice as pending');
       final result = await _invoiceService.savePendingInvoice(invoice);
       final invoiceId = result['invoice_id'];
+      print('Invoice saved with ID: $invoiceId');
 
       // Generate the invoice (update product quantities)
+      print('Generating invoice (updating quantities)');
       await _invoiceService.generateInvoice(invoiceId);
+      print('Invoice generation completed');
 
       // Get the complete invoice data
+      print('Fetching complete invoice data');
       final completeInvoice = await _invoiceService.getInvoiceById(invoiceId);
+      print('Got complete invoice data');
 
       // Generate PDF
+      print('Generating PDF');
       final pdfFile = await InvoiceUtils.generateInvoicePdf(completeInvoice);
+      print('PDF generation completed');
 
       // Show sharing options
       if (mounted) {
@@ -302,6 +414,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _resetForm();
       _initInvoice(); // Get new invoice number
     } catch (e) {
+      print('Error in _generateInvoice: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),
       );
@@ -311,6 +424,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       });
     }
   }
+
+
+
 
   void _resetForm() {
     _formKey.currentState?.reset();

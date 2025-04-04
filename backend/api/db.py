@@ -121,7 +121,96 @@ class SaveInvoiceView(APIView):
             "invoice_id": str(result.inserted_id)
         }, status=status.HTTP_201_CREATED)
 
-# Generate invoice (update product quantities and change status)
+# # Generate invoice (update product quantities and change status)
+# class GenerateInvoiceView(APIView):
+#     def post(self, request, invoice_id):
+#         # Verify JWT token from headers
+#         token = request.headers.get('Authorization', '').replace('Bearer ', '')
+#         try:
+#             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+#             shop_id = payload['shop_id']
+#             user_email = payload['email']
+#         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+#             return Response(
+#                 {"error": "Invalid or expired token"},
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
+
+#         try:
+#             # Get the invoice
+#             invoice = invoices_collection.find_one({"_id": ObjectId(invoice_id)})
+#             if not invoice:
+#                 return Response(
+#                     {"error": "Invoice not found"},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#             # Check if the shop ID in the invoice matches the shop ID in the token
+#             if invoice['shop_id'] != shop_id:
+#                 return Response(
+#                     {"error": "Unauthorized access"},
+#                     status=status.HTTP_403_FORBIDDEN
+#                 )
+
+#             # Check if the invoice is already completed
+#             if invoice['status'] == 'completed':
+#                 return Response(
+#                     {"error": "Invoice already completed"},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+#             # Update product quantities
+#             for item in invoice['items']:
+#                 product_id = item['product_id']
+#                 quantity = item['quantity']
+
+#                 # Get the product
+#                 product = products_collection.find_one({"_id": ObjectId(product_id)})
+#                 if not product:
+#                     return Response(
+#                         {"error": f"Product {product_id} not found"},
+#                         status=status.HTTP_404_NOT_FOUND
+#                     )
+
+#                 # Check if there's enough quantity
+#                 if product['quantity'] < quantity:
+#                     return Response(
+#                         {"error": f"Not enough quantity for product {product['name']}"},
+#                         status=status.HTTP_400_BAD_REQUEST
+#                     )
+
+#                 # Update the product quantity
+#                 products_collection.update_one(
+#                     {"_id": ObjectId(product_id)},
+#                     {"$set": {
+#                         "quantity": product['quantity'] - quantity,
+#                         "updated_at": datetime.now()
+#                     }}
+#                 )
+
+#             # Update the invoice status to completed
+#             invoices_collection.update_one(
+#                 {"_id": ObjectId(invoice_id)},
+#                 {"$set": {
+#                     "status": "completed",
+#                     "updated_at": datetime.now(),
+#                     "completed_by": user_email
+#                 }}
+#             )
+
+#             return Response({
+#                 "message": "Invoice generated successfully",
+#                 "invoice_id": invoice_id
+#             })
+
+#         except Exception as e:
+#             return Response(
+#                 {"error": str(e)},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+# Add debug logging to GenerateInvoiceView class in backend/api/db.py
+
 class GenerateInvoiceView(APIView):
     def post(self, request, invoice_id):
         # Verify JWT token from headers
@@ -137,9 +226,13 @@ class GenerateInvoiceView(APIView):
             )
 
         try:
+            # Debug logging
+            print(f"Processing invoice generation for invoice ID: {invoice_id}")
+            
             # Get the invoice
             invoice = invoices_collection.find_one({"_id": ObjectId(invoice_id)})
             if not invoice:
+                print(f"Invoice not found: {invoice_id}")
                 return Response(
                     {"error": "Invoice not found"},
                     status=status.HTTP_404_NOT_FOUND
@@ -147,6 +240,7 @@ class GenerateInvoiceView(APIView):
 
             # Check if the shop ID in the invoice matches the shop ID in the token
             if invoice['shop_id'] != shop_id:
+                print(f"Unauthorized access: token shop_id {shop_id} does not match invoice shop_id {invoice['shop_id']}")
                 return Response(
                     {"error": "Unauthorized access"},
                     status=status.HTTP_403_FORBIDDEN
@@ -154,42 +248,64 @@ class GenerateInvoiceView(APIView):
 
             # Check if the invoice is already completed
             if invoice['status'] == 'completed':
+                print(f"Invoice already completed: {invoice_id}")
                 return Response(
                     {"error": "Invoice already completed"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            print(f"Invoice {invoice_id} has {len(invoice['items'])} items to process")
+            
             # Update product quantities
             for item in invoice['items']:
                 product_id = item['product_id']
                 quantity = item['quantity']
-
+                
+                print(f"Processing item: {product_id}, quantity: {quantity}")
+                
                 # Get the product
                 product = products_collection.find_one({"_id": ObjectId(product_id)})
                 if not product:
+                    print(f"Product not found: {product_id}")
                     return Response(
                         {"error": f"Product {product_id} not found"},
                         status=status.HTTP_404_NOT_FOUND
                     )
 
+                print(f"Current product quantity: {product['quantity']}")
+                
                 # Check if there's enough quantity
                 if product['quantity'] < quantity:
+                    print(f"Not enough quantity for product {product['name']}: have {product['quantity']}, need {quantity}")
                     return Response(
                         {"error": f"Not enough quantity for product {product['name']}"},
                         status=status.HTTP_400_BAD_REQUEST
                     )
-
+                
                 # Update the product quantity
-                products_collection.update_one(
+                new_quantity = product['quantity'] - quantity
+                print(f"Updating product {product['name']} quantity from {product['quantity']} to {new_quantity}")
+                
+                update_result = products_collection.update_one(
                     {"_id": ObjectId(product_id)},
                     {"$set": {
-                        "quantity": product['quantity'] - quantity,
+                        "quantity": new_quantity,
                         "updated_at": datetime.now()
                     }}
                 )
+                
+                print(f"Update result: modified {update_result.modified_count} document(s)")
+                
+                if update_result.modified_count != 1:
+                    print(f"Failed to update product {product_id}")
+                    return Response(
+                        {"error": f"Failed to update quantity for product {product['name']}"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
             # Update the invoice status to completed
-            invoices_collection.update_one(
+            print(f"Updating invoice {invoice_id} status to 'completed'")
+            invoice_update_result = invoices_collection.update_one(
                 {"_id": ObjectId(invoice_id)},
                 {"$set": {
                     "status": "completed",
@@ -197,6 +313,8 @@ class GenerateInvoiceView(APIView):
                     "completed_by": user_email
                 }}
             )
+            
+            print(f"Invoice update result: modified {invoice_update_result.modified_count} document(s)")
 
             return Response({
                 "message": "Invoice generated successfully",
@@ -204,10 +322,15 @@ class GenerateInvoiceView(APIView):
             })
 
         except Exception as e:
+            print(f"Error generating invoice: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
 
 # Get pending invoices
 class PendingInvoicesView(APIView):

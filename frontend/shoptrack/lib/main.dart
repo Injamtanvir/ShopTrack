@@ -14,8 +14,14 @@ import 'screens/seller_product_list_screen.dart';
 import 'screens/create_invoice_screen.dart';
 import 'screens/pending_invoices_screen.dart';
 import 'screens/invoice_history_screen.dart';
+import 'constants/api_constants.dart'; // Add this import for ApiConstants
 
 void main() {
+  // Enable debug printing for API URLs
+  print('ShopTrack Starting...');
+
+  // Print all API endpoints for debugging
+  ApiConstants.printEndpoints();
   runApp(const MyApp());
 }
 
