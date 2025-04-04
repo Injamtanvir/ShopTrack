@@ -94,60 +94,124 @@ class ShopRegistrationView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# class UserLoginView(APIView):
+#     def post(self, request):
+#         serializer = UserLoginSerializer(data=request.data)
+#         if serializer.is_valid():
+#             data = serializer.validated_data
+
+#             # Find user by shop_id and email
+#             user = users_collection.find_one({
+#                 "shop_id": data['shop_id'],
+#                 "email": data['email']
+#             })
+
+#             if not user:
+#                 return Response(
+#                     {"error": "Invalid shop ID or email"},
+#                     status=status.HTTP_401_UNAUTHORIZED
+#                 )
+
+#             # Check password
+#             if user['password'] != hash_password(data['password']):
+#                 return Response(
+#                     {"error": "Invalid password"},
+#                     status=status.HTTP_401_UNAUTHORIZED
+#                 )
+
+#             # Get shop details
+#             shop = shops_collection.find_one({"shop_id": data['shop_id']})
+#             if not shop:
+#                 return Response(
+#                     {"error": "Shop not found"},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#             # Create JWT token (expires in 24 hours)
+#             payload = {
+#                 "user_id": str(user['_id']),
+#                 "email": user['email'],
+#                 "shop_id": user['shop_id'],
+#                 "role": user['role'],
+#                 "exp": datetime.now().timestamp() + (24 * 60 * 60) # 24 hours
+#             }
+#             token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+#             return Response({
+#                 "token": token,
+#                 "user": {
+#                     "name": user['name'],
+#                     "email": user['email'],
+#                     "role": user['role'],
+#                     "shop_id": user['shop_id'],
+#                     "shop_name": shop['name']
+#                 }
+#             })
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class UserLoginView(APIView):
     def post(self, request):
-        serializer = UserLoginSerializer(data=request.data)
-        if serializer.is_valid():
-            data = serializer.validated_data
-
-            # Find user by shop_id and email
-            user = users_collection.find_one({
-                "shop_id": data['shop_id'],
-                "email": data['email']
-            })
-
-            if not user:
-                return Response(
-                    {"error": "Invalid shop ID or email"},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-
-            # Check password
-            if user['password'] != hash_password(data['password']):
-                return Response(
-                    {"error": "Invalid password"},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-
-            # Get shop details
-            shop = shops_collection.find_one({"shop_id": data['shop_id']})
-            if not shop:
-                return Response(
-                    {"error": "Shop not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            # Create JWT token (expires in 24 hours)
-            payload = {
-                "user_id": str(user['_id']),
-                "email": user['email'],
-                "shop_id": user['shop_id'],
-                "role": user['role'],
-                "exp": datetime.now().timestamp() + (24 * 60 * 60) # 24 hours
-            }
-            token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
-
-            return Response({
-                "token": token,
-                "user": {
-                    "name": user['name'],
+        try:
+            serializer = UserLoginSerializer(data=request.data)
+            if serializer.is_valid():
+                data = serializer.validated_data
+                
+                # Find user by shop_id and email
+                user = users_collection.find_one({
+                    "shop_id": data['shop_id'],
+                    "email": data['email']
+                })
+                
+                if not user:
+                    return Response(
+                        {"error": "Invalid shop ID or email"},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+                
+                # Check password
+                if user['password'] != hash_password(data['password']):
+                    return Response(
+                        {"error": "Invalid password"},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+                
+                # Get shop details
+                shop = shops_collection.find_one({"shop_id": data['shop_id']})
+                if not shop:
+                    return Response(
+                        {"error": "Shop not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                
+                # Create JWT token (expires in 24 hours)
+                payload = {
+                    "user_id": str(user['_id']),
                     "email": user['email'],
-                    "role": user['role'],
                     "shop_id": user['shop_id'],
-                    "shop_name": shop['name']
+                    "role": user['role'],
+                    "exp": datetime.now().timestamp() + (24 * 60 * 60) # 24 hours
                 }
-            })
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+                
+                return Response({
+                    "token": token,
+                    "user": {
+                        "name": user['name'],
+                        "email": user['email'],
+                        "role": user['role'],
+                        "shop_id": user['shop_id'],
+                        "shop_name": shop['name']
+                    }
+                })
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            # Log the error 
+            print(f"Login error: {str(e)}")
+            return Response(
+                {"error": "Server error: " + str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class SalesPersonRegistrationView(APIView):
     def post(self, request):

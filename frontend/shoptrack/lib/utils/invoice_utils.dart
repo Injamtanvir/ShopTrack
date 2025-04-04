@@ -211,29 +211,23 @@
 
 
 
+
 import 'package:flutter/foundation.dart' show kIsWeb;
-// Use conditional import for IO or web
-import 'dart:io' if (dart.library.html) '../utils/web_stub.dart';
-// Add this explicit import to fix the WebUtils reference
-import '../utils/web_stub.dart' if (dart.library.io) '../utils/io_stub.dart' show WebUtils;
-import 'package:flutter/foundation.dart' show kIsWeb;
-// Use conditional import
-import 'dart:io' if (dart.library.html) 'package:shoptrack/utils/web_stub.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'dart:io'; // Used conditionally with platform checks
 
 import '../models/invoice.dart';
 
 // Create a class for web PDF result
 class WebPdfResult {
   final List<int> bytes;
-  final String url;
   final String filename;
 
-  WebPdfResult({required this.bytes, required this.url, required this.filename});
+  WebPdfResult({required this.bytes, required this.filename});
 }
 
 class InvoiceUtils {
@@ -417,20 +411,27 @@ class InvoiceUtils {
       // For web platform
       final bytes = await pdf.save();
 
-      // Use the WebUtils helper for web-specific operations
-      final result = WebUtils.createPdfBlobUrl(bytes);
-
+      // Just return the bytes for web
       return WebPdfResult(
         bytes: bytes,
-        url: result,
         filename: 'invoice_${invoice.invoiceNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf',
       );
     } else {
       // For mobile platforms
-      final output = await getTemporaryDirectory();
-      final file = File('${output.path}/invoice_${invoice.invoiceNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf');
-      await file.writeAsBytes(await pdf.save());
-      return file;
+      try {
+        final output = await getTemporaryDirectory();
+        final file = File('${output.path}/invoice_${invoice.invoiceNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        await file.writeAsBytes(await pdf.save());
+        return file;
+      } catch (e) {
+        print('Error creating PDF file: $e');
+        // Return bytes as fallback
+        final bytes = await pdf.save();
+        return WebPdfResult(
+          bytes: bytes,
+          filename: 'invoice_${invoice.invoiceNumber}.pdf',
+        );
+      }
     }
   }
 

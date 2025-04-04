@@ -622,32 +622,79 @@ class ApiService {
     }
   }
 
+  // // Login user
+  // Future<Map<String, dynamic>> login({
+  //   required String shopId,
+  //   required String email,
+  //   required String password,
+  // }) async {
+  //   final response = await http.post(
+  //     Uri.parse(ApiConstants.login),
+  //     headers: {'Content-Type': 'application/json'},
+  //     body: jsonEncode({
+  //       'shop_id': shopId,
+  //       'email': email,
+  //       'password': password,
+  //     }),
+  //   );
+  //
+  //   if (response.statusCode == 200) {
+  //     final data = jsonDecode(response.body);
+  //
+  //     // Save token and user data to secure storage
+  //     await _storage.write(key: 'token', value: data['token']);
+  //     await _storage.write(key: 'user', value: jsonEncode(data['user']));
+  //
+  //     return data;
+  //   } else {
+  //     throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to login');
+  //   }
+  // }
+
   // Login user
   Future<Map<String, dynamic>> login({
     required String shopId,
     required String email,
     required String password,
   }) async {
-    final response = await http.post(
-      Uri.parse(ApiConstants.login),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'shop_id': shopId,
-        'email': email,
-        'password': password,
-      }),
-    );
+    try {
+      print('Attempting login with Shop ID: $shopId, Email: $email');
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      final response = await http.post(
+        Uri.parse(ApiConstants.login),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'shop_id': shopId,
+          'email': email,
+          'password': password,
+        }),
+      );
 
-      // Save token and user data to secure storage
-      await _storage.write(key: 'token', value: data['token']);
-      await _storage.write(key: 'user', value: jsonEncode(data['user']));
+      // Check if we got HTML instead of JSON (common for error pages)
+      if (response.body.trim().startsWith('<!DOCTYPE') ||
+          response.body.trim().startsWith('<html')) {
+        throw Exception('Server returned HTML instead of JSON. This typically indicates a server error.');
+      }
 
-      return data;
-    } else {
-      throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to login');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Save token and user data to secure storage
+        await _storage.write(key: 'token', value: data['token']);
+        await _storage.write(key: 'user', value: jsonEncode(data['user']));
+        return data;
+      } else {
+        // Try to get error message from JSON
+        try {
+          final error = jsonDecode(response.body);
+          throw Exception(error['error'] ?? 'Failed to login');
+        } catch (e) {
+          // If we can't parse JSON, use the status code
+          throw Exception('Login failed with status code: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      print('Login error: $e');
+      throw Exception('Login error: $e');
     }
   }
 
