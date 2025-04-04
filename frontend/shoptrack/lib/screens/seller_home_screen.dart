@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -126,7 +127,6 @@ class SellerHomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 32),
-
               // Product Management
               const Text(
                 'Product Management',
@@ -136,7 +136,6 @@ class SellerHomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-
               // Product-related cards
               Row(
                 children: [
@@ -149,12 +148,7 @@ class SellerHomeScreen extends StatelessWidget {
                       ),
                       child: InkWell(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SellerProductListScreen(),
-                            ),
-                          );
+                          Navigator.pushNamed(context, SellerProductListScreen.routeName);
                         },
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
@@ -254,7 +248,6 @@ class SellerHomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 32),
-
               // Invoice Management
               const Text(
                 'Invoice Management',
@@ -264,7 +257,6 @@ class SellerHomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-
               // Create Invoice Card
               Card(
                 elevation: 2,
@@ -321,7 +313,6 @@ class SellerHomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-
               // Row with Pending Invoices and Invoice History cards
               Row(
                 children: [
@@ -377,7 +368,6 @@ class SellerHomeScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 16),
-
                   // Invoice History Card
                   Expanded(
                     child: Card(
@@ -432,7 +422,6 @@ class SellerHomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 32),
-
               // Daily summary section - placeholder
               const Text(
                 'Today\'s Summary',
@@ -442,7 +431,6 @@ class SellerHomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-
               // Summary cards
               Row(
                 children: [

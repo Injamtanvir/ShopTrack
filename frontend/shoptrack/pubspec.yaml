@@ -1,6 +1,5 @@
-name: shoptrack
+name: ShopTrack
 description: "A new ShopTrack Flutter Project. Connected to Render(Django Framework and Python), MongoDB for Database"
-
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -29,15 +28,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/logo.jpg
-  #    - assets/images/icon.jpg
-
   fonts:
     - family: Roboto
       fonts:
         - asset: assets/fonts/Roboto-Regular.ttf
         - asset: assets/fonts/Roboto-Bold.ttf
           weight: 700
-
-
-
-
