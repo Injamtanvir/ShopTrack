@@ -11,14 +11,9 @@ import 'screens/add_product_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/price_list_screen.dart';
 import 'screens/seller_product_list_screen.dart';
-
-// Add these imports
 import 'screens/create_invoice_screen.dart';
 import 'screens/pending_invoices_screen.dart';
 import 'screens/invoice_history_screen.dart';
-
-
-
 
 void main() {
   runApp(const MyApp());
@@ -32,7 +27,7 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (ctx) => AuthProvider(),
       child: MaterialApp(
-        debugShowCheckedModeBanner: false, // Only added this line
+        debugShowCheckedModeBanner: false,
         title: 'ShopTrack',
         theme: ThemeData(
           primarySwatch: Colors.indigo,
@@ -80,7 +75,6 @@ class MyApp extends StatelessWidget {
           AddProductScreen.routeName: (ctx) => const AddProductScreen(),
           ProductListScreen.routeName: (ctx) => const ProductListScreen(),
           PriceListScreen.routeName: (ctx) => const PriceListScreen(),
-
           CreateInvoiceScreen.routeName: (ctx) => const CreateInvoiceScreen(),
           PendingInvoicesScreen.routeName: (ctx) => const PendingInvoicesScreen(),
           InvoiceHistoryScreen.routeName: (ctx) => const InvoiceHistoryScreen(),
@@ -90,7 +84,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Rest of your InitScreen class remains completely unchanged
 class InitScreen extends StatefulWidget {
   const InitScreen({Key? key}) : super(key: key);
 
@@ -123,7 +116,6 @@ class _InitScreenState extends State<InitScreen> {
     }
 
     final authProvider = Provider.of<AuthProvider>(context);
-
     if (authProvider.isLoggedIn) {
       if (authProvider.isAdmin) {
         return const AdminHomeScreen();
@@ -135,4 +127,3 @@ class _InitScreenState extends State<InitScreen> {
     }
   }
 }
-
