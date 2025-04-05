@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -269,38 +270,52 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         customerAddress: _customerAddressController.text,
         date: DateTime.now(),
         items: _invoiceItems,
-        status: 'completed', // Mark as completed directly
+        status: 'pending', // Save as pending first
         createdBy: user.email,
       );
 
-      // Save and get the saved invoice
-      final result = await _invoiceService.savePendingInvoice(invoice);
-      final invoiceId = result['invoice_id'];
+      // First save the invoice as pending
+      final saveResult = await _invoiceService.savePendingInvoice(invoice);
+      final invoiceId = saveResult['invoice_id'];
 
-      // Generate the invoice (update product quantities)
-      await _invoiceService.generateInvoice(invoiceId);
+      // Then generate the invoice (update inventory)
+      try {
+        await _invoiceService.generateInvoice(invoiceId);
 
-      // Get the complete invoice data
-      final completeInvoice = await _invoiceService.getInvoiceById(invoiceId);
+        // Fetch the completed invoice data
+        final completeInvoice = await _invoiceService.getInvoiceById(invoiceId);
 
-      // Generate PDF
-      final pdfFile = await InvoiceUtils.generateInvoicePdf(completeInvoice);
+        // Generate PDF
+        final pdfFile = await InvoiceUtils.generateInvoicePdf(completeInvoice);
 
-      // Show sharing options
-      if (mounted) {
-        SharingUtils.showSharingOptions(
-            context,
-            pdfFile,
-            'Invoice ${completeInvoice.invoiceNumber}'
+        // Show sharing options
+        if (mounted) {
+          SharingUtils.showSharingOptions(
+              context,
+              pdfFile,
+              'Invoice ${completeInvoice.invoiceNumber}'
+          );
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invoice generated successfully')),
         );
+
+        _resetForm();
+        _initInvoice(); // Get new invoice number
+      } catch (e) {
+        // Check if the error is about an already completed invoice
+        if (e.toString().contains('already completed') ||
+            e.toString().contains('already processed')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invoice is already processed. Please check invoice history.')),
+          );
+          _resetForm();
+          _initInvoice();
+        } else {
+          throw e; // Re-throw other errors
+        }
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invoice generated successfully')),
-      );
-
-      _resetForm();
-      _initInvoice(); // Get new invoice number
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),
@@ -688,7 +703,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-
                 // NEW FEATURE: Discount section
                 Card(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -758,7 +772,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     ),
                   ),
                 ),
-
                 // Summary section
                 Card(
                   elevation: 3,
@@ -828,7 +841,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   ),
                 ),
               ],
-
               // Save and Generate buttons - SIMPLIFIED!
               Row(
                 children: [
@@ -857,7 +869,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   ),
                 ],
               ),
-
               if (_isProcessing)
                 const Padding(
                   padding: EdgeInsets.only(top: 16.0),
