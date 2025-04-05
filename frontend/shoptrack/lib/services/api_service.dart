@@ -4,32 +4,32 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/api_constants.dart';
 import '../models/user.dart';
-import '../utils/error_handler.dart';
 
 class ApiService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Helper method to handle API responses
-  Future<dynamic> _handleResponse(http.Response response) async {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      // Success response, parse JSON
-      try {
-        if (response.body.isEmpty) {
-          return {};
-        }
+  // New method for handling API responses
+  Future<dynamic> _handleApiResponse(http.Response response) {
+    try {
+      // Check if response is HTML instead of JSON
+      if (response.body.trim().startsWith('<!DOCTYPE') ||
+          response.body.trim().startsWith('<html')) {
+        throw Exception('Server returned HTML instead of JSON. This usually indicates a server configuration or URL issue.');
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return jsonDecode(response.body);
-      } catch (e) {
-        throw Exception('Failed to parse response: ${e.toString()}. Response was: ${response.body.substring(0, min(100, response.body.length))}...');
+      } else {
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception(errorData['error'] ?? 'API error: ${response.statusCode}');
+        } catch (e) {
+          throw Exception('Error ${response.statusCode}: ${response.body.substring(0, min(100, response.body.length))}');
+        }
       }
-    } else {
-      // Error response
-      try {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? 'API error: ${response.statusCode}');
-      } catch (e) {
-        // If can't decode JSON, return raw error
-        throw Exception('API error ${response.statusCode}: ${response.body.substring(0, min(100, response.body.length))}...');
-      }
+    } catch (e) {
+      print('API error: ${e.toString()}');
+      rethrow;
     }
   }
 
@@ -57,7 +57,7 @@ class ApiService {
       }),
     );
 
-    return await _handleResponse(response);
+    return await _handleApiResponse(response);
   }
 
   // Login user
@@ -66,23 +66,32 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final response = await http.post(
-      Uri.parse(ApiConstants.login),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'shop_id': shopId,
-        'email': email,
-        'password': password,
-      }),
-    );
+    try {
+      print('Attempting login to: ${ApiConstants.login}');
+      final response = await http.post(
+        Uri.parse(ApiConstants.login),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'shop_id': shopId,
+          'email': email,
+          'password': password,
+        }),
+      );
 
-    final data = await _handleResponse(response);
+      print('Response status code: ${response.statusCode}');
+      print('Response body preview: ${response.body.substring(0, min(100, response.body.length))}...');
 
-    // Save token and user data to secure storage
-    await _storage.write(key: 'token', value: data['token']);
-    await _storage.write(key: 'user', value: jsonEncode(data['user']));
+      final data = await _handleApiResponse(response);
 
-    return data;
+      // Save token and user data to secure storage
+      await _storage.write(key: 'token', value: data['token']);
+      await _storage.write(key: 'user', value: jsonEncode(data['user']));
+
+      return data;
+    } catch (e) {
+      print('Login error: $e');
+      rethrow;
+    }
   }
 
   // Register a sales person (admin only)
@@ -114,7 +123,7 @@ class ApiService {
       }),
     );
 
-    return await _handleResponse(response);
+    return await _handleApiResponse(response);
   }
 
   // Register another admin (admin only)
@@ -142,7 +151,7 @@ class ApiService {
       }),
     );
 
-    return await _handleResponse(response);
+    return await _handleApiResponse(response);
   }
 
   // Verify JWT token
@@ -160,12 +169,13 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final data = await _handleResponse(response);
+        final data = await _handleApiResponse(response);
         return data['valid'] == true;
       } else {
         return false;
       }
     } catch (e) {
+      print('Token verification error: $e');
       return false;
     }
   }
@@ -200,6 +210,7 @@ class ApiService {
     }
 
     try {
+      print('Adding product to: ${ApiConstants.products}');
       final response = await http.post(
         Uri.parse(ApiConstants.products),
         headers: {
@@ -214,10 +225,11 @@ class ApiService {
         }),
       );
 
-      return await _handleResponse(response);
+      print('Response status: ${response.statusCode}');
+      return await _handleApiResponse(response);
     } catch (e) {
-      // Format the error to be more user-friendly
-      throw Exception(ErrorHandler.getReadableError(e));
+      print('Error adding product: $e');
+      rethrow;
     }
   }
 
@@ -234,7 +246,7 @@ class ApiService {
       headers: {'Authorization': 'Bearer $token'},
     );
 
-    return await _handleResponse(response);
+    return await _handleApiResponse(response);
   }
 
   // Update product price (admin only)
@@ -260,7 +272,7 @@ class ApiService {
       }),
     );
 
-    return await _handleResponse(response);
+    return await _handleApiResponse(response);
   }
 
   // Get product price list
@@ -276,7 +288,7 @@ class ApiService {
       headers: {'Authorization': 'Bearer $token'},
     );
 
-    return await _handleResponse(response);
+    return await _handleApiResponse(response);
   }
 
   // Retry mechanism for failed API calls
