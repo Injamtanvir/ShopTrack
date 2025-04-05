@@ -1,14 +1,17 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'package:universal_html/html.dart' as html;
 import '../models/invoice.dart';
 
 class InvoiceUtils {
   // Generate a PDF from an Invoice object
-  static Future<File> generateInvoicePdf(Invoice invoice) async {
+  static Future<dynamic> generateInvoicePdf(Invoice invoice) async {
     final pdf = pw.Document();
 
     // Define styles
@@ -52,7 +55,6 @@ class InvoiceUtils {
                 ],
               ),
               pw.SizedBox(height: 20),
-
               // Shop Information
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -82,7 +84,6 @@ class InvoiceUtils {
                 ],
               ),
               pw.SizedBox(height: 30),
-
               // Invoice Items Table
               pw.Table(
                 border: pw.TableBorder.all(color: PdfColors.black),
@@ -115,7 +116,6 @@ class InvoiceUtils {
                       ),
                     ],
                   ),
-
                   // Table rows for each product
                   ...invoice.items.map((item) => pw.TableRow(
                     children: [
@@ -139,7 +139,6 @@ class InvoiceUtils {
                   )).toList(),
                 ],
               ),
-
               // Total Amount
               pw.SizedBox(height: 20),
               pw.Row(
@@ -160,7 +159,6 @@ class InvoiceUtils {
                   ),
                 ],
               ),
-
               // Footer
               pw.SizedBox(height: 40),
               pw.Divider(),
@@ -187,12 +185,33 @@ class InvoiceUtils {
       ),
     );
 
-    // Save the PDF
-    final output = await getTemporaryDirectory();
-    final file = File('${output.path}/invoice_${invoice.invoiceNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf');
-    await file.writeAsBytes(await pdf.save());
+    // Save the PDF based on platform
+    try {
+      if (kIsWeb) {
+        // For web, return the bytes for downloading
+        final bytes = await pdf.save();
+        final blob = html.Blob([bytes], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final filename = 'invoice_${invoice.invoiceNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
-    return file;
+        // Return as a map with data for web handling
+        return {'bytes': bytes, 'url': url, 'filename': filename};
+      } else {
+        // For mobile platforms
+        final output = await getTemporaryDirectory();
+        final file = File('${output.path}/invoice_${invoice.invoiceNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        await file.writeAsBytes(await pdf.save());
+        return file;
+      }
+    } catch (e) {
+      // Handle path_provider errors
+      if (e.toString().contains('MissingPluginException')) {
+        // Fallback for platforms without path_provider support
+        final bytes = await pdf.save();
+        return {'bytes': bytes, 'error': 'Platform not supported for file saving'};
+      }
+      rethrow;
+    }
   }
 
   // Format currency values

@@ -159,13 +159,20 @@ class GenerateInvoiceView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Update product quantities
+            # Update product quantities - with additional error handling
             for item in invoice['items']:
                 product_id = item['product_id']
                 quantity = item['quantity']
 
-                # Get the product
-                product = products_collection.find_one({"_id": ObjectId(product_id)})
+                # Get the product with proper error handling
+                try:
+                    product = products_collection.find_one({"_id": ObjectId(product_id)})
+                except Exception as e:
+                    return Response(
+                        {"error": f"Invalid product ID {product_id}: {str(e)}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
                 if not product:
                     return Response(
                         {"error": f"Product {product_id} not found"},
@@ -175,21 +182,29 @@ class GenerateInvoiceView(APIView):
                 # Check if there's enough quantity
                 if product['quantity'] < quantity:
                     return Response(
-                        {"error": f"Not enough quantity for product {product['name']}"},
+                        {"error": f"Not enough quantity for product {product['name']}. Available: {product['quantity']}, Requested: {quantity}"},
                         status=status.HTTP_400_BAD_REQUEST
                     )
-
+                
                 # Update the product quantity
-                products_collection.update_one(
+                new_quantity = product['quantity'] - quantity
+                result = products_collection.update_one(
                     {"_id": ObjectId(product_id)},
                     {"$set": {
-                        "quantity": product['quantity'] - quantity,
+                        "quantity": new_quantity,
                         "updated_at": datetime.now()
                     }}
                 )
+                
+                # Verify update was successful
+                if result.modified_count == 0:
+                    return Response(
+                        {"error": f"Failed to update quantity for product {product['name']}"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
             # Update the invoice status to completed
-            invoices_collection.update_one(
+            result = invoices_collection.update_one(
                 {"_id": ObjectId(invoice_id)},
                 {"$set": {
                     "status": "completed",
@@ -197,6 +212,12 @@ class GenerateInvoiceView(APIView):
                     "completed_by": user_email
                 }}
             )
+
+            if result.modified_count == 0:
+                return Response(
+                    {"error": "Failed to update invoice status"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
             return Response({
                 "message": "Invoice generated successfully",
