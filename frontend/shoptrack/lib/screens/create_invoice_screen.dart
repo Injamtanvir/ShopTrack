@@ -1,4 +1,5 @@
 
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -11,13 +12,16 @@ import '../utils/sharing_utils.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 
+
 class CreateInvoiceScreen extends StatefulWidget {
   static const routeName = '/create-invoice';
   const CreateInvoiceScreen({Key? key}) : super(key: key);
 
+
   @override
   State<CreateInvoiceScreen> createState() => _CreateInvoiceScreenState();
 }
+
 
 class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -29,6 +33,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final _invoiceService = InvoiceService();
   final _apiService = ApiService();
 
+
   String _invoiceNumber = '';
   List<Map<String, dynamic>> _searchResults = [];
   Map<String, dynamic>? _selectedProduct;
@@ -37,16 +42,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   bool _isProcessing = false;
   String? _errorMessage;
 
+
   // Additional feature - discount
   final _discountController = TextEditingController(text: '0');
   double _discountAmount = 0;
   bool _isDiscountPercentage = false;
+
 
   @override
   void initState() {
     super.initState();
     _initInvoice();
   }
+
 
   @override
   void dispose() {
@@ -58,17 +66,21 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     super.dispose();
   }
 
+
   Future<void> _initInvoice() async {
     setState(() {
       _isLoading = true;
     });
 
+
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final shopId = authProvider.user!.shopId;
 
+
       // Get next invoice number from the server
       _invoiceNumber = await _invoiceService.getNextInvoiceNumber(shopId);
+
 
       setState(() {
         _isLoading = false;
@@ -81,6 +93,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     }
   }
 
+
   Future<void> _searchProduct(String query) async {
     if (query.length < 2) {
       setState(() {
@@ -89,11 +102,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
+
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final shopId = authProvider.user!.shopId;
 
+
       final results = await _invoiceService.searchProducts(shopId, query);
+
 
       setState(() {
         _searchResults = results;
@@ -106,6 +122,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     }
   }
 
+
   void _selectProduct(Map<String, dynamic> product) {
     setState(() {
       _selectedProduct = product;
@@ -113,6 +130,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _searchResults = [];
     });
   }
+
 
   void _addProductToInvoice() {
     if (_selectedProduct == null) {
@@ -122,12 +140,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
+
     if (_quantityController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter quantity')),
       );
       return;
     }
+
 
     final quantity = int.tryParse(_quantityController.text);
     if (quantity == null || quantity <= 0) {
@@ -137,6 +157,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
+
     // Check if quantity is available
     if (quantity > _selectedProduct!['quantity']) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -145,12 +166,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
+
     final item = InvoiceItem(
       productId: _selectedProduct!['_id'],
       productName: _selectedProduct!['name'],
       quantity: quantity,
       unitPrice: _selectedProduct!['selling_price'].toDouble(),
     );
+
 
     setState(() {
       _invoiceItems.add(item);
@@ -160,16 +183,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     });
   }
 
+
   void _removeInvoiceItem(int index) {
     setState(() {
       _invoiceItems.removeAt(index);
     });
   }
 
+
   // Calculate subtotal
   double get _subtotal {
     return _invoiceItems.fold(0.0, (sum, item) => sum + item.totalPrice);
   }
+
 
   // Calculate discount
   void _calculateDiscount() {
@@ -182,15 +208,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     setState(() {});
   }
 
+
   // Calculate total with discount
   double get _totalWithDiscount {
     return _subtotal - _discountAmount;
   }
 
+
   Future<void> _saveInvoice() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
 
     if (_invoiceItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -199,13 +228,16 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
+
     setState(() {
       _isProcessing = true;
     });
 
+
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.user!;
+
 
       final invoice = Invoice(
         invoiceNumber: _invoiceNumber,
@@ -221,11 +253,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         createdBy: user.email,
       );
 
+
       await _invoiceService.savePendingInvoice(invoice);
+
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invoice saved successfully')),
       );
+
 
       _resetForm();
       _initInvoice(); // Get new invoice number
@@ -240,10 +275,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     }
   }
 
+
   Future<void> _generateInvoice() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
 
     if (_invoiceItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -252,13 +289,16 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
+
     setState(() {
       _isProcessing = true;
     });
 
+
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.user!;
+
 
       final invoice = Invoice(
         invoiceNumber: _invoiceNumber,
@@ -274,19 +314,24 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         createdBy: user.email,
       );
 
+
       // First save the invoice as pending
       final saveResult = await _invoiceService.savePendingInvoice(invoice);
       final invoiceId = saveResult['invoice_id'];
+
 
       // Then generate the invoice (update inventory)
       try {
         await _invoiceService.generateInvoice(invoiceId);
 
+
         // Fetch the completed invoice data
         final completeInvoice = await _invoiceService.getInvoiceById(invoiceId);
 
+
         // Generate PDF
         final pdfFile = await InvoiceUtils.generateInvoicePdf(completeInvoice);
+
 
         // Show sharing options
         if (mounted) {
@@ -297,9 +342,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           );
         }
 
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invoice generated successfully')),
         );
+
 
         _resetForm();
         _initInvoice(); // Get new invoice number
@@ -327,6 +374,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     }
   }
 
+
   void _resetForm() {
     _formKey.currentState?.reset();
     _customerNameController.clear();
@@ -342,6 +390,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _isDiscountPercentage = false;
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
