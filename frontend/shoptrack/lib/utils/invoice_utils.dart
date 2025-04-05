@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // import 'dart:io';
 // import 'package:flutter/services.dart';
 // import 'package:intl/intl.dart';
@@ -213,13 +214,22 @@
 
 
 import 'package:flutter/foundation.dart' show kIsWeb;
+=======
+import 'dart:io';
+import 'dart:typed_data';
+>>>>>>> master
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+<<<<<<< HEAD
 import 'dart:io'; // Used conditionally with platform checks
 
+=======
+import 'package:universal_html/html.dart' as html;
+>>>>>>> master
 import '../models/invoice.dart';
 
 // Create a class for web PDF result
@@ -406,6 +416,7 @@ class InvoiceUtils {
       ),
     );
 
+<<<<<<< HEAD
     // Save the PDF differently based on platform
     if (kIsWeb) {
       // For web platform
@@ -419,10 +430,26 @@ class InvoiceUtils {
     } else {
       // For mobile platforms
       try {
+=======
+    // Save the PDF based on platform
+    try {
+      if (kIsWeb) {
+        // For web, return the bytes for downloading
+        final bytes = await pdf.save();
+        final blob = html.Blob([bytes], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final filename = 'invoice_${invoice.invoiceNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+        // Return as a map with data for web handling
+        return {'bytes': bytes, 'url': url, 'filename': filename};
+      } else {
+        // For mobile platforms
+>>>>>>> master
         final output = await getTemporaryDirectory();
         final file = File('${output.path}/invoice_${invoice.invoiceNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf');
         await file.writeAsBytes(await pdf.save());
         return file;
+<<<<<<< HEAD
       } catch (e) {
         print('Error creating PDF file: $e');
         // Return bytes as fallback
@@ -432,6 +459,17 @@ class InvoiceUtils {
           filename: 'invoice_${invoice.invoiceNumber}.pdf',
         );
       }
+=======
+      }
+    } catch (e) {
+      // Handle path_provider errors
+      if (e.toString().contains('MissingPluginException')) {
+        // Fallback for platforms without path_provider support
+        final bytes = await pdf.save();
+        return {'bytes': bytes, 'error': 'Platform not supported for file saving'};
+      }
+      rethrow;
+>>>>>>> master
     }
   }
 

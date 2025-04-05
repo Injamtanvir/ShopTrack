@@ -46,6 +46,7 @@ class ApiConstants {
   static const String updateProductPrice = '$baseUrl/update-product-price';
   static const String productPriceList = '$baseUrl/product-price-list';
 
+<<<<<<< HEAD
   // New endpoints for Invoices - ensure no trailing slashes
   static const String getNextInvoiceNumber = '$baseUrl/next-invoice-number'; // No trailing slash
   static const String saveInvoice = '$baseUrl/invoices'; // No trailing slash
@@ -78,3 +79,14 @@ class ApiConstants {
 }
 
 
+=======
+  // New endpoints for Invoices - Updated with consistent trailing slashes
+  static const String getNextInvoiceNumber = '$baseUrl/next-invoice-number/';
+  static const String saveInvoice = '$baseUrl/invoices/';
+  static const String generateInvoice = '$baseUrl/generate-invoice/';
+  static const String getPendingInvoices = '$baseUrl/pending-invoices/';
+  static const String getInvoiceHistory = '$baseUrl/invoice-history/';
+  static const String getInvoice = '$baseUrl/invoice/';
+  static const String searchProducts = '$baseUrl/search-products/';
+}
+>>>>>>> master

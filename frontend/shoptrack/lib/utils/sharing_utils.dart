@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // import 'dart:io';
 // import 'package:flutter/material.dart';
 // import 'package:pdf/pdf.dart';
@@ -259,13 +260,24 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+=======
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+>>>>>>> master
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+<<<<<<< HEAD
 import 'dart:io'; // Used conditionally with platform checks
 
 import 'invoice_utils.dart'; // For WebPdfResult
+=======
+import 'package:intl/intl.dart';
+import 'package:universal_html/html.dart' as html;
+>>>>>>> master
 
 class SharingUtils {
   /// Generates a PDF file for price list
@@ -365,6 +377,7 @@ class SharingUtils {
       ),
     );
 
+<<<<<<< HEAD
     // Save the PDF differently based on platform
     if (kIsWeb) {
       // For web platform
@@ -378,10 +391,24 @@ class SharingUtils {
     } else {
       // For mobile platforms
       try {
+=======
+    try {
+      if (kIsWeb) {
+        // For web, return bytes for download
+        final bytes = await pdf.save();
+        final blob = html.Blob([bytes], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final filename = 'price_list_${shopName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+        return {'bytes': bytes, 'url': url, 'filename': filename};
+      } else {
+        // For mobile, create a file
+>>>>>>> master
         final output = await getTemporaryDirectory();
         final file = File('${output.path}/price_list_${shopName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf');
         await file.writeAsBytes(await pdf.save());
         return file;
+<<<<<<< HEAD
       } catch (e) {
         print('Error creating price list PDF: $e');
         // Return bytes as fallback
@@ -423,6 +450,60 @@ class SharingUtils {
       ),
       builder: (context) => _buildShareOptions(context, file, title),
     );
+=======
+      }
+    } catch (e) {
+      // Handle path_provider errors
+      if (e.toString().contains('MissingPluginException')) {
+        // Fallback for platforms without path_provider support
+        final bytes = await pdf.save();
+        return {'bytes': bytes, 'error': 'Platform not supported for file saving'};
+      }
+      rethrow;
+    }
+  }
+
+  /// Shows a bottom sheet with options for sharing a file
+  static void showSharingOptions(BuildContext context, dynamic fileData, String title) {
+    // Handle web platform
+    if (kIsWeb && fileData is Map) {
+      if (fileData.containsKey('url') && fileData.containsKey('filename')) {
+        // For web, trigger download directly
+        final anchor = html.AnchorElement(href: fileData['url'])
+          ..setAttribute('download', fileData['filename'])
+          ..click();
+
+        html.Url.revokeObjectUrl(fileData['url']);
+
+        // Show a success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$title downloaded successfully')),
+        );
+        return;
+      } else if (fileData.containsKey('error')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${fileData['error']}')),
+        );
+        return;
+      }
+    }
+
+    // For mobile or when file is a File object
+    if (fileData is File) {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => _buildShareOptions(context, fileData, title),
+      );
+    } else {
+      // Fallback for unsupported platforms
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sharing not supported on this platform')),
+      );
+    }
+>>>>>>> master
   }
 
   /// Builds the bottom sheet with sharing options
@@ -474,9 +555,22 @@ class SharingUtils {
             ),
             title: const Text('Other Apps'),
             subtitle: const Text('Share via other applications'),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(context);
+<<<<<<< HEAD
               _shareFile(context, file, title);
+=======
+              try {
+                await Share.shareXFiles(
+                  [XFile(file.path)],
+                  subject: title,
+                );
+              } catch (e) {
+                if (context.mounted) {
+                  _showErrorSnackbar(context, 'Error sharing file: ${e.toString()}');
+                }
+              }
+>>>>>>> master
             },
           ),
         ],
@@ -528,6 +622,7 @@ class SharingUtils {
     );
   }
 
+<<<<<<< HEAD
   /// Share file using system share dialog
   static Future<void> _shareFile(BuildContext context, File file, String subject) async {
     try {
@@ -540,10 +635,31 @@ class SharingUtils {
     }
   }
 
+=======
+>>>>>>> master
   /// Show error snackbar
   static void _showErrorSnackbar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  /// Download PDF for web platforms
+  static void downloadPdfWeb(BuildContext context, Map<String, dynamic> fileData) {
+    try {
+      final anchor = html.AnchorElement(href: fileData['url'])
+        ..setAttribute('download', fileData['filename'])
+        ..click();
+
+      html.Url.revokeObjectUrl(fileData['url']);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${fileData['filename']} downloaded successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error downloading file: ${e.toString()}')),
+      );
+    }
   }
 }

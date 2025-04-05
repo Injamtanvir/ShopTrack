@@ -1,6 +1,8 @@
-
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_button.dart';
 import '../utils/sharing_utils.dart';
@@ -25,6 +27,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
   // Filter options
   bool _showOutOfStock = true;
   String _sortBy = 'name'; // 'name', 'price_asc', 'price_desc'
+
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -78,8 +81,9 @@ class _PriceListScreenState extends State<PriceListScreen> {
         products: _filteredProducts,
       );
 
-      // Share the PDF
+      // Share the PDF based on the type of result
       if (mounted) {
+<<<<<<< HEAD
         // SharingUtils.shareFile(
         //     context,
         //     pdfFile,
@@ -91,6 +95,26 @@ class _PriceListScreenState extends State<PriceListScreen> {
             // 'Price List - ${_priceListData['shop_name']}'
             'Price List - ${_priceListData?['shop_name'] ?? 'Shop'}'
         );
+=======
+        if (pdfFile is File) {
+          try {
+            await Share.shareXFiles(
+                [XFile(pdfFile.path)],
+                subject: 'Price List - ${_priceListData!['shop_name']}'
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error sharing file: ${e.toString()}')),
+            );
+          }
+        } else if (pdfFile is Map<String, dynamic> && pdfFile.containsKey('url')) {
+          SharingUtils.downloadPdfWeb(context, pdfFile);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error creating PDF')),
+          );
+        }
+>>>>>>> master
       }
     } catch (error) {
       if (mounted) {
@@ -239,9 +263,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
                     });
                   },
                 ),
-
                 const SizedBox(height: 12),
-
                 // Filter options
                 Row(
                   children: [
@@ -285,9 +307,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 12),
-
                     // Out of stock switch
                     Expanded(
                       child: Container(
@@ -319,7 +339,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
               ],
             ),
           ),
-
           // Shop info and products list
           Expanded(
             child: SingleChildScrollView(
@@ -367,7 +386,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
                     // Products heading with count
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -379,7 +397,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
                         // Share button
                         if (widget.showShareOptions)
                           ElevatedButton.icon(
@@ -395,7 +412,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-
                     // No products found after filtering
                     if (_filteredProducts.isEmpty)
                       Center(
@@ -479,7 +495,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
                                     ],
                                   ),
                                 ),
-
                                 // Out of stock overlay
                                 if (!inStock)
                                   Positioned(
@@ -506,9 +521,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
                           );
                         },
                       ),
-
                     const SizedBox(height: 24),
-
                     // Share button at bottom
                     if (widget.showShareOptions && _filteredProducts.isNotEmpty)
                       Center(
