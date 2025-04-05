@@ -19,6 +19,9 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
 
+
+APPEND_SLASH = False
+
 # Application definition
 
 INSTALLED_APPS = [
