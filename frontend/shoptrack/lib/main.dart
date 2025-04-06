@@ -22,6 +22,8 @@ import 'screens/admin_pending_invoice_screen.dart';
 import 'screens/daily_tracking_screen.dart';
 // Add the import at the top
 import 'screens/owner_dashboard_screen.dart';
+import 'screens/shop_users_screen.dart';
+
 
 
 
@@ -98,6 +100,7 @@ class MyApp extends StatelessWidget {
 
           // Then add this to your routes map in the MaterialApp widget
           OwnerDashboardScreen.routeName: (ctx) => const OwnerDashboardScreen(),
+          ShopUsersScreen.routeName: (ctx) => const ShopUsersScreen(),
         },
       ),
     );

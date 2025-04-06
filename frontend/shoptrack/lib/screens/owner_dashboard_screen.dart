@@ -14,6 +14,7 @@ import 'create_invoice_screen.dart';
 import 'admin_pending_invoice_screen.dart';
 import 'invoice_history_screen.dart';
 import 'daily_tracking_screen.dart';
+import 'shop_users_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   static const routeName = '/owner-dashboard';
@@ -340,116 +341,70 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               const SizedBox(height: 16),
 
               // User List for deletion - NEW SECTION
+              //
+
+
+
               Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Shop Users',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pushNamed(context, ShopUsersScreen.routeName);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.shade100,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: _loadShopUsers,
-                            tooltip: 'Refresh',
+                          child: const Icon(
+                            Icons.people,
+                            color: Colors.teal,
+                            size: 28,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Divider(),
-
-                      if (_isLoadingUsers)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      else if (_userError != null)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              'Error: $_userError',
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          ),
-                        )
-                      else if (_shopUsers.isEmpty)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text('No users found.'),
-                            ),
-                          )
-                        else
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _shopUsers.length,
-                            itemBuilder: (context, index) {
-                              final userData = _shopUsers[index];
-                              final bool isCurrentUser = userData.email == user.email;
-
-                              // Skip the current user (owner)
-                              if (userData.role == 'owner') return const SizedBox.shrink();
-
-                              return ListTile(
-                                leading: Icon(
-                                  userData.role == 'admin'
-                                      ? Icons.admin_panel_settings
-                                      : Icons.person,
-                                  color: userData.role == 'admin'
-                                      ? Colors.purple
-                                      : Colors.blue,
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Shop Users',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                title: Text(userData.name),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(userData.email),
-                                    Text(
-                                      userData.role == 'admin'
-                                          ? 'Admin'
-                                          : 'Sales Person: ${userData.designation ?? "N/A"}',
-                                      style: TextStyle(
-                                        color: userData.role == 'admin'
-                                            ? Colors.purple.shade700
-                                            : Colors.blue.shade700,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Manage users in your shop',
+                                style: TextStyle(
+                                  color: Colors.black54,
                                 ),
-                                trailing: isCurrentUser
-                                    ? const Text('You')
-                                    : IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => _deleteUser(
-                                      userData.id!,
-                                      userData.role,
-                                      userData.email
-                                  ),
-                                ),
-                              );
-                            },
+                              ),
+                            ],
                           ),
-                    ],
+                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 16),
+                      ],
+                    ),
                   ),
                 ),
               ),
+
+
+
+
+
+
 
               const SizedBox(height: 32),
 

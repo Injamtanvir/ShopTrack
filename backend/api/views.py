@@ -353,23 +353,53 @@ class DeleteUserView(APIView):
 
 
 
+# class SalesPersonRegistrationView(APIView):
+#     def post(self, request):
+#         # Verify JWT token from headers
+#         token = request.headers.get('Authorization', '').replace('Bearer ', '')
+#         try:
+#             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+#             # Check if user is admin
+#             if payload['role'] != 'admin':
+#                 return Response(
+#                     {"error": "Only admins can register sales persons"},
+#                     status=status.HTTP_403_FORBIDDEN
+#                 )
+
+
+#             # Get shop_id from token
+#             shop_id = payload['shop_id']
+#             admin_email = payload['email']
+#         except jwt.ExpiredSignatureError:
+#             return Response(
+#                 {"error": "Token expired"},
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
+#         except jwt.InvalidTokenError:
+#             return Response(
+#                 {"error": "Invalid token"},
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
+
+
 class SalesPersonRegistrationView(APIView):
     def post(self, request):
         # Verify JWT token from headers
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            # Check if user is admin
-            if payload['role'] != 'admin':
+            
+            # Check if user is admin or owner (updated to include owner)
+            if payload['role'] not in ['admin', 'owner']:
                 return Response(
-                    {"error": "Only admins can register sales persons"},
+                    {"error": "Only admins and owners can register sales persons"},
                     status=status.HTTP_403_FORBIDDEN
                 )
-
-
+            
             # Get shop_id from token
             shop_id = payload['shop_id']
             admin_email = payload['email']
+            
         except jwt.ExpiredSignatureError:
             return Response(
                 {"error": "Token expired"},
@@ -380,6 +410,10 @@ class SalesPersonRegistrationView(APIView):
                 {"error": "Invalid token"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+        
+        # Rest of the function remains the same...
+
+
 
 
         # Validate request data
@@ -641,23 +675,53 @@ class TodayInvoicesView(APIView):
             )
 
 
+# class AdminRegistrationView(APIView):
+#     def post(self, request):
+#         # Verify JWT token from headers
+#         token = request.headers.get('Authorization', '').replace('Bearer ', '')
+#         try:
+#             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+#             # Check if user is admin
+#             if payload['role'] != 'admin':
+#                 return Response(
+#                     {"error": "Only admins can register other admins"},
+#                     status=status.HTTP_403_FORBIDDEN
+#                 )
+
+
+#             # Get shop_id from token
+#             shop_id = payload['shop_id']
+#             admin_email = payload['email']
+#         except jwt.ExpiredSignatureError:
+#             return Response(
+#                 {"error": "Token expired"},
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
+#         except jwt.InvalidTokenError:
+#             return Response(
+#                 {"error": "Invalid token"},
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
+
+
 class AdminRegistrationView(APIView):
     def post(self, request):
         # Verify JWT token from headers
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            # Check if user is admin
-            if payload['role'] != 'admin':
+            
+            # Check if user is admin or owner (updated to include owner)
+            if payload['role'] not in ['admin', 'owner']:
                 return Response(
-                    {"error": "Only admins can register other admins"},
+                    {"error": "Only admins and owners can register other admins"},
                     status=status.HTTP_403_FORBIDDEN
                 )
-
-
+            
             # Get shop_id from token
             shop_id = payload['shop_id']
             admin_email = payload['email']
+            
         except jwt.ExpiredSignatureError:
             return Response(
                 {"error": "Token expired"},
@@ -668,6 +732,12 @@ class AdminRegistrationView(APIView):
                 {"error": "Invalid token"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+        
+        # Rest of the function remains the same...
+
+
+
+
 
 
         # Validate request data
