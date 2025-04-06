@@ -246,6 +246,79 @@ class SalesPersonRegistrationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# Add this class to your views.py file
+class DeleteInvoiceView(APIView):
+    def delete(self, request, invoice_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+            role = payload.get('role', '')
+            
+            # Only admins can delete invoices
+            if role != 'admin':
+                return Response(
+                    {"error": "Only admins can delete invoices"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Get the invoice
+            invoice = invoices_collection.find_one({"_id": ObjectId(invoice_id)})
+            
+            if not invoice:
+                return Response(
+                    {"error": "Invoice not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Check if the shop ID in the invoice matches the shop ID in the token
+            if invoice['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            # Check if the invoice is already completed
+            if invoice['status'] == 'completed':
+                return Response(
+                    {"error": "Cannot delete completed invoices"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Delete the invoice
+            result = invoices_collection.delete_one({"_id": ObjectId(invoice_id)})
+            
+            if result.deleted_count == 0:
+                return Response(
+                    {"error": "Failed to delete invoice"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+                
+            return Response({
+                "message": "Invoice deleted successfully"
+            })
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+
+
+
+
 class AdminRegistrationView(APIView):
     def post(self, request):
         # Verify JWT token from headers

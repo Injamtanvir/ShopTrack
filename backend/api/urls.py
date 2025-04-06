@@ -28,4 +28,5 @@ urlpatterns = [
     path('invoice-history/<str:shop_id>/', InvoiceHistoryView.as_view(), name='invoice-history'),
     path('invoice/<str:invoice_id>/', InvoiceDetailView.as_view(), name='invoice-detail'),
     path('search-products/<str:shop_id>/', SearchProductsView.as_view(), name='search-products'),
+    path('delete-invoice/<str:invoice_id>/', views.DeleteInvoiceView.as_view(), name='delete-invoice'),
 ]

@@ -24,4 +24,6 @@ class ApiConstants {
   static const String getInvoiceHistory = '$baseUrl/invoice-history/';
   static const String getInvoice = '$baseUrl/invoice/';
   static const String searchProducts = '$baseUrl/search-products/';
+  // Add this line to your ApiConstants class
+  static const String deletePendingInvoice = '$baseUrl/delete-invoice/';
 }

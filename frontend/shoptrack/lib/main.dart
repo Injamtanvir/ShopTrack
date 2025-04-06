@@ -18,6 +18,10 @@ import 'screens/seller_product_list_screen.dart';
 import 'screens/create_invoice_screen.dart';
 import 'screens/pending_invoices_screen.dart';
 import 'screens/invoice_history_screen.dart';
+// Add this import at the top of main.dart
+import 'screens/admin_pending_invoice_screen.dart';
+
+
 
 void main() async {
   // Ensure Flutter is initialized
@@ -85,6 +89,7 @@ class MyApp extends StatelessWidget {
           CreateInvoiceScreen.routeName: (ctx) => const CreateInvoiceScreen(),
           PendingInvoicesScreen.routeName: (ctx) => const PendingInvoicesScreen(),
           InvoiceHistoryScreen.routeName: (ctx) => const InvoiceHistoryScreen(),
+          AdminPendingInvoicesScreen.routeName: (ctx) => const AdminPendingInvoicesScreen(),
         },
       ),
     );
