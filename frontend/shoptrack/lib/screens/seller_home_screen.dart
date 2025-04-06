@@ -421,37 +421,37 @@ class SellerHomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 32),
-              // Daily summary section - placeholder
-              const Text(
-                'Today\'s Summary',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Summary cards
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      'Sales',
-                      '0',
-                      Icons.trending_up,
-                      Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      'Revenue',
-                      '\$0.00',
-                      Icons.attach_money,
-                      Colors.blue,
-                    ),
-                  ),
-                ],
-              ),
+              // // Daily summary section - placeholder
+              // const Text(
+              //   'Today\'s Summary',
+              //   style: TextStyle(
+              //     fontSize: 20,
+              //     fontWeight: FontWeight.bold,
+              //   ),
+              // ),
+              // const SizedBox(height: 16),
+              // // Summary cards
+              // Row(
+              //   children: [
+              //     Expanded(
+              //       child: _buildSummaryCard(
+              //         'Sales',
+              //         '0',
+              //         Icons.trending_up,
+              //         Colors.green,
+              //       ),
+              //     ),
+              //     const SizedBox(width: 16),
+              //     Expanded(
+              //       child: _buildSummaryCard(
+              //         'Revenue',
+              //         '\$0.00',
+              //         Icons.attach_money,
+              //         Colors.blue,
+              //       ),
+              //     ),
+              //   ],
+              // ),
             ],
           ),
         ),
