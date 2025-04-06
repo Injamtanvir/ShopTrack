@@ -18,10 +18,7 @@ import 'screens/seller_product_list_screen.dart';
 import 'screens/create_invoice_screen.dart';
 import 'screens/pending_invoices_screen.dart';
 import 'screens/invoice_history_screen.dart';
-// Add this import at the top of main.dart
 import 'screens/admin_pending_invoice_screen.dart';
-
-// Add this import at the top of main.dart
 import 'screens/daily_tracking_screen.dart';
 
 

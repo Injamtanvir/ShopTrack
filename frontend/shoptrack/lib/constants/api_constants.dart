@@ -15,8 +15,6 @@ class ApiConstants {
   static const String products = '$baseUrl/products/';
   static const String updateProductPrice = '$baseUrl/update-product-price/';
   static const String productPriceList = '$baseUrl/product-price-list/';
-
-  // New endpoints for Invoices - Updated with consistent trailing slashes
   static const String getNextInvoiceNumber = '$baseUrl/next-invoice-number/';
   static const String saveInvoice = '$baseUrl/invoices/';
   static const String generateInvoice = '$baseUrl/generate-invoice/';
@@ -24,12 +22,8 @@ class ApiConstants {
   static const String getInvoiceHistory = '$baseUrl/invoice-history/';
   static const String getInvoice = '$baseUrl/invoice/';
   static const String searchProducts = '$baseUrl/search-products/';
-  // Add this line to your ApiConstants class
   static const String deletePendingInvoice = '$baseUrl/delete-invoice/';
-  // Add this to your ApiConstants class
   static const String deleteProduct = '$baseUrl/delete-product/';
-
-  // Add these lines to lib/constants/api_constants.dart
   static const String getTodayStats = '$baseUrl/today-stats/';
   static const String getTodayInvoices = '$baseUrl/today-invoices/';
 }
