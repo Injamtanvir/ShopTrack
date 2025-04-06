@@ -26,4 +26,10 @@ class ApiConstants {
   static const String searchProducts = '$baseUrl/search-products/';
   // Add this line to your ApiConstants class
   static const String deletePendingInvoice = '$baseUrl/delete-invoice/';
+  // Add this to your ApiConstants class
+  static const String deleteProduct = '$baseUrl/delete-product/';
+
+  // Add these lines to lib/constants/api_constants.dart
+  static const String getTodayStats = '$baseUrl/today-stats/';
+  static const String getTodayInvoices = '$baseUrl/today-invoices/';
 }

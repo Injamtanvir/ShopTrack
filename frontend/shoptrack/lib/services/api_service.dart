@@ -154,6 +154,45 @@ class ApiService {
     return await _handleApiResponse(response);
   }
 
+
+
+  // Add this method to your ApiService class
+  Future<void> deleteProduct(String productId) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConstants.deleteProduct}$productId/'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
+          throw Exception('Server returned HTML instead of JSON. Check URL configuration.');
+        }
+
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception(errorData['error'] ?? 'Failed to delete product');
+        } catch (e) {
+          throw Exception('Error ${response.statusCode}: ${response.body}');
+        }
+      }
+    } catch (e) {
+      print('Error deleting product: $e');
+      rethrow;
+    }
+  }
+
+
+
+
+
   // Verify JWT token
   Future<bool> verifyToken() async {
     final token = await _storage.read(key: 'token') ?? '';

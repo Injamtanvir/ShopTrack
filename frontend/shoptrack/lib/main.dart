@@ -21,6 +21,10 @@ import 'screens/invoice_history_screen.dart';
 // Add this import at the top of main.dart
 import 'screens/admin_pending_invoice_screen.dart';
 
+// Add this import at the top of main.dart
+import 'screens/daily_tracking_screen.dart';
+
+
 
 
 void main() async {
@@ -90,6 +94,8 @@ class MyApp extends StatelessWidget {
           PendingInvoicesScreen.routeName: (ctx) => const PendingInvoicesScreen(),
           InvoiceHistoryScreen.routeName: (ctx) => const InvoiceHistoryScreen(),
           AdminPendingInvoicesScreen.routeName: (ctx) => const AdminPendingInvoicesScreen(),
+          // Then add this to your routes map in the MaterialApp widget
+          DailyTrackingScreen.routeName: (ctx) => const DailyTrackingScreen(),
         },
       ),
     );
