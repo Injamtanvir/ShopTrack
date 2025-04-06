@@ -62,61 +62,6 @@ def test_api_view(request):
     })
 
 
-# class ShopRegistrationView(APIView):
-#     def post(self, request):
-#         serializer = ShopRegistrationSerializer(data=request.data)
-#         if serializer.is_valid():
-#             # Get validated data
-#             data = serializer.validated_data
-
-
-#             # Check if email already exists
-#             if users_collection.find_one({"email": data['email']}):
-#                 return Response(
-#                     {"error": "Email already registered"},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-
-#             # Generate unique shop ID
-#             shop_id = generate_shop_id()
-
-
-#             # Create shop document
-#             shop_data = {
-#                 "shop_id": shop_id,
-#                 "name": data['name'],
-#                 "address": data['address'],
-#                 "owner_name": data['owner_name'],
-#                 "license_number": data['license_number'],
-#                 "created_at": datetime.now(),
-#                 "updated_at": datetime.now()
-#             }
-#             shops_collection.insert_one(shop_data)
-
-
-#             # Create admin user for this shop
-#             user_data = {
-#                 "shop_id": shop_id,
-#                 "name": data['owner_name'],
-#                 "email": data['email'],
-#                 "password": hash_password(data['password']),
-#                 "role": "admin",
-#                 "created_at": datetime.now(),
-#                 "updated_at": datetime.now(),
-#                 "created_by": data['email'] # Self-created
-#             }
-#             users_collection.insert_one(user_data)
-
-
-#             return Response({
-#                 "message": "Shop registered successfully",
-#                 "shop_id": shop_id
-#             }, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
 
 class ShopRegistrationView(APIView):
     def post(self, request):
@@ -350,36 +295,6 @@ class DeleteUserView(APIView):
             )
 
 
-
-
-
-# class SalesPersonRegistrationView(APIView):
-#     def post(self, request):
-#         # Verify JWT token from headers
-#         token = request.headers.get('Authorization', '').replace('Bearer ', '')
-#         try:
-#             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-#             # Check if user is admin
-#             if payload['role'] != 'admin':
-#                 return Response(
-#                     {"error": "Only admins can register sales persons"},
-#                     status=status.HTTP_403_FORBIDDEN
-#                 )
-
-
-#             # Get shop_id from token
-#             shop_id = payload['shop_id']
-#             admin_email = payload['email']
-#         except jwt.ExpiredSignatureError:
-#             return Response(
-#                 {"error": "Token expired"},
-#                 status=status.HTTP_401_UNAUTHORIZED
-#             )
-#         except jwt.InvalidTokenError:
-#             return Response(
-#                 {"error": "Invalid token"},
-#                 status=status.HTTP_401_UNAUTHORIZED
-#             )
 
 
 class SalesPersonRegistrationView(APIView):
@@ -673,35 +588,6 @@ class TodayInvoicesView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
-# class AdminRegistrationView(APIView):
-#     def post(self, request):
-#         # Verify JWT token from headers
-#         token = request.headers.get('Authorization', '').replace('Bearer ', '')
-#         try:
-#             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-#             # Check if user is admin
-#             if payload['role'] != 'admin':
-#                 return Response(
-#                     {"error": "Only admins can register other admins"},
-#                     status=status.HTTP_403_FORBIDDEN
-#                 )
-
-
-#             # Get shop_id from token
-#             shop_id = payload['shop_id']
-#             admin_email = payload['email']
-#         except jwt.ExpiredSignatureError:
-#             return Response(
-#                 {"error": "Token expired"},
-#                 status=status.HTTP_401_UNAUTHORIZED
-#             )
-#         except jwt.InvalidTokenError:
-#             return Response(
-#                 {"error": "Invalid token"},
-#                 status=status.HTTP_401_UNAUTHORIZED
-#             )
 
 
 class AdminRegistrationView(APIView):

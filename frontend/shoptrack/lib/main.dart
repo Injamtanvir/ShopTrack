@@ -114,29 +114,6 @@ class InitScreen extends StatefulWidget {
   State<InitScreen> createState() => _InitScreenState();
 }
 
-// class _InitScreenState extends State<InitScreen> {
-//   bool _initialized = false;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     WidgetsBinding.instance.addPostFrameCallback((_) async {
-//       await Provider.of<AuthProvider>(context, listen: false).initialize();
-//       if (mounted) {
-//         setState(() {
-//           _initialized = true;
-//         });
-//       }
-//     });
-//   }
-
-
-
-
-
-
-
-
 
 class _InitScreenState extends State<InitScreen> {
   bool _initialized = false;
@@ -180,52 +157,3 @@ class _InitScreenState extends State<InitScreen> {
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// =================================================================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-//   @override
-//   Widget build(BuildContext context) {
-//     if (!_initialized) {
-//       return const Scaffold(
-//         body: Center(child: CircularProgressIndicator()),
-//       );
-//     }
-//
-//     final authProvider = Provider.of<AuthProvider>(context);
-//     if (authProvider.isLoggedIn) {
-//       if (authProvider.isAdmin) {
-//         return const AdminHomeScreen();
-//       } else {
-//         return const SellerHomeScreen();
-//       }
-//     } else {
-//       return const LoginScreen();
-//     }
-//   }
-// }
