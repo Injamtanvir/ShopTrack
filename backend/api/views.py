@@ -11,6 +11,8 @@ import jwt
 import os
 from django.conf import settings
 
+from datetime import datetime, timedelta
+
 
 # Import all necessary collections from db.py
 from .db import (
@@ -314,9 +316,157 @@ class DeleteInvoiceView(APIView):
             )
 
 
+class DeleteProductView(APIView):
+    def delete(self, request, product_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+            role = payload.get('role', '')
+            
+            # Only admins can delete products
+            if role != 'admin':
+                return Response(
+                    {"error": "Only admins can delete products"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Get the product
+            product = products_collection.find_one({"_id": ObjectId(product_id)})
+            
+            if not product:
+                return Response(
+                    {"error": "Product not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Check if the product belongs to this shop
+            if product['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            # Delete the product
+            result = products_collection.delete_one({"_id": ObjectId(product_id)})
+            
+            if result.deleted_count == 0:
+                return Response(
+                    {"error": "Failed to delete product"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+                
+            return Response({
+                "message": "Product deleted successfully"
+            })
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
+class TodayStatsView(APIView):
+    def get(self, request, shop_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            
+            # Check if user belongs to this shop
+            if shop_id != payload['shop_id']:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Get today's date range (start of today to now)
+            today_start = datetime.combine(datetime.today(), datetime.min.time())
+            now = datetime.now()
+            
+            # Query invoices generated today and are completed
+            today_invoices = list(invoices_collection.find({
+                "shop_id": shop_id,
+                "status": "completed",
+                "created_at": {"$gte": today_start, "$lte": now}
+            }))
+            
+            # Calculate stats
+            total_sales = len(today_invoices)
+            total_revenue = sum(invoice.get('total_amount', 0) for invoice in today_invoices)
+            
+            return Response({
+                "total_sales": total_sales,
+                "total_revenue": total_revenue,
+                "date": today_start.strftime('%Y-%m-%d')
+            })
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
+class TodayInvoicesView(APIView):
+    def get(self, request, shop_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            
+            # Check if user belongs to this shop
+            if shop_id != payload['shop_id']:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Get today's date range (start of today to now)
+            today_start = datetime.combine(datetime.today(), datetime.min.time())
+            now = datetime.now()
+            
+            # Query invoices generated today and are completed
+            today_invoices = list(invoices_collection.find({
+                "shop_id": shop_id,
+                "status": "completed",
+                "created_at": {"$gte": today_start, "$lte": now}
+            }).sort("created_at", -1))  # Sort by most recent first
+            
+            # Convert ObjectId to string for JSON serialization
+            for invoice in today_invoices:
+                invoice['_id'] = str(invoice['_id'])
+            
+            return Response(today_invoices)
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class AdminRegistrationView(APIView):
