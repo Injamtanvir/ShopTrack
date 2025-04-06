@@ -31,5 +31,8 @@ urlpatterns = [
     path('delete-invoice/<str:invoice_id>/', views.DeleteInvoiceView.as_view(), name='delete-invoice'),
     path('delete-product/<str:product_id>/', views.DeleteProductView.as_view(), name='delete-product'),
     path('today-stats/<str:shop_id>/', views.TodayStatsView.as_view(), name='today-stats'),
-path('today-invoices/<str:shop_id>/', views.TodayInvoicesView.as_view(), name='today-invoices'),
+    path('today-invoices/<str:shop_id>/', views.TodayInvoicesView.as_view(), name='today-invoices'),
+
+    path('shop-users/<str:shop_id>/', views.ShopUsersView.as_view(), name='shop-users'),
+    path('delete-user/<str:user_id>/', views.DeleteUserView.as_view(), name='delete-user'),
 ]

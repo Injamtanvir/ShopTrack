@@ -347,4 +347,53 @@ class ApiService {
     }
     throw Exception('Max retry attempts reached');
   }
+
+  // Get all users in a shop
+  Future<List<User>> getShopUsers(String shopId) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.getShopUsers}$shopId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((user) => User.fromJson(user)).toList();
+      } else {
+        throw Exception('Failed to load shop users: ${response.body}');
+      }
+    } catch (e) {
+      print('Error getting shop users: $e');
+      rethrow;
+    }
+  }
+
+// Delete a user
+  Future<void> deleteUser(String userId) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConstants.deleteUser}$userId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete user: ${response.body}');
+      }
+    } catch (e) {
+      print('Error deleting user: $e');
+      rethrow;
+    }
+  }
+
+
 }

@@ -62,13 +62,68 @@ def test_api_view(request):
     })
 
 
+# class ShopRegistrationView(APIView):
+#     def post(self, request):
+#         serializer = ShopRegistrationSerializer(data=request.data)
+#         if serializer.is_valid():
+#             # Get validated data
+#             data = serializer.validated_data
+
+
+#             # Check if email already exists
+#             if users_collection.find_one({"email": data['email']}):
+#                 return Response(
+#                     {"error": "Email already registered"},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+
+#             # Generate unique shop ID
+#             shop_id = generate_shop_id()
+
+
+#             # Create shop document
+#             shop_data = {
+#                 "shop_id": shop_id,
+#                 "name": data['name'],
+#                 "address": data['address'],
+#                 "owner_name": data['owner_name'],
+#                 "license_number": data['license_number'],
+#                 "created_at": datetime.now(),
+#                 "updated_at": datetime.now()
+#             }
+#             shops_collection.insert_one(shop_data)
+
+
+#             # Create admin user for this shop
+#             user_data = {
+#                 "shop_id": shop_id,
+#                 "name": data['owner_name'],
+#                 "email": data['email'],
+#                 "password": hash_password(data['password']),
+#                 "role": "admin",
+#                 "created_at": datetime.now(),
+#                 "updated_at": datetime.now(),
+#                 "created_by": data['email'] # Self-created
+#             }
+#             users_collection.insert_one(user_data)
+
+
+#             return Response({
+#                 "message": "Shop registered successfully",
+#                 "shop_id": shop_id
+#             }, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
 class ShopRegistrationView(APIView):
     def post(self, request):
         serializer = ShopRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             # Get validated data
             data = serializer.validated_data
-
 
             # Check if email already exists
             if users_collection.find_one({"email": data['email']}):
@@ -77,10 +132,8 @@ class ShopRegistrationView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-
             # Generate unique shop ID
             shop_id = generate_shop_id()
-
 
             # Create shop document
             shop_data = {
@@ -94,26 +147,27 @@ class ShopRegistrationView(APIView):
             }
             shops_collection.insert_one(shop_data)
 
-
-            # Create admin user for this shop
+            # Create owner user for this shop (changed from admin to owner)
             user_data = {
                 "shop_id": shop_id,
                 "name": data['owner_name'],
                 "email": data['email'],
                 "password": hash_password(data['password']),
-                "role": "admin",
+                "role": "owner",  # Changed from "admin" to "owner"
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
-                "created_by": data['email'] # Self-created
+                "created_by": data['email']  # Self-created
             }
             users_collection.insert_one(user_data)
-
 
             return Response({
                 "message": "Shop registered successfully",
                 "shop_id": shop_id
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 
 
 class UserLoginView(APIView):
@@ -181,6 +235,122 @@ class UserLoginView(APIView):
         except Exception as e:
             print("Login error:", str(e))
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ShopUsersView(APIView):
+    def get(self, request, shop_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            
+            # Check if user belongs to this shop and is owner
+            if shop_id != payload['shop_id']:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            user_role = payload.get('role', '')
+            if user_role != 'owner':
+                return Response(
+                    {"error": "Only shop owners can view all users"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Get all users for this shop
+            shop_users = list(users_collection.find({"shop_id": shop_id}))
+            
+            # Convert ObjectId to string for JSON serialization
+            for user in shop_users:
+                user['_id'] = str(user['_id'])
+                # Remove password for security
+                if 'password' in user:
+                    del user['password']
+                
+            return Response(shop_users)
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class DeleteUserView(APIView):
+    def delete(self, request, user_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_role = payload.get('role', '')
+            
+            # Only owners can delete users
+            if user_role != 'owner':
+                return Response(
+                    {"error": "Only shop owners can delete users"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Get the user to be deleted
+            user_to_delete = users_collection.find_one({"_id": ObjectId(user_id)})
+            
+            if not user_to_delete:
+                return Response(
+                    {"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Check if the user belongs to the same shop as the owner
+            if user_to_delete['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            # Check if trying to delete an owner
+            if user_to_delete.get('role') == 'owner':
+                return Response(
+                    {"error": "Cannot delete shop owner"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Delete the user
+            result = users_collection.delete_one({"_id": ObjectId(user_id)})
+            
+            if result.deleted_count == 0:
+                return Response(
+                    {"error": "Failed to delete user"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+                
+            return Response({
+                "message": "User deleted successfully"
+            })
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
 
 
 class SalesPersonRegistrationView(APIView):

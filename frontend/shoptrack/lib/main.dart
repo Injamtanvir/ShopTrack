@@ -20,6 +20,8 @@ import 'screens/pending_invoices_screen.dart';
 import 'screens/invoice_history_screen.dart';
 import 'screens/admin_pending_invoice_screen.dart';
 import 'screens/daily_tracking_screen.dart';
+// Add the import at the top
+import 'screens/owner_dashboard_screen.dart';
 
 
 
@@ -93,6 +95,9 @@ class MyApp extends StatelessWidget {
           AdminPendingInvoicesScreen.routeName: (ctx) => const AdminPendingInvoicesScreen(),
           // Then add this to your routes map in the MaterialApp widget
           DailyTrackingScreen.routeName: (ctx) => const DailyTrackingScreen(),
+
+          // Then add this to your routes map in the MaterialApp widget
+          OwnerDashboardScreen.routeName: (ctx) => const OwnerDashboardScreen(),
         },
       ),
     );
@@ -105,6 +110,30 @@ class InitScreen extends StatefulWidget {
   @override
   State<InitScreen> createState() => _InitScreenState();
 }
+
+// class _InitScreenState extends State<InitScreen> {
+//   bool _initialized = false;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     WidgetsBinding.instance.addPostFrameCallback((_) async {
+//       await Provider.of<AuthProvider>(context, listen: false).initialize();
+//       if (mounted) {
+//         setState(() {
+//           _initialized = true;
+//         });
+//       }
+//     });
+//   }
+
+
+
+
+
+
+
+
 
 class _InitScreenState extends State<InitScreen> {
   bool _initialized = false;
@@ -132,9 +161,15 @@ class _InitScreenState extends State<InitScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context);
     if (authProvider.isLoggedIn) {
-      if (authProvider.isAdmin) {
+      final role = authProvider.user?.role;
+      if (role == 'owner') {
+        // Redirect owners to owner dashboard
+        return const OwnerDashboardScreen();
+      } else if (role == 'admin') {
+        // Admins go to admin dashboard
         return const AdminHomeScreen();
       } else {
+        // Sellers go to seller dashboard
         return const SellerHomeScreen();
       }
     } else {
@@ -142,3 +177,52 @@ class _InitScreenState extends State<InitScreen> {
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// =================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+//   @override
+//   Widget build(BuildContext context) {
+//     if (!_initialized) {
+//       return const Scaffold(
+//         body: Center(child: CircularProgressIndicator()),
+//       );
+//     }
+//
+//     final authProvider = Provider.of<AuthProvider>(context);
+//     if (authProvider.isLoggedIn) {
+//       if (authProvider.isAdmin) {
+//         return const AdminHomeScreen();
+//       } else {
+//         return const SellerHomeScreen();
+//       }
+//     } else {
+//       return const LoginScreen();
+//     }
+//   }
+// }
