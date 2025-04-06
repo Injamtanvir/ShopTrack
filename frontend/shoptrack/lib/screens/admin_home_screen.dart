@@ -610,9 +610,6 @@ class AdminHomeScreen extends StatelessWidget {
               const SizedBox(height: 32),
 
 
-              // Add this to your admin_home_screen.dart file, below the Invoice Management section
-// Right after the Row with Pending Invoices and Invoice History cards
-
               const SizedBox(height: 16),
 // Daily Tracking Card - NEW
               Card(
@@ -669,9 +666,6 @@ class AdminHomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
-
-
 
             ],
           ),
