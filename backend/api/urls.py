@@ -35,4 +35,5 @@ urlpatterns = [
 
     path('shop-users/<str:shop_id>/', views.ShopUsersView.as_view(), name='shop-users'),
     path('delete-user/<str:user_id>/', views.DeleteUserView.as_view(), name='delete-user'),
+    path('public-invoice/', views.PublicInvoiceView.as_view(), name='public-invoice'),
 ]

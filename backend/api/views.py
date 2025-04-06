@@ -982,3 +982,45 @@ class ProductPriceListView(APIView):
 
 
         return Response(result)
+
+
+
+
+class PublicInvoiceView(APIView):
+    def get(self, request):
+        # Get query parameters
+        shop_id = request.GET.get('shop_id')
+        invoice_number = request.GET.get('invoice_number')
+        
+        # Validate parameters
+        if not shop_id or not invoice_number:
+            return Response(
+                {"error": "Shop ID and Invoice Number are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            # Find the invoice
+            invoice = invoices_collection.find_one({
+                "shop_id": shop_id,
+                "invoice_number": invoice_number,
+                "status": "completed"  # Only show completed invoices
+            })
+            
+            if not invoice:
+                return Response(
+                    {"error": "Invoice not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Convert ObjectId to string for JSON serialization
+            invoice['_id'] = str(invoice['_id'])
+            
+            # Return the invoice data
+            return Response(invoice)
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
