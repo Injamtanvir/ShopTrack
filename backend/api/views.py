@@ -410,8 +410,10 @@ class TodayStatsView(APIView):
             
             # Calculate stats
             total_sales = len(today_invoices)
+            # total_revenue = sum(invoice.get('total_amount', 0) for invoice in today_invoices)
+            # In TodayStatsView class in views.py
             total_revenue = sum(invoice.get('total_amount', 0) for invoice in today_invoices)
-            
+
             return Response({
                 "total_sales": total_sales,
                 "total_revenue": total_revenue,

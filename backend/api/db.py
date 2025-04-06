@@ -96,6 +96,25 @@ class SaveInvoiceView(APIView):
             )
 
         # Create the invoice document
+        # invoice_data = {
+        #     "invoice_number": request.data['invoice_number'],
+        #     "shop_id": shop_id,
+        #     "shop_name": request.data['shop_name'],
+        #     "shop_address": request.data['shop_address'],
+        #     "shop_license": request.data['shop_license'],
+        #     "customer_name": request.data['customer_name'],
+        #     "customer_address": request.data['customer_address'],
+        #     "date": request.data['date'],
+        #     "items": request.data['items'],
+        #     "total_amount": request.data['total_amount'],
+        #     "status": request.data['status'],  # 'pending' or 'completed'
+        #     "created_by": user_email,
+        #     "created_at": datetime.now(),
+        #     "updated_at": datetime.now()
+        # }
+
+
+
         invoice_data = {
             "invoice_number": request.data['invoice_number'],
             "shop_id": shop_id,
@@ -106,12 +125,15 @@ class SaveInvoiceView(APIView):
             "customer_address": request.data['customer_address'],
             "date": request.data['date'],
             "items": request.data['items'],
+            "subtotal_amount": request.data['subtotal_amount'],
+            "discount_amount": request.data['discount_amount'],
             "total_amount": request.data['total_amount'],
             "status": request.data['status'],  # 'pending' or 'completed'
             "created_by": user_email,
             "created_at": datetime.now(),
             "updated_at": datetime.now()
         }
+
 
         # Insert the invoice
         result = invoices_collection.insert_one(invoice_data)
