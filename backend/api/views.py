@@ -305,12 +305,22 @@ class SalesPersonRegistrationView(APIView):
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             
             # Check if user is admin or owner (updated to include owner)
+            # if payload['role'] not in ['admin', 'owner']:
+            #     return Response(
+            #         {"error": "Only admins and owners can register sales persons"},
+            #         status=status.HTTP_403_FORBIDDEN
+            #     )
+            
+            # In SalesPersonRegistrationView in views.py
+            # Check if user is admin or owner (updated to include owner)
             if payload['role'] not in ['admin', 'owner']:
                 return Response(
                     {"error": "Only admins and owners can register sales persons"},
                     status=status.HTTP_403_FORBIDDEN
                 )
-            
+
+
+
             # Get shop_id from token
             shop_id = payload['shop_id']
             admin_email = payload['email']

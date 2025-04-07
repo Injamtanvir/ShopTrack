@@ -94,6 +94,18 @@ class AuthProvider extends ChangeNotifier {
 
 
   // Register a sales person (for admin)
+  // Future<bool> registerSalesPerson({
+  //   required String name,
+  //   required String designation,
+  //   required String sellerId,
+  //   required String email,
+  //   required String password,
+  // }) async {
+  //   if (!isAdmin) {
+  //     _setError('Only admins can register sales persons');
+  //     return false;
+  //   }
+
   Future<bool> registerSalesPerson({
     required String name,
     required String designation,
@@ -101,10 +113,15 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    if (!isAdmin) {
-      _setError('Only admins can register sales persons');
+    // Change this line
+    if (user?.role != 'admin' && user?.role != 'owner') {
+      _setError('Only admins and owners can register sales persons');
       return false;
     }
+
+
+
+
 
     _setLoading(true);
     _clearError();
