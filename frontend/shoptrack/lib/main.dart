@@ -103,60 +103,6 @@ class InitScreen extends StatefulWidget {
   State<InitScreen> createState() => _InitScreenState();
 }
 
-// class _InitScreenState extends State<InitScreen> {
-//   bool _initialized = false;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     WidgetsBinding.instance.addPostFrameCallback((_) async {
-//       await Provider.of<AuthProvider>(context, listen: false).initialize();
-//       if (mounted) {
-//         setState(() {
-//           _initialized = true;
-//         });
-//       }
-//     });
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     if (!_initialized) {
-//       return const Scaffold(
-//         body: Center(child: CircularProgressIndicator()),
-//       );
-//     }
-//
-//     final authProvider = Provider.of<AuthProvider>(context);
-//
-//     // Debug print to check the user role
-//     if (authProvider.isLoggedIn && authProvider.user != null) {
-//       print('User Role: ${authProvider.user?.role}');
-//       print('User Name: ${authProvider.user?.name}');
-//       print('User Email: ${authProvider.user?.email}');
-//     }
-//
-//     if (authProvider.isLoggedIn) {
-//       final role = authProvider.user?.role;
-//
-//       // Improved role check with proper logging
-//       if (role == 'owner') {
-//         print('Redirecting to Owner Dashboard');
-//         return const OwnerDashboardScreen();
-//       } else if (role == 'admin') {
-//         print('Redirecting to Admin Dashboard');
-//         return const AdminHomeScreen();
-//       } else {
-//         print('Redirecting to Seller Dashboard');
-//         return const SellerHomeScreen();
-//       }
-//     } else {
-//       return const LoginScreen();
-//     }
-//   }
-// }
-
-
 class _InitScreenState extends State<InitScreen> {
   bool _initialized = false;
   bool _initError = false;

@@ -25,7 +25,6 @@ class InvoiceItem {
   }
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
-    // Ensure proper type conversion
     final int quantity = json['quantity'] is int
         ? json['quantity']
         : int.parse(json['quantity'].toString());
@@ -44,7 +43,7 @@ class InvoiceItem {
 }
 
 class Invoice {
-  final String? id; // MongoDB will generate this
+  final String? id; // For MongoDB Generates
   final String invoiceNumber;
   final String shopId;
   final String shopName;
@@ -57,10 +56,10 @@ class Invoice {
   final double subtotalAmount;
   final double discountAmount;
   final double totalAmount;
-  final String status; // "pending" or "completed"
-  final String createdBy; // User email who created this
+  final String status;
+  final String createdBy;
 
-  // Constructor with calculated fields handled properly for null safety
+
   Invoice({
     this.id,
     required this.invoiceNumber,
@@ -78,15 +77,15 @@ class Invoice {
     double? providedSubtotalAmount,
     double? providedDiscountAmount,
   }) :
-  // Calculate subtotal safely
+
         subtotalAmount = providedSubtotalAmount != null
             ? providedSubtotalAmount
             : items.fold(0.0, (sum, item) => sum + item.totalPrice),
 
-  // Set discount amount
+
         discountAmount = providedDiscountAmount ?? 0.0,
 
-  // Calculate total amount safely
+
         totalAmount = providedTotalAmount != null
             ? providedTotalAmount
             : (providedSubtotalAmount != null
@@ -115,12 +114,10 @@ class Invoice {
   }
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
-    // Parse items with proper error handling
     List<InvoiceItem> parseItems(List<dynamic> itemsJson) {
       return itemsJson.map((item) => InvoiceItem.fromJson(item)).toList();
     }
 
-    // Safely convert amount values to double
     double parseAmount(dynamic amount) {
       if (amount is int) {
         return amount.toDouble();

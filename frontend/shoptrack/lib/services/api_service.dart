@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:math';
 import 'dart:async';
@@ -11,13 +10,12 @@ import '../models/user.dart';
 class ApiService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Network timeout duration
-  static const Duration requestTimeout = Duration(seconds: 20);
+  // Network Timout For My Render Free set to
+  static const Duration requestTimeout = Duration(seconds: 100);
 
-  // Handle API response with improved error checking
+  // Handle API response
   Future<dynamic> _handleApiResponse(http.Response response) async {
     try {
-      // Check if response is HTML instead of JSON
       if (response.body.trim().startsWith('<!DOCTYPE') ||
           response.body.trim().startsWith('<html>')) {
         throw Exception('Server returned HTML instead of JSON. This usually indicates a server configuration or URL issue.');
@@ -34,12 +32,11 @@ class ApiService {
         }
       }
     } catch (e) {
-      print('API error: ${e.toString()}');
+      // print('API error: ${e.toString()}');
       rethrow;
     }
   }
 
-  // Helper method to decode JWT token payload for debugging
   String _decodeToken(String token) {
     try {
       final parts = token.split('.');
@@ -86,7 +83,7 @@ class ApiService {
     required String password,
     required String confirmPassword,
   }) async {
-    print('Registering shop with name: $name, email: $email');
+    // print('Registering shop with name: $name, email: $email');
 
     try {
       return await _safeApiCall(() => http.post(
@@ -103,45 +100,10 @@ class ApiService {
         }),
       ));
     } catch (e) {
-      print('Shop registration error: $e');
+      // print('Shop registration error: $e');
       rethrow;
     }
   }
-
-  // Login user with improved error handling
-  // Future<Map<String, dynamic>> login({
-  //   required String shopId,
-  //   required String email,
-  //   required String password,
-  // }) async {
-  //   try {
-  //     print('Attempting login to: ${ApiConstants.login}');
-  //     print('Login parameters - Shop ID: $shopId, Email: $email');
-  //
-  //     final data = await _safeApiCall(() => http.post(
-  //       Uri.parse(ApiConstants.login),
-  //       headers: {'Content-Type': 'application/json'},
-  //       body: jsonEncode({
-  //         'shop_id': shopId,
-  //         'email': email,
-  //         'password': password,
-  //       }),
-  //     ));
-  //
-  //     // Save token and user data to secure storage
-  //     await _storage.write(key: 'token', value: data['token']);
-  //
-  //     // Log user role from the token
-  //     print('User role from login response: ${data['user']['role']}');
-  //
-  //     await _storage.write(key: 'user', value: jsonEncode(data['user']));
-  //
-  //     return data;
-  //   } catch (e) {
-  //     print('Login error: $e');
-  //     rethrow;
-  //   }
-  // }
 
   // Register a sales person with improved error handling
   Future<Map<String, dynamic>> registerSalesPerson({
@@ -156,8 +118,8 @@ class ApiService {
       throw Exception('Authorization token not found');
     }
 
-    print('Sending register sales person request with token: ${token.substring(0, min(20, token.length))}...');
-    print('Token payload: ${_decodeToken(token)}');
+    // print('Sending register sales person request with token: ${token.substring(0, min(20, token.length))}...');
+    // print('Token payload: ${_decodeToken(token)}');
 
     try {
       return await _safeApiCall(() => http.post(
@@ -175,7 +137,7 @@ class ApiService {
         }),
       ));
     } catch (e) {
-      print('Error registering sales person: $e');
+      // print('Error registering sales person: $e');
       rethrow;
     }
   }
@@ -191,8 +153,8 @@ class ApiService {
       throw Exception('Authorization token not found');
     }
 
-    print('Sending register admin request with token: ${token.substring(0, min(20, token.length))}...');
-    print('Token payload: ${_decodeToken(token)}');
+    // print('Sending register admin request with token: ${token.substring(0, min(20, token.length))}...');
+    // print('Token payload: ${_decodeToken(token)}');
 
     try {
       return await _safeApiCall(() => http.post(
@@ -208,7 +170,7 @@ class ApiService {
         }),
       ));
     } catch (e) {
-      print('Error registering admin: $e');
+      // print('Error registering admin: $e');
       rethrow;
     }
   }
@@ -228,7 +190,7 @@ class ApiService {
         },
       ));
     } catch (e) {
-      print('Error deleting product: $e');
+      // print('Error deleting product: $e');
       rethrow;
     }
   }
@@ -237,68 +199,50 @@ class ApiService {
   Future<bool> verifyToken() async {
     final token = await _storage.read(key: 'token') ?? '';
     if (token.isEmpty) {
-      print('No token found in storage');
+      // print('No token found in storage');
       return false;
     }
 
     try {
-      print('Verifying token: ${token.length > 20 ? token.substring(0, 20) + '...' : token}');
+      // print('Verifying token: ${token.length > 20 ? token.substring(0, 20) + '...' : token}');
 
       final response = await http.get(
         Uri.parse(ApiConstants.verifyToken),
         headers: {'Authorization': 'Bearer $token'},
       ).timeout(requestTimeout);
 
-      print('Token verification response status: ${response.statusCode}');
+      // print('Token verification response status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = await _handleApiResponse(response);
 
-        print('Token valid: ${data['valid']}');
+        // print('Token valid: ${data['valid']}');
         if (data['valid'] == true && data.containsKey('user')) {
           print('User role from token: ${data['user']['role']}');
         }
 
         return data['valid'] == true;
       } else {
-        print('Token verification failed with status: ${response.statusCode}');
+        // print('Token verification failed with status: ${response.statusCode}');
         return false;
       }
     } on SocketException {
-      print('Network error during token verification');
+      // print('Network error during token verification');
       return false;
     } on TimeoutException {
-      print('Timeout during token verification');
+      // print('Timeout during token verification');
       return false;
     } catch (e) {
-      print('Token verification error: $e');
+      // print('Token verification error: $e');
       return false;
     }
   }
 
-  // // Get current user from storage
-  // Future<User?> getCurrentUser() async {
-  //   final userData = await _storage.read(key: 'user');
-  //   if (userData == null) {
-  //     print('No user data found in storage');
-  //     return null;
-  //   }
-  //
-  //   try {
-  //     final user = User.fromJson(jsonDecode(userData));
-  //     print('Retrieved user from storage: ${user.name}, Role: ${user.role}');
-  //     return user;
-  //   } catch (e) {
-  //     print('Error parsing user data: $e');
-  //     return null;
-  //   }
-  // }
-
   // Logout user
   Future<void> logout() async {
-    print('Logging out user');
+    // print('Logging out user');
     await _storage.delete(key: 'token');
     await _storage.delete(key: 'user');
-    print('User logged out, storage cleared');
+    // print('User logged out, storage cleared');
   }
 
   // Add/update product with improved error handling
@@ -314,7 +258,7 @@ class ApiService {
     }
 
     try {
-      print('Adding product to: ${ApiConstants.products}');
+      // print('Adding product to: ${ApiConstants.products}');
       return await _safeApiCall(() => http.post(
         Uri.parse(ApiConstants.products),
         headers: {
@@ -329,7 +273,7 @@ class ApiService {
         }),
       ));
     } catch (e) {
-      print('Error adding product: $e');
+      // print('Error adding product: $e');
       rethrow;
     }
   }
@@ -347,7 +291,7 @@ class ApiService {
         headers: {'Authorization': 'Bearer $token'},
       ));
     } catch (e) {
-      print('Error getting products: $e');
+      // print('Error getting products: $e');
       rethrow;
     }
   }
@@ -397,9 +341,6 @@ class ApiService {
       rethrow;
     }
   }
-
-  // =====================================
-
 
 
   // In api_service.dart
@@ -478,13 +419,6 @@ class ApiService {
       return null;
     }
   }
-
-
-
-
-
-
-  //=============================================
 
 
 
@@ -589,9 +523,9 @@ class ApiService {
         headers: {'Authorization': 'Bearer $token'},
       ));
 
-      print('User deleted successfully');
+      // print('User deleted successfully');
     } catch (e) {
-      print('Error deleting user: $e');
+      // print('Error deleting user: $e');
       rethrow;
     }
   }

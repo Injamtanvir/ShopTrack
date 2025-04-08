@@ -15,16 +15,15 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _user != null;
   bool get isAdmin => _user?.role == 'admin';
-  bool get isOwner => _user?.role == 'owner';  // Added new getter for owner check
+  bool get isOwner => _user?.role == 'owner';
 
-  // Initialize provider - check if user is already logged in
   Future<void> initialize() async {
     _setLoading(true);
     try {
       final isValid = await _apiService.verifyToken();
       if (isValid) {
         _user = await _apiService.getCurrentUser();
-        print('User initialized with role: ${_user?.role}');  // Debug print
+        // print('User initialized with role: ${_user?.role}');
       } else {
         await _apiService.logout();
         _user = null;
@@ -46,7 +45,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Register a shop and admin user
+// Register
   Future<String?> registerShop({
     required String name,
     required String address,
@@ -98,7 +97,7 @@ class AuthProvider extends ChangeNotifier {
         password: password,
       );
       _user = User.fromJson(result['user']);
-      print('Logged in user role: ${_user?.role}');  // Debug print
+      // print('Logged in user role: ${_user?.role}');
       notifyListeners();
       return true;
     } on SocketException {
@@ -123,7 +122,6 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    // UPDATED: Check for both admin and owner roles
     if (_user?.role != 'admin' && _user?.role != 'owner') {
       _setError('Only admins and owners can register sales persons');
       return false;
@@ -160,7 +158,6 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    // UPDATED: Check for both admin and owner roles
     if (_user?.role != 'admin' && _user?.role != 'owner') {
       _setError('Only admins and owners can register other admins');
       return false;
