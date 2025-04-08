@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -36,10 +35,6 @@ class SellerHomeScreen extends StatelessWidget {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-
-    // Display values for designation and seller ID
-    final String designation = user.designation ?? 'Not Assigned';
-    final String sellerId = user.sellerId ?? 'Not Assigned';
 
     return Scaffold(
       appBar: AppBar(
@@ -103,7 +98,7 @@ class SellerHomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Designation: $designation',
+                        'Designation: ${user.designation}',
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black54,
@@ -111,7 +106,7 @@ class SellerHomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Seller ID: $sellerId',
+                        'Seller ID: ${user.sellerId}',
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black54,

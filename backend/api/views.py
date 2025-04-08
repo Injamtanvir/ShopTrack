@@ -113,8 +113,7 @@ class ShopRegistrationView(APIView):
 
 
 
-
-
+# Update this section in your views.py file
 class UserLoginView(APIView):
     def post(self, request):
         try:
@@ -171,7 +170,9 @@ class UserLoginView(APIView):
                         "email": user['email'],
                         "role": user['role'],
                         "shop_id": user['shop_id'],
-                        "shop_name": shop['name']
+                        "shop_name": shop['name'],
+                        "designation": user.get('designation', 'Not Assigned'),  # Add this line
+                        "seller_id": user.get('seller_id', 'Not Assigned')       # Add this line
                     }
                 })
             else:
@@ -180,6 +181,78 @@ class UserLoginView(APIView):
         except Exception as e:
             print("Login error:", str(e))
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+# class UserLoginView(APIView):
+#     def post(self, request):
+#         try:
+#             print("Login attempt received:", request.data)
+#             serializer = UserLoginSerializer(data=request.data)
+#             if serializer.is_valid():
+#                 data = serializer.validated_data
+
+#                 # Find user by shop_id and email
+#                 user = users_collection.find_one({
+#                     "shop_id": data['shop_id'],
+#                     "email": data['email']
+#                 })
+
+#                 if not user:
+#                     print(f"User not found for shop_id: {data['shop_id']}, email: {data['email']}")
+#                     return Response(
+#                         {"error": "Invalid shop ID or email"},
+#                         status=status.HTTP_401_UNAUTHORIZED
+#                     )
+
+#                 # Check password
+#                 if user['password'] != hash_password(data['password']):
+#                     print("Invalid password")
+#                     return Response(
+#                         {"error": "Invalid password"},
+#                         status=status.HTTP_401_UNAUTHORIZED
+#                     )
+
+#                 # Get shop details
+#                 shop = shops_collection.find_one({"shop_id": data['shop_id']})
+#                 if not shop:
+#                     print(f"Shop not found for shop_id: {data['shop_id']}")
+#                     return Response(
+#                         {"error": "Shop not found"},
+#                         status=status.HTTP_404_NOT_FOUND
+#                     )
+
+#                 # Create JWT token (expires in 24 hours)
+#                 payload = {
+#                     "user_id": str(user['_id']),
+#                     "email": user['email'],
+#                     "shop_id": user['shop_id'],
+#                     "role": user['role'],
+#                     "exp": datetime.now().timestamp() + (24 * 60 * 60) # 24 hours
+#                 }
+#                 token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+#                 print("Login successful")
+#                 return Response({
+#                     "token": token,
+#                     "user": {
+#                         "name": user['name'],
+#                         "email": user['email'],
+#                         "role": user['role'],
+#                         "shop_id": user['shop_id'],
+#                         "shop_name": shop['name'],
+
+#                         "designation": user.get('designation', 'Not Assigned'),  # Add this line
+#                         "seller_id": user.get('seller_id', 'Not Assigned')    
+#                     }
+#                 })
+#             else:
+#                 print("Validation errors:", serializer.errors)
+#                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         except Exception as e:
+#             print("Login error:", str(e))
+#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ShopUsersView(APIView):
