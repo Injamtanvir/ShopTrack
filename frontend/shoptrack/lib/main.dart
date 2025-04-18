@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -20,6 +19,12 @@ import 'screens/admin_pending_invoice_screen.dart';
 import 'screens/daily_tracking_screen.dart';
 import 'screens/owner_dashboard_screen.dart';
 import 'screens/shop_users_screen.dart';
+import 'screens/premium_dashboard_screen.dart';
+import 'screens/premium_subscription_screen.dart';
+import 'screens/branch_management_screen.dart';
+import 'screens/premium_analytics_screen.dart';
+import 'screens/returned_products_screen.dart';
+import 'screens/shop_settings_screen.dart';
 
 void main() async {
   // Ensure Flutter is initialized
@@ -90,6 +95,12 @@ class MyApp extends StatelessWidget {
       DailyTrackingScreen.routeName: (ctx) => const DailyTrackingScreen(),
       OwnerDashboardScreen.routeName: (ctx) => const OwnerDashboardScreen(),
       ShopUsersScreen.routeName: (ctx) => const ShopUsersScreen(),
+    PremiumDashboardScreen.routeName: (context) => const PremiumDashboardScreen(),
+    PremiumSubscriptionScreen.routeName: (context) => const PremiumSubscriptionScreen(),
+    BranchManagementScreen.routeName: (context) => const BranchManagementScreen(),
+    PremiumAnalyticsScreen.routeName: (context) => const PremiumAnalyticsScreen(),
+    ReturnedProductsScreen.routeName: (context) => const ReturnedProductsScreen(),
+    ShopSettingsScreen.routeName: (context) => const ShopSettingsScreen(),
     },
     ),
     );

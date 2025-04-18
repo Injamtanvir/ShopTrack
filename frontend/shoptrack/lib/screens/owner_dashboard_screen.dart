@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -16,6 +15,8 @@ import 'admin_pending_invoice_screen.dart';
 import 'invoice_history_screen.dart';
 import 'daily_tracking_screen.dart';
 import 'shop_users_screen.dart';
+import 'premium_dashboard_screen.dart';
+import 'premium_subscription_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   static const routeName = '/owner-dashboard';
@@ -134,6 +135,78 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, LoginScreen.routeName);
     }
+  }
+
+  Widget _buildPremiumCard() {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final isPremium = authProvider.isPremium;
+    
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: () {
+          if (isPremium) {
+            Navigator.pushNamed(context, PremiumDashboardScreen.routeName);
+          } else {
+            Navigator.pushNamed(context, PremiumSubscriptionScreen.routeName);
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.star,
+                    color: Colors.amber,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isPremium ? 'Premium Dashboard' : 'Upgrade to Premium',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isPremium
+                    ? 'Access advanced features like branch management, analytics, and more.'
+                    : 'Unlock powerful features for your business: multiple branches, advanced analytics, returned products, and more.',
+                style: const TextStyle(color: Colors.black54),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isPremium ? Colors.green : Colors.amber,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    isPremium ? 'Premium Active' : 'Upgrade Now',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -405,6 +478,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 32),
+              // Premium Section
+              _buildPremiumCard(),
               const SizedBox(height: 32),
               // Shop Operations Section - Same as Admin Dashboard
               const Text(

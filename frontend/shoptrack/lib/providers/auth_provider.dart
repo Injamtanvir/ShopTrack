@@ -16,6 +16,11 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoggedIn => _user != null;
   bool get isAdmin => _user?.role == 'admin';
   bool get isOwner => _user?.role == 'owner';
+  bool get isPremium => _user?.isPremium ?? false;
+
+  // Premium related getters and methods
+  String? get branchId => _user?.branchId;
+  bool get hasBranch => _user?.branchId != null;
 
   Future<void> initialize() async {
     _setLoading(true);
@@ -215,5 +220,270 @@ class AuthProvider extends ChangeNotifier {
   void _clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  // Verify Email OTP
+  Future<bool> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    _setLoading(true);
+    _clearError();
+    try {
+      final result = await _apiService.verifyEmail(
+        email: email,
+        otp: otp,
+      );
+      return result['message'] != null;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Resend OTP
+  Future<bool> resendOtp({
+    required String email,
+  }) async {
+    _setLoading(true);
+    _clearError();
+    try {
+      final result = await _apiService.resendOtp(
+        email: email,
+      );
+      return result['message'] != null;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Get premium status details
+  Future<Map<String, dynamic>?> getPremiumStatus() async {
+    if (!isLoggedIn || !_user!.shopId.isNotEmpty) {
+      _setError('User not logged in');
+      return null;
+    }
+    
+    _setLoading(true);
+    _clearError();
+    try {
+      final result = await _apiService.getPremiumStatus(
+        shopId: _user!.shopId,
+      );
+      return result;
+    } catch (e) {
+      _setError(e.toString());
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Subscribe to premium with simplified transaction handling
+  Future<bool> subscribeToPremium({
+    required String transactionId,
+  }) async {
+    if (!isLoggedIn || !_user!.shopId.isNotEmpty) {
+      _setError('User not logged in');
+      return false;
+    }
+    
+    _setLoading(true);
+    _clearError();
+    try {
+      // Simple transaction validation
+      final result = await _apiService.subscribeToPremium(
+        transactionId: transactionId,
+      );
+      
+      if (result['is_premium'] == true) {
+        // Update user with premium status
+        if (_user != null) {
+          _user = User(
+            id: _user!.id,
+            shopId: _user!.shopId,
+            name: _user!.name,
+            email: _user!.email,
+            role: _user!.role,
+            designation: _user!.designation,
+            sellerId: _user!.sellerId,
+            shopName: _user!.shopName,
+            isPremium: true,
+            branchId: _user!.branchId,
+          );
+          notifyListeners();
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Get recharge history
+  Future<List<dynamic>?> getRechargeHistory() async {
+    if (!isLoggedIn || !_user!.shopId.isNotEmpty) {
+      _setError('User not logged in');
+      return null;
+    }
+    
+    _setLoading(true);
+    _clearError();
+    try {
+      final result = await _apiService.getRechargeHistory(
+        shopId: _user!.shopId,
+      );
+      return result is List ? result : [];
+    } catch (e) {
+      _setError(e.toString());
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Get shop branches
+  Future<List<dynamic>?> getShopBranches() async {
+    if (!isLoggedIn || !_user!.shopId.isNotEmpty) {
+      _setError('User not logged in');
+      return null;
+    }
+    
+    if (!isPremium) {
+      _setError('Premium subscription required');
+      return null;
+    }
+    
+    _setLoading(true);
+    _clearError();
+    try {
+      final result = await _apiService.getShopBranches(
+        shopId: _user!.shopId,
+      );
+      return result is List ? result : [];
+    } catch (e) {
+      _setError(e.toString());
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Create branch
+  Future<Map<String, dynamic>?> createBranch({
+    required String name,
+    required String address,
+    String? managerEmail,
+  }) async {
+    if (!isLoggedIn || !_user!.shopId.isNotEmpty) {
+      _setError('User not logged in');
+      return null;
+    }
+    
+    if (!isPremium) {
+      _setError('Premium subscription required');
+      return null;
+    }
+    
+    if (!isOwner) {
+      _setError('Only shop owners can create branches');
+      return null;
+    }
+    
+    _setLoading(true);
+    _clearError();
+    try {
+      final result = await _apiService.createBranch(
+        name: name,
+        address: address,
+        managerEmail: managerEmail,
+      );
+      return result;
+    } catch (e) {
+      _setError(e.toString());
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Assign user to branch
+  Future<bool> assignUserToBranch({
+    required String userEmail,
+    required String branchId,
+  }) async {
+    if (!isLoggedIn || !_user!.shopId.isNotEmpty) {
+      _setError('User not logged in');
+      return false;
+    }
+    
+    if (!isPremium) {
+      _setError('Premium subscription required');
+      return false;
+    }
+    
+    if (!isOwner && !isAdmin) {
+      _setError('Only shop owners and admins can assign users to branches');
+      return false;
+    }
+    
+    _setLoading(true);
+    _clearError();
+    try {
+      final result = await _apiService.assignUserToBranch(
+        userEmail: userEmail,
+        branchId: branchId,
+      );
+      return result['message'] != null;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  // Upload shop logo
+  Future<bool> uploadShopLogo({
+    required String logoUrl,
+  }) async {
+    if (!isLoggedIn || !_user!.shopId.isNotEmpty) {
+      _setError('User not logged in');
+      return false;
+    }
+    
+    if (!isPremium) {
+      _setError('Premium subscription required');
+      return false;
+    }
+    
+    if (!isOwner) {
+      _setError('Only shop owners can upload shop logo');
+      return false;
+    }
+    
+    _setLoading(true);
+    _clearError();
+    try {
+      final result = await _apiService.uploadShopLogo(
+        shopId: _user!.shopId,
+        logoUrl: logoUrl,
+      );
+      return result['message'] != null;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 }

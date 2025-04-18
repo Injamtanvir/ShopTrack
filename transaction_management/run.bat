@@ -1,0 +1,3 @@
+@echo off
+echo Opening ShopTrack Transaction Management...
+start "" "%~dp0index.html"

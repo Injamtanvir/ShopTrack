@@ -11,6 +11,8 @@ class ApiConstants {
   static const String registerSalesPerson = '$baseUrl/register-sales-person/';
   static const String registerAdmin = '$baseUrl/register-admin/';
   static const String verifyToken = '$baseUrl/verify-token/';
+  static const String verifyEmail = '$baseUrl/verify-email/';
+  static const String resendOtp = '$baseUrl/resend-otp/';
   static const String products = '$baseUrl/products/';
   static const String updateProductPrice = '$baseUrl/update-product-price/';
   static const String productPriceList = '$baseUrl/product-price-list/';
@@ -26,5 +28,26 @@ class ApiConstants {
   static const String getTodayStats = '$baseUrl/today-stats/';
   static const String getTodayInvoices = '$baseUrl/today-invoices/';
   static const String getShopUsers = '$baseUrl/shop-users/';
+  static const String shopUsers = '$baseUrl/shop/users/';
   static const String deleteUser = '$baseUrl/delete-user/';
+  
+  // Premium features
+  static const String premiumStatus = '$baseUrl/premium/status/';
+  static const String premiumSubscribe = '$baseUrl/premium/activate/';
+  static const String rechargeHistory = '$baseUrl/premium/recharge-history/';
+  static const String premiumSalesAnalytics = '$baseUrl/premium/analytics/sales/';
+  static const String productProfitAnalytics = '$baseUrl/premium/analytics/products/';
+  
+  // Branch management
+  static const String branches = '$baseUrl/branches/';
+  static const String createBranch = '$baseUrl/branches/create/';
+  static const String assignUserToBranch = '$baseUrl/branches/assign-user/';
+  
+  // Returned products
+  static const String returnProduct = '$baseUrl/products/return/';
+  static const String returnedProducts = '$baseUrl/products/returned/';
+  
+  // Shop settings
+  static const String shopSettings = '$baseUrl/shop/settings/';
+  static const String uploadShopLogo = '$baseUrl/shop/upload-logo/';
 }

@@ -451,7 +451,7 @@ class ApiService {
     try {
       print('Fetching shop users for shopId: $shopId');
       final data = await _safeApiCall(() => http.get(
-        Uri.parse('${ApiConstants.getShopUsers}$shopId/'),
+        Uri.parse('${ApiConstants.shopUsers}$shopId/'),
         headers: {'Authorization': 'Bearer $token'},
       ));
 
@@ -481,25 +481,10 @@ class ApiService {
 
     try {
       print('Fetching shop users for shopId: $shopId');
-      final response = await http.get(
-        Uri.parse('${ApiConstants.getShopUsers}$shopId/'),
+      return await _safeApiCall(() => http.get(
+        Uri.parse('${ApiConstants.shopUsers}$shopId/'),
         headers: {'Authorization': 'Bearer $token'},
-      ).timeout(requestTimeout);
-
-      print('Shop users response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        print('Found ${data.length} users in raw data');
-        return data;
-      } else {
-        print('Failed to load shop users. Response: ${response.body}');
-        throw Exception('Failed to load shop users: ${response.body}');
-      }
-    } on SocketException {
-      throw Exception('Network error: Unable to connect to the server');
-    } on TimeoutException {
-      throw Exception('Network timeout: Server took too long to respond');
+      ));
     } catch (e) {
       print('Error getting shop users: $e');
       rethrow;
@@ -526,6 +511,358 @@ class ApiService {
       // print('User deleted successfully');
     } catch (e) {
       // print('Error deleting user: $e');
+      rethrow;
+    }
+  }
+
+  // Add Premium-related methods to the ApiService class
+
+  // Get premium status
+  Future<Map<String, dynamic>> getPremiumStatus({required String shopId}) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.get(
+        Uri.parse('${ApiConstants.premiumStatus}$shopId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      ));
+    } catch (e) {
+      print('Error getting premium status: $e');
+      rethrow;
+    }
+  }
+
+  // Subscribe to premium with simplified transaction handling
+  Future<Map<String, dynamic>> subscribeToPremium({
+    required String transactionId,
+  }) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      // Simple request with only transaction ID
+      // Server will verify transaction, activate premium if valid,
+      // and delete the transaction ID from database immediately
+      return await _safeApiCall(() => http.post(
+        Uri.parse(ApiConstants.premiumSubscribe),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'transaction_id': transactionId,
+        }),
+      ));
+    } catch (e) {
+      print('Error subscribing to premium: $e');
+      rethrow;
+    }
+  }
+
+  // Get recharge history
+  Future<List<dynamic>> getRechargeHistory({
+    required String shopId,
+  }) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.get(
+        Uri.parse('${ApiConstants.rechargeHistory}$shopId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      ));
+    } catch (e) {
+      print('Error getting recharge history: $e');
+      rethrow;
+    }
+  }
+
+  // Get shop branches
+  Future<List<dynamic>> getShopBranches({
+    required String shopId,
+  }) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.get(
+        Uri.parse('${ApiConstants.branches}$shopId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      ));
+    } catch (e) {
+      print('Error getting shop branches: $e');
+      rethrow;
+    }
+  }
+
+  // Create branch
+  Future<Map<String, dynamic>> createBranch({
+    required String name,
+    required String address,
+    String? managerEmail,
+  }) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      final requestBody = {
+        'name': name,
+        'address': address,
+      };
+      
+      if (managerEmail != null && managerEmail.isNotEmpty) {
+        requestBody['manager_email'] = managerEmail;
+      }
+      
+      return await _safeApiCall(() => http.post(
+        Uri.parse(ApiConstants.createBranch),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      ));
+    } catch (e) {
+      print('Error creating branch: $e');
+      rethrow;
+    }
+  }
+
+  // Assign user to branch
+  Future<Map<String, dynamic>> assignUserToBranch({
+    required String userEmail,
+    required String branchId,
+  }) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.post(
+        Uri.parse(ApiConstants.assignUserToBranch),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'user_email': userEmail,
+          'branch_id': branchId,
+        }),
+      ));
+    } catch (e) {
+      print('Error assigning user to branch: $e');
+      rethrow;
+    }
+  }
+
+  // Return a product
+  Future<Map<String, dynamic>> returnProduct({
+    required String invoiceId,
+    required String productId,
+    required int quantity,
+    required String reason,
+  }) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.post(
+        Uri.parse(ApiConstants.returnProduct),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'invoice_id': invoiceId,
+          'product_id': productId,
+          'quantity': quantity,
+          'return_reason': reason,
+        }),
+      ));
+    } catch (e) {
+      print('Error returning product: $e');
+      rethrow;
+    }
+  }
+
+  // Get returned products
+  Future<List<dynamic>> getReturnedProducts(String shopId) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.get(
+        Uri.parse('${ApiConstants.returnedProducts}$shopId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      ));
+    } catch (e) {
+      print('Error getting returned products: $e');
+      rethrow;
+    }
+  }
+
+  // Get premium sales analytics
+  Future<Map<String, dynamic>> getPremiumSalesAnalytics(String shopId) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.get(
+        Uri.parse('${ApiConstants.premiumSalesAnalytics}$shopId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      ));
+    } catch (e) {
+      print('Error getting premium sales analytics: $e');
+      rethrow;
+    }
+  }
+
+  // Get product profit analytics
+  Future<Map<String, dynamic>> getProductProfitAnalytics(String shopId) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.get(
+        Uri.parse('${ApiConstants.productProfitAnalytics}$shopId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      ));
+    } catch (e) {
+      print('Error getting product profit analytics: $e');
+      rethrow;
+    }
+  }
+
+  // Get shop settings
+  Future<Map<String, dynamic>> getShopSettings(String shopId) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.get(
+        Uri.parse('${ApiConstants.shopSettings}$shopId/'),
+        headers: {'Authorization': 'Bearer $token'},
+      ));
+    } catch (e) {
+      print('Error getting shop settings: $e');
+      rethrow;
+    }
+  }
+
+  // Update shop settings
+  Future<Map<String, dynamic>> updateShopSettings({
+    required String shopId,
+    required String name,
+    required String address,
+    required String licenseNumber,
+  }) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.put(
+        Uri.parse('${ApiConstants.shopSettings}$shopId/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'name': name,
+          'address': address,
+          'license_number': licenseNumber,
+        }),
+      ));
+    } catch (e) {
+      print('Error updating shop settings: $e');
+      rethrow;
+    }
+  }
+
+  // Upload shop logo
+  Future<Map<String, dynamic>> uploadShopLogo({
+    required String shopId,
+    required String logoUrl,
+  }) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    try {
+      return await _safeApiCall(() => http.post(
+        Uri.parse('${ApiConstants.uploadShopLogo}$shopId/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'logo_url': logoUrl,
+        }),
+      ));
+    } catch (e) {
+      print('Error uploading shop logo: $e');
+      rethrow;
+    }
+  }
+
+  // Verify Email OTP
+  Future<Map<String, dynamic>> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      return await _safeApiCall(() => http.post(
+        Uri.parse(ApiConstants.verifyEmail),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+        }),
+      ));
+    } catch (e) {
+      print('Error verifying email: $e');
+      rethrow;
+    }
+  }
+  
+  // Resend OTP
+  Future<Map<String, dynamic>> resendOtp({
+    required String email,
+  }) async {
+    try {
+      return await _safeApiCall(() => http.post(
+        Uri.parse(ApiConstants.resendOtp),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+        }),
+      ));
+    } catch (e) {
+      print('Error resending OTP: $e');
       rethrow;
     }
   }

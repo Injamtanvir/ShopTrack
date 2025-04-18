@@ -21,6 +21,7 @@ dependencies:
   connectivity_plus: ^5.0.1
   universal_html: ^2.2.4
   path_provider_platform_interface: ^2.1.0
+  fl_chart: ^0.65.0
 
 
 dev_dependencies:

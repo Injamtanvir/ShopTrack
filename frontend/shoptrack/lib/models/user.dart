@@ -7,6 +7,8 @@ class User {
   final String? designation;
   final String? sellerId;
   final String? shopName;
+  final bool isPremium;
+  final String? branchId;
 
   User({
     this.id,
@@ -17,6 +19,8 @@ class User {
     this.designation,
     this.sellerId,
     this.shopName,
+    this.isPremium = false,
+    this.branchId,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -29,6 +33,8 @@ class User {
       designation: json['designation'] ?? 'Not Assigned',
       sellerId: json['seller_id'] ?? 'Not Assigned',
       shopName: json['shop_name'],
+      isPremium: json['is_premium'] ?? false,
+      branchId: json['branch_id'],
     );
   }
 
@@ -42,6 +48,8 @@ class User {
       'designation': designation,
       'seller_id': sellerId,
       'shop_name': shopName,
+      'is_premium': isPremium,
+      'branch_id': branchId,
     };
   }
 }

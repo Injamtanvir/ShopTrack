@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopTrack - Transaction Management</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-chart-line"></i>
+                <h1>ShopTrack</h1>
+            </div>
+            <h2>Transaction Management</h2>
+        </header>
+
+        <nav>
+            <ul>
+                <li class="active"><a href="#" data-page="dashboard"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="#" data-page="transactions"><i class="fas fa-exchange-alt"></i> Transactions</a></li>
+                <li><a href="#" data-page="add-transaction"><i class="fas fa-plus-circle"></i> Add Transaction</a></li>
+                <li><a href="#" data-page="reports"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                <li><a href="#" data-page="settings"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+        </nav>
+
+        <main>
+            <!-- Dashboard Page -->
+            <section id="dashboard" class="page active">
+                <div class="page-header">
+                    <h3>Dashboard</h3>
+                    <p>Overview of your transaction data</p>
+                </div>
+
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-icon revenue">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h4>Total Revenue</h4>
+                            <p class="stat-value" id="total-revenue">৳0.00</p>
+                            <p class="stat-period">This month</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon expenses">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h4>Total Expenses</h4>
+                            <p class="stat-value" id="total-expenses">৳0.00</p>
+                            <p class="stat-period">This month</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon transactions">
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h4>Transactions</h4>
+                            <p class="stat-value" id="total-transactions">0</p>
+                            <p class="stat-period">This month</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon balance">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h4>Net Balance</h4>
+                            <p class="stat-value" id="net-balance">৳0.00</p>
+                            <p class="stat-period">Current</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h4>Monthly Transactions</h4>
+                        <canvas id="monthly-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Transaction Categories</h4>
+                        <canvas id="category-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="recent-transactions">
+                    <div class="section-header">
+                        <h4>Recent Transactions</h4>
+                        <a href="#" data-page="transactions" class="view-all">View All</a>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="recent-transactions-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Category</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transactions Page -->
+            <section id="transactions" class="page">
+                <div class="page-header">
+                    <h3>All Transactions</h3>
+                    <p>View and manage your transactions</p>
+                </div>
+
+                <div class="filters">
+                    <div class="search-box">
+                        <input type="text" id="transaction-search" placeholder="Search transactions...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="filter-options">
+                        <select id="filter-type">
+                            <option value="all">All Types</option>
+                            <option value="income">Income</option>
+                            <option value="expense">Expense</option>
+                        </select>
+                        <select id="filter-category">
+                            <option value="all">All Categories</option>
+                            <!-- Categories will be populated by JavaScript -->
+                        </select>
+                        <select id="filter-date">
+                            <option value="all">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="this-week">This Week</option>
+                            <option value="this-month">This Month</option>
+                            <option value="this-year">This Year</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                        <div id="custom-date-range" class="hidden">
+                            <input type="date" id="date-from">
+                            <input type="date" id="date-to">
+                            <button id="apply-date-filter">Apply</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="transactions-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination">
+                    <button id="prev-page" disabled><i class="fas fa-chevron-left"></i> Previous</button>
+                    <span id="page-info">Page 1 of 1</span>
+                    <button id="next-page" disabled>Next <i class="fas fa-chevron-right"></i></button>
+                </div>
+            </section>
+
+            <!-- Add Transaction Page -->
+            <section id="add-transaction" class="page">
+                <div class="page-header">
+                    <h3>Add Transaction</h3>
+                    <p>Record a new transaction</p>
+                </div>
+
+                <form id="transaction-form">
+                    <div class="form-group">
+                        <label for="transaction-type">Transaction Type</label>
+                        <div class="toggle-container">
+                            <input type="radio" id="income" name="transaction-type" value="income" checked>
+                            <label for="income" class="toggle-option income">Income</label>
+                            <input type="radio" id="expense" name="transaction-type" value="expense">
+                            <label for="expense" class="toggle-option expense">Expense</label>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="transaction-date">Date</label>
+                            <input type="date" id="transaction-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-amount">Amount (৳)</label>
+                            <input type="number" id="transaction-amount" step="0.01" min="0" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-description">Description</label>
+                        <input type="text" id="transaction-description" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-category">Category</label>
+                        <select id="transaction-category" required>
+                            <option value="">Select Category</option>
+                            <!-- Income categories -->
+                            <optgroup label="Income" id="income-categories">
+                                <option value="sales">Sales</option>
+                                <option value="investments">Investments</option>
+                                <option value="other-income">Other Income</option>
+                            </optgroup>
+                            <!-- Expense categories -->
+                            <optgroup label="Expense" id="expense-categories">
+                                <option value="inventory">Inventory</option>
+                                <option value="utilities">Utilities</option>
+                                <option value="rent">Rent</option>
+                                <option value="salaries">Salaries</option>
+                                <option value="marketing">Marketing</option>
+                                <option value="supplies">Supplies</option>
+                                <option value="other-expense">Other Expense</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-status">Status</label>
+                        <select id="transaction-status" required>
+                            <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-notes">Notes (Optional)</label>
+                        <textarea id="transaction-notes" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-attachment">Attachment (Optional)</label>
+                        <input type="file" id="transaction-attachment">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="reset" class="btn-secondary">Clear</button>
+                        <button type="submit" class="btn-primary">Save Transaction</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Reports Page -->
+            <section id="reports" class="page">
+                <div class="page-header">
+                    <h3>Reports</h3>
+                    <p>Analyze your transaction data</p>
+                </div>
+
+                <div class="report-filters">
+                    <div class="form-group">
+                        <label for="report-type">Report Type</label>
+                        <select id="report-type">
+                            <option value="income-expense">Income vs. Expense</option>
+                            <option value="category">Category Analysis</option>
+                            <option value="monthly-trend">Monthly Trend</option>
+                            <option value="daily-trend">Daily Trend</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="report-period">Time Period</label>
+                        <select id="report-period">
+                            <option value="this-month">This Month</option>
+                            <option value="last-month">Last Month</option>
+                            <option value="this-quarter">This Quarter</option>
+                            <option value="this-year">This Year</option>
+                            <option value="last-year">Last Year</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div id="report-custom-range" class="hidden form-row">
+                        <div class="form-group">
+                            <label for="report-date-from">From</label>
+                            <input type="date" id="report-date-from">
+                        </div>
+                        <div class="form-group">
+                            <label for="report-date-to">To</label>
+                            <input type="date" id="report-date-to">
+                        </div>
+                    </div>
+                    <button id="generate-report" class="btn-primary">Generate Report</button>
+                </div>
+
+                <div class="report-container">
+                    <div class="report-header">
+                        <h4 id="report-title">Income vs. Expense Report</h4>
+                        <div class="report-actions">
+                            <button id="download-pdf" class="btn-secondary"><i class="fas fa-file-pdf"></i> PDF</button>
+                            <button id="download-csv" class="btn-secondary"><i class="fas fa-file-csv"></i> CSV</button>
+                            <button id="print-report" class="btn-secondary"><i class="fas fa-print"></i> Print</button>
+                        </div>
+                    </div>
+                    <div class="report-content">
+                        <div class="report-summary">
+                            <div class="summary-card">
+                                <h5>Total Income</h5>
+                                <p id="report-income">৳0.00</p>
+                            </div>
+                            <div class="summary-card">
+                                <h5>Total Expenses</h5>
+                                <p id="report-expenses">৳0.00</p>
+                            </div>
+                            <div class="summary-card">
+                                <h5>Net Profit/Loss</h5>
+                                <p id="report-profit">৳0.00</p>
+                            </div>
+                            <div class="summary-card">
+                                <h5>Transaction Count</h5>
+                                <p id="report-count">0</p>
+                            </div>
+                        </div>
+                        <div class="report-chart-container">
+                            <canvas id="report-chart"></canvas>
+                        </div>
+                        <div class="report-table-container">
+                            <h5>Detailed Breakdown</h5>
+                            <div class="table-responsive">
+                                <table id="report-table">
+                                    <thead id="report-table-head">
+                                        <!-- Will be populated by JavaScript -->
+                                    </thead>
+                                    <tbody id="report-table-body">
+                                        <!-- Will be populated by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Page -->
+            <section id="settings" class="page">
+                <div class="page-header">
+                    <h3>Settings</h3>
+                    <p>Customize your transaction management experience</p>
+                </div>
+
+                <div class="settings-container">
+                    <div class="settings-section">
+                        <h4>Categories</h4>
+                        <div class="settings-content">
+                            <div class="category-type">
+                                <h5>Income Categories</h5>
+                                <ul id="income-categories-list" class="category-list">
+                                    <!-- Will be populated by JavaScript -->
+                                </ul>
+                                <div class="add-category">
+                                    <input type="text" id="new-income-category" placeholder="New category name">
+                                    <button id="add-income-category" class="btn-primary">Add</button>
+                                </div>
+                            </div>
+                            <div class="category-type">
+                                <h5>Expense Categories</h5>
+                                <ul id="expense-categories-list" class="category-list">
+                                    <!-- Will be populated by JavaScript -->
+                                </ul>
+                                <div class="add-category">
+                                    <input type="text" id="new-expense-category" placeholder="New category name">
+                                    <button id="add-expense-category" class="btn-primary">Add</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>Currency</h4>
+                        <div class="settings-content">
+                            <div class="form-group">
+                                <label for="currency-symbol">Currency Symbol</label>
+                                <input type="text" id="currency-symbol" value="৳">
+                            </div>
+                            <div class="form-group">
+                                <label for="decimal-places">Decimal Places</label>
+                                <select id="decimal-places">
+                                    <option value="0">0</option>
+                                    <option value="2" selected>2</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>Data Management</h4>
+                        <div class="settings-content">
+                            <div class="form-group">
+                                <button id="export-data" class="btn-primary"><i class="fas fa-file-export"></i> Export All Data</button>
+                            </div>
+                            <div class="form-group">
+                                <label for="import-data">Import Data</label>
+                                <input type="file" id="import-data" accept=".json">
+                            </div>
+                            <div class="form-group">
+                                <button id="clear-data" class="btn-danger"><i class="fas fa-trash"></i> Clear All Data</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>Theme</h4>
+                        <div class="settings-content">
+                            <div class="theme-options">
+                                <div class="theme-option" data-theme="light">
+                                    <div class="theme-preview light-theme"></div>
+                                    <span>Light</span>
+                                </div>
+                                <div class="theme-option" data-theme="dark">
+                                    <div class="theme-preview dark-theme"></div>
+                                    <span>Dark</span>
+                                </div>
+                                <div class="theme-option" data-theme="blue">
+                                    <div class="theme-preview blue-theme"></div>
+                                    <span>Blue</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-actions">
+                        <button id="save-settings" class="btn-primary">Save Settings</button>
+                        <button id="reset-settings" class="btn-secondary">Reset to Default</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 ShopTrack Transaction Management. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Modal Templates -->
+    <div id="modal-container" class="modal-container hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h4 id="modal-title">Modal Title</h4>
+                <button class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-content" id="modal-content">
+                <!-- Modal content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/charts.js"></script>
+</body>
+</html> 

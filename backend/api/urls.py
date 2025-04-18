@@ -36,4 +36,30 @@ urlpatterns = [
     path('shop-users/<str:shop_id>/', views.ShopUsersView.as_view(), name='shop-users'),
     path('delete-user/<str:user_id>/', views.DeleteUserView.as_view(), name='delete-user'),
     path('public-invoice/', views.PublicInvoiceView.as_view(), name='public-invoice'),
+    
+    # Email verification
+    path('verify-email/', views.VerifyEmailView.as_view(), name='verify-email'),
+    
+    # Premium shop features
+    path('premium/status/<str:shop_id>/', views.PremiumStatusView.as_view(), name='premium-status'),
+    path('premium/subscribe/', views.PremiumSubscribeView.as_view(), name='premium-subscribe'),
+    path('premium/recharge-history/<str:shop_id>/', views.RechargeHistoryView.as_view(), name='recharge-history'),
+    
+    # Branch management
+    path('branches/<str:shop_id>/', views.BranchesView.as_view(), name='branches'),
+    path('branches/create/', views.CreateBranchView.as_view(), name='create-branch'),
+    path('branches/<str:branch_id>/', views.BranchDetailView.as_view(), name='branch-detail'),
+    path('branches/assign-user/', views.AssignUserToBranchView.as_view(), name='assign-user-to-branch'),
+    
+    # Returned products
+    path('products/return/', views.ReturnProductView.as_view(), name='return-product'),
+    path('products/returned/<str:shop_id>/', views.ReturnedProductsView.as_view(), name='returned-products'),
+    
+    # Premium analytics
+    path('premium/analytics/sales/<str:shop_id>/', views.PremiumSalesAnalyticsView.as_view(), name='premium-sales-analytics'),
+    path('premium/analytics/products/<str:shop_id>/', views.ProductProfitAnalyticsView.as_view(), name='product-profit-analytics'),
+    
+    # Shop settings & profile
+    path('shop/settings/<str:shop_id>/', views.ShopSettingsView.as_view(), name='shop-settings'),
+    path('shop/upload-logo/<str:shop_id>/', views.UploadShopLogoView.as_view(), name='upload-shop-logo'),
 ]

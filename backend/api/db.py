@@ -23,6 +23,12 @@ users_collection = db["users"]
 products_collection = db["products"]
 invoices_collection = db["invoices"]
 
+# Premium collections
+premium_recharges_collection = db["premium_recharges"]
+recharge_history_collection = db["recharge_history"]
+branches_collection = db["branches"]
+returned_products_collection = db["returned_products"]
+
 def generate_shop_id():
     """Generate a unique 8-digit shop ID"""
     while True:
@@ -31,6 +37,15 @@ def generate_shop_id():
         # Check if it already exists
         if not shops_collection.find_one({"shop_id": shop_id}):
             return shop_id
+
+def generate_branch_id(shop_id):
+    """Generate a unique branch ID for a shop"""
+    while True:
+        # Generate random 4-digit number and append to shop_id
+        branch_id = f"{shop_id}-{random.randint(1000, 9999)}"
+        # Check if it already exists
+        if not branches_collection.find_one({"branch_id": branch_id}):
+            return branch_id
 
 # Get next invoice number
 class NextInvoiceNumberView(APIView):
@@ -95,6 +110,16 @@ class SaveInvoiceView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Get branch ID if provided
+        branch_id = request.data.get('branch_id')
+        
+        # Generate current time in HH:MM format
+        current_time = datetime.now().strftime('%H:%M')
+
+        # Get shop to check premium status
+        shop = shops_collection.find_one({"shop_id": shop_id})
+        is_premium = shop.get('is_premium', False) if shop else False
+
         invoice_data = {
             "invoice_number": request.data['invoice_number'],
             "shop_id": shop_id,
@@ -104,6 +129,7 @@ class SaveInvoiceView(APIView):
             "customer_name": request.data['customer_name'],
             "customer_address": request.data['customer_address'],
             "date": request.data['date'],
+            "time": current_time,  # Include time
             "items": request.data['items'],
             "subtotal_amount": request.data['subtotal_amount'],
             "discount_amount": request.data['discount_amount'],
@@ -113,6 +139,15 @@ class SaveInvoiceView(APIView):
             "created_at": datetime.now(),
             "updated_at": datetime.now()
         }
+        
+        # Add premium fields if shop is premium
+        if is_premium:
+            invoice_data["branch_id"] = branch_id
+            invoice_data["is_premium"] = True
+        
+        # Include logo URL for premium shops if available
+        if is_premium and shop.get('logo_url'):
+            invoice_data["shop_logo_url"] = shop.get('logo_url')
 
 
         # Insert the invoice
@@ -160,6 +195,10 @@ class GenerateInvoiceView(APIView):
                     {"error": "Invoice already completed"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+                
+            # Get shop to check premium status
+            shop = shops_collection.find_one({"shop_id": shop_id})
+            is_premium = shop.get('is_premium', False) if shop else False
 
             # Update product quantities - with additional error handling
             for item in invoice['items']:
@@ -190,43 +229,61 @@ class GenerateInvoiceView(APIView):
                 
                 # Update the product quantity
                 new_quantity = product['quantity'] - quantity
+                update_data = {
+                    "quantity": new_quantity,
+                    "updated_at": datetime.now()
+                }
+                
+                # For premium shops, maintain price history
+                if is_premium:
+                    price_history = product.get('price_history', [])
+                    
+                    # Add current selling/buying price to history if not already tracked
+                    history_entry = {
+                        "date": datetime.now(),
+                        "selling_price": product.get('selling_price'),
+                        "buying_price": product.get('buying_price'),
+                        "invoice_id": str(invoice['_id']),
+                        "quantity_sold": quantity
+                    }
+                    price_history.append(history_entry)
+                    
+                    # Limit history to last 100 entries
+                    if len(price_history) > 100:
+                        price_history = price_history[-100:]
+                    
+                    update_data["price_history"] = price_history
+                
+                # Update the product in the database
                 result = products_collection.update_one(
                     {"_id": ObjectId(product_id)},
-                    {"$set": {
-                        "quantity": new_quantity,
-                        "updated_at": datetime.now()
-                    }}
+                    {"$set": update_data}
                 )
                 
-                # Verify update was successful
                 if result.modified_count == 0:
                     return Response(
-                        {"error": f"Failed to update quantity for product {product['name']}"},
+                        {"error": f"Failed to update product {product['name']}"},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
 
-            # Update the invoice status to completed
-            result = invoices_collection.update_one(
+            # Update invoice status to completed
+            invoices_collection.update_one(
                 {"_id": ObjectId(invoice_id)},
                 {"$set": {
                     "status": "completed",
-                    "updated_at": datetime.now(),
-                    "completed_by": user_email
+                    "completed_at": datetime.now(),
+                    "completed_by": user_email,
+                    "updated_at": datetime.now()
                 }}
             )
 
-            if result.modified_count == 0:
-                return Response(
-                    {"error": "Failed to update invoice status"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-
-            return Response({
-                "message": "Invoice generated successfully",
-                "invoice_id": invoice_id
-            })
-
+            return Response(
+                {"message": "Invoice generated successfully"},
+                status=status.HTTP_200_OK
+            )
+                
         except Exception as e:
+            print(f"Error generating invoice: {str(e)}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
