@@ -15,34 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // App initialization
 function initApp() {
-    console.log('Initializing Transaction Management App...');
+    console.log('Initializing ShopTrack Payment Processor...');
     
-    // Check for existing user settings and apply them
-    const savedSettings = localStorage.getItem('userSettings');
-    if (savedSettings) {
-        const settings = JSON.parse(savedSettings);
-        
-        // Apply theme
-        if (settings.theme) {
-            applyTheme(settings.theme);
-        }
-        
-        // Apply currency settings
-        if (settings.currency) {
-            document.getElementById('currency-symbol').value = settings.currency;
-        }
-        
-        if (settings.decimalPlaces) {
-            document.getElementById('decimal-places').value = settings.decimalPlaces;
-        }
-    }
-    
-    // Set today's date as default in the transaction form
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('transaction-date').value = today;
-    
-    // Initialize any third-party libraries or components
-    initializeCharts();
+    // Set up event listeners
+    setupEventListeners();
 }
 
 // Navigation setup
@@ -283,12 +259,43 @@ function showModal(title, content) {
     modalContainer.classList.remove('hidden');
 }
 
-// Function to format currency
-function formatCurrency(amount) {
-    const currencySymbol = document.getElementById('currency-symbol').value || '৳';
-    const decimalPlaces = parseInt(document.getElementById('decimal-places').value || '2');
+// Handle transaction form submission
+async function handleTransactionFormSubmit(e) {
+    e.preventDefault();
     
-    return `${currencySymbol}${parseFloat(amount).toFixed(decimalPlaces)}`;
+    // Reset any previous results
+    document.getElementById('result-container').classList.remove('active');
+    
+    // Get form values
+    const transactionId = document.getElementById('transaction-id').value.trim();
+    const amount = parseFloat(document.getElementById('amount').value);
+    
+    // Basic validation
+    if (!transactionId) {
+        showResult(false, 'Transaction ID is required.');
+        return;
+    }
+    
+    if (isNaN(amount) || amount <= 0) {
+        showResult(false, 'Please enter a valid amount greater than zero.');
+        return;
+    }
+    
+    // Process the payment
+    const result = await processPayment(transactionId, amount);
+    
+    // Show the result
+    showResult(result.success, result.message, result.details);
+    
+    // Clear form on success
+    if (result.success) {
+        transactionForm.reset();
+    }
+}
+
+// Format currency with Bangladeshi Taka symbol
+function formatCurrency(amount) {
+    return '৳' + parseFloat(amount).toFixed(2);
 }
 
 // Add any global variables or objects that will be needed across files

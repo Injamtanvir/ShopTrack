@@ -866,4 +866,83 @@ class ApiService {
       rethrow;
     }
   }
+
+  // Premium subscription transaction API methods
+  Future<Map<String, dynamic>> checkTransaction(String transactionId) async {
+    try {
+      final token = await _safeApiCall(() => _storage.read(key: 'token'));
+      if (token == null) {
+        return {'success': false, 'message': 'No valid token found'};
+      }
+
+      return await _safeApiCall(() async {
+        final response = await http.get(
+          Uri.parse(ApiConstants.checkTransaction + transactionId),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+
+        return _handleApiResponse(response);
+      });
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> addRecharge(String transactionId, double amount) async {
+    try {
+      final token = await _safeApiCall(() => _storage.read(key: 'token'));
+      if (token == null) {
+        return {'success': false, 'message': 'No valid token found'};
+      }
+
+      return await _safeApiCall(() async {
+        final response = await http.post(
+          Uri.parse(ApiConstants.addRecharge),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'transactionId': transactionId,
+            'amount': amount,
+          }),
+        );
+
+        return _handleApiResponse(response);
+      });
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> recordTransaction(String transactionId, double amount) async {
+    try {
+      final token = await _safeApiCall(() => _storage.read(key: 'token'));
+      if (token == null) {
+        return {'success': false, 'message': 'No valid token found'};
+      }
+
+      return await _safeApiCall(() async {
+        final response = await http.post(
+          Uri.parse(ApiConstants.recordTransaction),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'transactionId': transactionId,
+            'amount': amount,
+            'timestamp': DateTime.now().toIso8601String(),
+          }),
+        );
+
+        return _handleApiResponse(response);
+      });
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }

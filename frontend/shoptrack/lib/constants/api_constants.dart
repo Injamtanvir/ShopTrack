@@ -50,4 +50,9 @@ class ApiConstants {
   // Shop settings
   static const String shopSettings = '$baseUrl/shop/settings/';
   static const String uploadShopLogo = '$baseUrl/shop/upload-logo/';
+
+  // Premium Transaction Management
+  static const String checkTransaction = '$baseUrl/premium/transaction/'; // append transaction ID
+  static const String recordTransaction = '$baseUrl/premium/transaction';
+  static const String addRecharge = '$baseUrl/premium/addrecharge';
 }
