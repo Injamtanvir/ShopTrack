@@ -41,6 +41,10 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+    
+    // Debug print to see the mobile number
+    print('OTP screen initialized with mobile number: ${widget.registrationData['mobileNumber']}');
+    
     _startResendTimer();
     // In a real app, you would trigger OTP sending here
     _sendOTP();
@@ -81,11 +85,19 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     });
 
     try {
+      // Debug: Check mobile number
+      String mobileNumber = widget.registrationData['mobileNumber'] ?? '';
+      print('Sending OTP with mobile number: $mobileNumber');
+      
+      if (mobileNumber.isEmpty) {
+        throw Exception("Mobile number is required for OTP verification");
+      }
+      
       // Use the API service to send OTP
       final apiService = ApiService();
       await apiService.sendOTP(
         email: widget.email,
-        mobileNumber: widget.registrationData['mobileNumber'],
+        mobileNumber: mobileNumber,
       );
       
       if (!mounted) return;
@@ -141,10 +153,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         otp: otp,
       );
       
-      // Check if owner photo path exists in registration data
-      if (widget.registrationData['ownerPhotoPath'] == null) {
-        throw Exception('Owner photo is missing. Please go back and upload a photo.');
-      }
+      // Remove check for owner photo which is now optional
       
       // Then register the shop
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -158,7 +167,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         confirmPassword: widget.registrationData['confirmPassword'],
         mobileNumber: widget.registrationData['mobileNumber'],
         nidNumber: widget.registrationData['nidNumber'],
-        ownerPhotoPath: widget.registrationData['ownerPhotoPath'],
+        ownerPhotoPath: widget.registrationData['ownerPhotoPath'], // This will be null but API should handle it
       );
 
       if (shopId != null && mounted) {

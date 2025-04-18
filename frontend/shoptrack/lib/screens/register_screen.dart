@@ -42,8 +42,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _errorMessage;
   bool _isLoading = false;
   bool _agreeToTerms = false;
-  File? _ownerPhoto;
-  final ImagePicker _picker = ImagePicker();
 
   int _currentStep = 0;
   
@@ -78,67 +76,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    try {
-      // Show loading indicator
-      setState(() {
-        _isLoading = true;
-      });
-      
-      final imageFile = await ImageUtils.pickAndCompressImage(source, context: context);
-      
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      
-      if (imageFile != null) {
-        // For web platform, skip extra validation and accept all images
-        if (kIsWeb || await ImageUtils.isValidImage(imageFile)) {
-          setState(() {
-            _ownerPhoto = imageFile;
-          });
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Photo uploaded successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Invalid image. Please select a JPG or PNG file under 5MB.'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } else if (mounted) {
-        // Only show this if the user canceled the selection
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error picking image: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   bool _validateCurrentStep() {
     if (_currentStep == 0) {
       // Validate shop information
@@ -165,19 +102,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _showError('Please enter a valid mobile number');
         return false;
       }
-      if (_nidNumberController.text.isEmpty || 
-          !RegExp(r'^[0-9]{10}$|^[0-9]{13}$|^[0-9]{17}$').hasMatch(_nidNumberController.text.replaceAll(RegExp(r'[^0-9]'), ''))) {
-        _showError('Please enter a valid NID number');
+      if (_nidNumberController.text.isEmpty) {
+        _showError('Please enter NID number');
         return false;
       }
-      if (_ownerPhoto == null) {
-        _showError('Please upload owner photo');
-        return false;
-      }
-      
-      // Check if image is currently being processed
-      if (_isLoading) {
-        _showError('Please wait while the image is being processed');
+      // Simplified NID validation - just check if it has at least 5 digits
+      if (!RegExp(r'[0-9]{5,}').hasMatch(_nidNumberController.text.replaceAll(RegExp(r'[^0-9]'), ''))) {
+        _showError('Please enter at least 5 digits for NID number');
         return false;
       }
     } else if (_currentStep == 2) {
@@ -250,6 +181,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     
+    // Get mobile number and ensure it has the country code
+    String mobileNumber = _mobileNumberController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    // Make sure it has the country code (880 for Bangladesh)
+    if (!mobileNumber.startsWith('880')) {
+      // If it starts with 0, replace it with 880
+      if (mobileNumber.startsWith('0')) {
+        mobileNumber = '88' + mobileNumber;
+      } else {
+        // Otherwise, add 880 prefix
+        mobileNumber = '880' + mobileNumber;
+      }
+    }
+    
     // Create registration data map to pass to OTP screen
     final registrationData = {
       'shopName': _shopNameController.text.trim(),
@@ -259,9 +203,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'email': _emailController.text.trim(),
       'password': _passwordController.text,
       'confirmPassword': _confirmPasswordController.text,
-      'mobileNumber': _mobileFormatter.getUnmaskedText(),
+      'mobileNumber': mobileNumber,
       'nidNumber': _nidFormatter.getUnmaskedText(),
-      'ownerPhotoPath': _ownerPhoto?.path,
     };
     
     Navigator.push(
@@ -454,9 +397,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         TextFormField(
           controller: _mobileNumberController,
           keyboardType: TextInputType.phone,
+          inputFormatters: [_mobileFormatter],
           decoration: InputDecoration(
             labelText: 'Mobile Number',
-            hintText: 'Enter your mobile number',
+            hintText: '+880 1XX XXX XXXX',
             prefixIcon: const Icon(Icons.phone, color: Colors.indigo),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -464,14 +408,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             filled: true,
             fillColor: Colors.grey.shade50,
+            helperText: 'Enter number in Bangladesh format',
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter mobile number';
             }
-            // Bangladesh mobile number validation (starts with 01 and has 11 digits)
-            if (!RegExp(r'^01[0-9]{9}$').hasMatch(value)) {
-              return 'Please enter valid BD mobile number';
+            // Extract digits only
+            String digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
+            // Bangladesh mobile number validation
+            if (digitsOnly.length < 10) {
+              return 'Please enter a complete mobile number';
             }
             return null;
           },
@@ -495,154 +442,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
             if (value == null || value.isEmpty) {
               return 'Please enter NID number';
             }
-            // NID number format validation (10, 13 or 17 digits)
-            if (!RegExp(r'^[0-9]{10}$|^[0-9]{13}$|^[0-9]{17}$').hasMatch(value)) {
-              return 'Please enter valid NID number';
+            // Simplified NID validation for testing
+            if (!RegExp(r'[0-9]{5,}').hasMatch(value.replaceAll(RegExp(r'[^0-9]'), ''))) {
+              return 'Please enter at least 5 digits';
             }
             return null;
           },
         ),
-        const SizedBox(height: 16),
-        const Text(
-          'Owner Photo',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.black87,
-          ),
-        ),
         const SizedBox(height: 8),
-        InkWell(
-          onTap: _isLoading ? null : _showPhotoOptionsDialog,
-          child: Container(
-            height: 150,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _ownerPhoto != null ? Colors.indigo.shade300 : Colors.grey.shade300),
-            ),
-            child: _isLoading 
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo.shade300),
-                            strokeWidth: 2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Processing image...',
-                          style: TextStyle(
-                            color: Colors.indigo.shade300,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : (_ownerPhoto != null
-                ? Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(
-                          _ownerPhoto!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                        ),
-                      ),
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              _ownerPhoto = null;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.8),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 20,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 8,
-                        bottom: 8,
-                        child: InkWell(
-                          onTap: _showPhotoOptionsDialog,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(
-                                  Icons.edit,
-                                  size: 16,
-                                  color: Colors.indigo,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Change',
-                                  style: TextStyle(
-                                    color: Colors.indigo,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_a_photo,
-                        size: 40,
-                        color: Colors.indigo.shade300,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Upload Photo',
-                        style: TextStyle(
-                          color: Colors.indigo.shade300,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        PlatformUtils.isDesktop
-                            ? 'Choose from your files'
-                            : 'Take a photo or choose from gallery',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  )),
+        // Information note
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade800),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Owner photo upload has been temporarily disabled for web version.',
+                  style: TextStyle(color: Colors.blue.shade800),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -800,50 +626,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
       ],
-    );
-  }
-
-  // Show photo options dialog
-  void _showPhotoOptionsDialog() {
-    if (PlatformUtils.isDesktop) {
-      // On desktop, only show gallery option
-      _pickImage(ImageSource.gallery);
-      return;
-    }
-    
-    // For mobile platforms, show dialog with camera and gallery options
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Select Photo Source'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.indigo),
-              title: const Text('Take Photo'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.indigo),
-              title: const Text('Choose from Gallery'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
     );
   }
 

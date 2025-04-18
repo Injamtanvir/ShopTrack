@@ -648,7 +648,28 @@ class ApiService {
     String? mobileNumber,
   }) async {
     try {
-      return await _safeApiCall(() => http.post(
+      // Add debugging
+      print('API sendOTP called with email: $email, mobile: $mobileNumber');
+      
+      // Ensure mobile number is not null or empty
+      if (mobileNumber == null || mobileNumber.isEmpty) {
+        throw Exception("Mobile number is required for OTP verification");
+      }
+      
+      // Format mobile number if needed (ensure it has country code)
+      if (!mobileNumber.startsWith('880') && !mobileNumber.startsWith('+880')) {
+        if (mobileNumber.startsWith('0')) {
+          // Convert 01... to 8801...
+          mobileNumber = '88' + mobileNumber;
+        } else {
+          // Add 880 prefix
+          mobileNumber = '880' + mobileNumber;
+        }
+      }
+      
+      print('Sending OTP request with formatted mobile number: $mobileNumber');
+      
+      var response = await _safeApiCall(() => http.post(
         Uri.parse(ApiConstants.sendOTP),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -656,6 +677,9 @@ class ApiService {
           'mobile_number': mobileNumber,
         }),
       ));
+      
+      print('OTP send response: $response');
+      return response;
     } catch (e) {
       print('Error sending OTP: $e');
       rethrow;

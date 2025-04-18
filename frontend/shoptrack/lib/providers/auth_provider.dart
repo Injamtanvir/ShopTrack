@@ -58,10 +58,11 @@ class AuthProvider extends ChangeNotifier {
     required String nidNumber,
     String? ownerPhotoPath,
   }) async {
-    _setLoading(true);
-    _clearError();
     try {
-      final result = await _apiService.registerShop(
+      _setLoading(true);
+      _clearErrors();
+      
+      final response = await _apiService.registerShop(
         name: name,
         address: address,
         ownerName: ownerName,
@@ -73,18 +74,23 @@ class AuthProvider extends ChangeNotifier {
         nidNumber: nidNumber,
         ownerPhotoPath: ownerPhotoPath,
       );
-      return result['shop_id'];
+
+      final shopId = response['shop_id'];
+      
+      _setLoading(false);
+      return shopId;
     } on SocketException {
       _setError('Network error: Unable to connect to the server. Please check your internet connection.');
+      _setLoading(false);
       return null;
     } on TimeoutException {
       _setError('Network timeout: The server took too long to respond. Please try again later.');
+      _setLoading(false);
       return null;
     } catch (e) {
       _setError(e.toString());
-      return null;
-    } finally {
       _setLoading(false);
+      return null;
     }
   }
 
@@ -219,6 +225,11 @@ class AuthProvider extends ChangeNotifier {
 
   // Clear error message
   void _clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void _clearErrors() {
     _errorMessage = null;
     notifyListeners();
   }
