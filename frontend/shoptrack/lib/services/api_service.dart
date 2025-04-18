@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/api_constants.dart';
 import '../models/user.dart';
@@ -13,6 +14,17 @@ class ApiService {
 
   // Network Timout For My Render Free set to
   static const Duration requestTimeout = Duration(seconds: 100);
+
+  // Check if we're on a desktop platform
+  static bool get isDesktop {
+    if (kIsWeb) return false;
+    try {
+      return Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+    } catch (e) {
+      print('Error checking platform: $e');
+      return false;
+    }
+  }
 
   // Handle API response
   Future<dynamic> _handleApiResponse(http.Response response) async {
@@ -104,12 +116,22 @@ class ApiService {
       
       // Handle photo upload
       if (ownerPhotoPath != null) {
-        final response = await uploadOwnerPhoto(ownerPhotoPath);
-        if (response != null && response.containsKey('photo_url')) {
-          requestBody['owner_photo_url'] = response['photo_url'];
+        print('Uploading owner photo from path: $ownerPhotoPath');
+        try {
+          final response = await uploadOwnerPhoto(ownerPhotoPath);
+          if (response != null && response.containsKey('photo_url')) {
+            print('Photo uploaded successfully, URL: ${response['photo_url']}');
+            requestBody['owner_photo_url'] = response['photo_url'];
+          } else {
+            print('Photo upload did not return a valid URL: $response');
+          }
+        } catch (e) {
+          print('Error during photo upload: $e');
+          // Continue with registration even if photo upload fails
         }
       }
       
+      print('Sending registration request with data: ${requestBody.toString()}');
       final result = await _safeApiCall(() => http.post(
         Uri.parse(ApiConstants.registerShop),
         headers: {'Content-Type': 'application/json'},
@@ -127,36 +149,70 @@ class ApiService {
   // Upload an owner photo to the server
   Future<Map<String, dynamic>?> uploadOwnerPhoto(String imagePath) async {
     try {
-      // Create multipart request
+      print('Starting photo upload from path: $imagePath');
       var request = http.MultipartRequest(
         'POST',
         Uri.parse(ApiConstants.uploadPhoto),
       );
       
-      // Add file to request
-      var file = await http.MultipartFile.fromPath(
-        'photo',
-        imagePath,
-        filename: path.basename(imagePath),
-      );
-      request.files.add(file);
-      
-      // Send request
-      var streamedResponse = await request.send().timeout(requestTimeout);
-      var response = await http.Response.fromStream(streamedResponse);
-      
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        print('Failed to upload photo: ${response.body}');
+      // Create a multipart file from the image path
+      try {
+        // Check if file exists and is readable (not applicable to web)
+        if (!kIsWeb) {
+          final file = File(imagePath);
+          final exists = await file.exists();
+          if (!exists) {
+            print('File does not exist at path: $imagePath');
+            return null;
+          }
+        }
+        
+        // Add file to request
+        print('Creating MultipartFile from path');
+        var file = await http.MultipartFile.fromPath(
+          'photo',
+          imagePath,
+          filename: path.basename(imagePath),
+        );
+        print('MultipartFile created successfully');
+        request.files.add(file);
+        
+        // Send request with timeout
+        print('Sending photo upload request');
+        var streamedResponse = await request.send().timeout(requestTimeout);
+        print('Received streamed response: ${streamedResponse.statusCode}');
+        
+        var response = await http.Response.fromStream(streamedResponse);
+        print('Photo upload response status: ${response.statusCode}');
+        
+        if (response.statusCode == 200) {
+          final responseData = jsonDecode(response.body);
+          print('Upload successful, response: $responseData');
+          
+          // Ensure the photo URL was returned and is in the correct format
+          if (responseData.containsKey('photo_url')) {
+            print('Photo will be stored in MongoDB with URL: ${responseData['photo_url']}');
+            return responseData;
+          } else {
+            print('Server responded but did not include photo_url: $responseData');
+            return null;
+          }
+        } else {
+          print('Failed to upload photo. Status: ${response.statusCode}, Body: ${response.body}');
+          return null;
+        }
+      } catch (e) {
+        print('Error creating or sending MultipartFile: $e');
         return null;
       }
     } on SocketException {
+      print('Network error during photo upload: Unable to connect to the server');
       throw Exception('Network error: Unable to connect to the server. Please check your internet connection.');
     } on TimeoutException {
+      print('Network timeout during photo upload');
       throw Exception('Network timeout: The server took too long to respond. Please try again later.');
     } catch (e) {
-      print('Error uploading photo: $e');
+      print('Unexpected error during photo upload: $e');
       return null;
     }
   }

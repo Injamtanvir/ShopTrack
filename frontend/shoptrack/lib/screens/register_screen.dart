@@ -14,6 +14,7 @@ import 'login_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'otp_verification_screen.dart';
 import '../utils/image_utils.dart';
+import '../utils/platform_utils.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const routeName = '/register';
@@ -93,8 +94,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
       
       if (imageFile != null) {
-        final isValid = await ImageUtils.isValidImage(imageFile);
-        if (isValid) {
+        // For web platform, skip extra validation and accept all images
+        if (kIsWeb || await ImageUtils.isValidImage(imageFile)) {
           setState(() {
             _ownerPhoto = imageFile;
           });
@@ -632,7 +633,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        Platform.isWindows || Platform.isLinux || Platform.isMacOS 
+                        PlatformUtils.isDesktop
                             ? 'Choose from your files'
                             : 'Take a photo or choose from gallery',
                         style: TextStyle(
@@ -804,12 +805,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // Show photo options dialog
   void _showPhotoOptionsDialog() {
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    if (PlatformUtils.isDesktop) {
       // On desktop, only show gallery option
       _pickImage(ImageSource.gallery);
       return;
     }
     
+    // For mobile platforms, show dialog with camera and gallery options
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

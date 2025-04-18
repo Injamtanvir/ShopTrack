@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'platform_utils.dart';
 
 class ImageUtils {
   static Future<File?> compressImage(File file, {int quality = 70}) async {
@@ -29,215 +30,193 @@ class ImageUtils {
   
   static Future<File?> pickAndCompressImage(ImageSource source, {BuildContext? context}) async {
     try {
-      // Check permissions first
-      bool permissionGranted = await _checkPermissions(source, context: context);
-      if (!permissionGranted) {
-        debugPrint('Permission denied for ${source == ImageSource.camera ? 'camera' : 'gallery'}');
+      // Skip permissions check for web and try direct picking
+      if (kIsWeb) {
+        final picker = ImagePicker();
+        final pickedFile = await picker.pickImage(
+          source: source,
+          imageQuality: 85,
+          maxWidth: 1000,
+          maxHeight: 1000,
+        );
+        
+        if (pickedFile == null) return null;
+        
+        return File(pickedFile.path);
+      }
+      
+      // For non-web platforms, try with permissions
+      if (!kIsWeb) {
+        bool permissionGranted = false;
+        
+        // Only check permissions on Android and iOS
+        if (PlatformUtils.isMobile) {
+          try {
+            // Request specific permission based on source
+            if (source == ImageSource.camera) {
+              final status = await Permission.camera.request();
+              permissionGranted = status.isGranted;
+              debugPrint('Camera permission status: $status');
+            } else {
+              // For gallery access, we may need different permissions based on platform
+              if (PlatformUtils.isAndroid) {
+                // On Android 13+ (API 33+), use photos permission
+                // On older Android, use storage permission
+                try {
+                  final storageStatus = await Permission.storage.request();
+                  final photosStatus = await Permission.photos.request();
+                  permissionGranted = storageStatus.isGranted || photosStatus.isGranted;
+                  debugPrint('Storage permission: $storageStatus, Photos permission: $photosStatus');
+                } catch (e) {
+                  debugPrint('Error requesting Android permissions: $e');
+                  // Try with just storage as fallback
+                  final status = await Permission.storage.request();
+                  permissionGranted = status.isGranted;
+                }
+              } else if (PlatformUtils.isIOS) {
+                final status = await Permission.photos.request();
+                permissionGranted = status.isGranted;
+                debugPrint('Photos permission status: $status');
+              } else {
+                // On desktop platforms, no permission needed
+                permissionGranted = true;
+              }
+            }
+          } catch (e) {
+            debugPrint('Error requesting permissions: $e');
+            // Continue anyway, the image_picker might have its own permission handling
+            permissionGranted = true;
+          }
+        } else {
+          // Desktop platforms don't need runtime permissions
+          permissionGranted = true;
+        }
+        
+        if (!permissionGranted && context != null) {
+          _showPermissionDeniedMessage(context, source);
+          return null;
+        }
+      }
+      
+      // If we got here, we can try to pick an image
+      try {
+        final picker = ImagePicker();
+        final pickedFile = await picker.pickImage(
+          source: source,
+          imageQuality: 85,
+          maxWidth: 1000,
+          maxHeight: 1000,
+        );
+        
+        if (pickedFile == null) return null;
+        
+        File imageFile = File(pickedFile.path);
+        
+        // For web or small files, return as is
+        if (kIsWeb) return imageFile;
+        
+        // Check file size
+        try {
+          final fileSize = await imageFile.length() / (1024 * 1024);
+          // If file is already small enough, return it
+          if (fileSize < 1.0) {
+            return imageFile;
+          }
+        } catch (e) {
+          debugPrint('Error checking file size: $e');
+          // If we can't check size, assume it needs compression
+        }
+        
+        // Compress and return
+        return await compressImage(imageFile);
+      } catch (e) {
+        debugPrint('Error in image picker: $e');
+        if (context != null) {
+          _showErrorDialog(context, e.toString());
+        }
         return null;
       }
-      
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: source,
-        imageQuality: 85, // First level of compression
-        maxWidth: 1000,
-        maxHeight: 1000,
-      );
-      
-      if (pickedFile == null) {
-        return null;
-      }
-      
-      File imageFile = File(pickedFile.path);
-      
-      // Get file size in MB
-      final fileSize = await imageFile.length() / (1024 * 1024);
-      
-      // If file is already small enough, return it
-      if (fileSize < 1.0) {
-        return imageFile;
-      }
-      
-      // Otherwise compress it
-      return await compressImage(imageFile);
     } catch (e) {
-      debugPrint('Error picking image: $e');
-      
-      // Show error dialog if context is provided
+      debugPrint('Error in pickAndCompressImage: $e');
       if (context != null) {
         _showErrorDialog(context, e.toString());
       }
-      
       return null;
     }
   }
   
-  static Future<bool> _checkPermissions(ImageSource source, {BuildContext? context}) async {
-    if (kIsWeb) {
-      debugPrint('Platform is web, no permissions needed');
-      return true; // Web doesn't need permission checks
-    }
+  static void _showPermissionDeniedMessage(BuildContext context, ImageSource source) {
+    final String sourceType = source == ImageSource.camera ? 'Camera' : 'Gallery';
     
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      debugPrint('Platform is desktop (${Platform.operatingSystem}), no permissions needed');
-      return true; // Desktop platforms don't need runtime permissions
-    }
-
-    try {
-      PermissionStatus status;
-      
-      if (source == ImageSource.camera) {
-        // Camera permission
-        debugPrint('Requesting camera permission...');
-        status = await Permission.camera.request();
-        debugPrint('Camera permission status: $status');
-      } else {
-        if (Platform.isIOS) {
-          // iOS photos permission
-          debugPrint('Platform is iOS, requesting photos permission...');
-          status = await Permission.photos.request();
-          debugPrint('Photos permission status: $status');
-        } else if (Platform.isAndroid) {
-          // Android permissions vary by version
-          debugPrint('Platform is Android, checking version...');
-          bool isAndroid13Plus = await _isAndroid13OrHigher();
-          debugPrint('Is Android 13+: $isAndroid13Plus');
-          
-          // For Android 13+, we need more granular permissions
-          if (isAndroid13Plus) {
-            debugPrint('Requesting photos permission for Android 13+...');
-            status = await Permission.photos.request();
-            debugPrint('Photos permission status: $status');
-            // If photos permission is not needed, try storage
-            if (status.isDenied) {
-              debugPrint('Photos permission denied, trying storage permission...');
-              status = await Permission.storage.request();
-              debugPrint('Storage permission status: $status');
-            }
-          } else {
-            debugPrint('Requesting storage permission for older Android...');
-            status = await Permission.storage.request();
-            debugPrint('Storage permission status: $status');
-          }
-        } else {
-          // For other platforms, default to storage
-          debugPrint('Unknown platform, defaulting to storage permission...');
-          status = await Permission.storage.request();
-          debugPrint('Storage permission status: $status');
-        }
-      }
-      
-      if (status.isGranted) {
-        debugPrint('Permission granted');
-        return true;
-      } else if (status.isPermanentlyDenied && context != null) {
-        debugPrint('Permission permanently denied, showing settings dialog');
-        // Show dialog to open app settings
-        _showPermissionDialog(context, source == ImageSource.camera ? 'camera' : 'photo library');
-        return false;
-      } else if (status.isDenied && context != null) {
-        debugPrint('Permission denied, showing error message');
-        // Show denied message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${source == ImageSource.camera ? 'Camera' : 'Photos'} permission denied. Please grant permission to continue.'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Settings',
-              onPressed: () {
-                openAppSettings();
-              },
-            ),
-          ),
-        );
-        return false;
-      }
-      
-      debugPrint('Permission check failed: $status');
-      return false;
-    } catch (e) {
-      debugPrint('Error checking permissions: $e');
-      return false;
-    }
-  }
-  
-  // Helper to check if device is running Android 13+
-  static Future<bool> _isAndroid13OrHigher() async {
-    if (!Platform.isAndroid) return false;
-    
-    try {
-      final sdkVersion = int.tryParse(await _getAndroidSdkVersion()) ?? 0;
-      return sdkVersion >= 33; // Android 13 is API level 33
-    } catch (e) {
-      return false;
-    }
-  }
-  
-  // Helper to get Android SDK version
-  static Future<String> _getAndroidSdkVersion() async {
-    try {
-      return Platform.version.split(' ').first;
-    } catch (e) {
-      return '0';
-    }
-  }
-  
-  static void _showPermissionDialog(BuildContext context, String permissionType) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('$permissionType Permission Required'),
-        content: Text('Please enable $permissionType access in your device settings to upload photos.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              openAppSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$sourceType permission denied. Please allow access in settings.'),
+        backgroundColor: Colors.red,
+        action: SnackBarAction(
+          label: 'Settings',
+          onPressed: () {
+            openAppSettings();
+          },
+        ),
       ),
     );
   }
   
-  static void _showErrorDialog(BuildContext context, String errorMessage) {
-    showDialog(
+  static void _showPermissionDialog(BuildContext context, String permissionType) {
+    PlatformUtils.showPlatformDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Error Picking Image'),
-        content: Text('There was an error accessing your photos: $errorMessage'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      title: '$permissionType Permission Required',
+      message: 'Please enable $permissionType access in your device settings to upload photos.',
+      cancelText: 'Cancel',
+      confirmText: 'Open Settings',
+      onConfirm: () {
+        openAppSettings();
+      },
+    );
+  }
+  
+  static void _showErrorDialog(BuildContext context, String errorMessage) {
+    PlatformUtils.showPlatformDialog(
+      context: context,
+      title: 'Error Picking Image',
+      message: 'There was an error accessing your photos: $errorMessage',
+      confirmText: 'OK',
     );
   }
   
   static Future<bool> isValidImage(File? file) async {
     if (file == null) {
+      debugPrint('Image validation failed: file is null');
       return false;
     }
     
     try {
+      debugPrint('Validating image: ${file.path}');
+      
+      // On web platform, just return true as we can't properly check
+      if (kIsWeb) {
+        debugPrint('Running on web platform, skipping detailed validation');
+        return true;
+      }
+      
       // Check file size (Max 5MB)
       final fileSize = await file.length();
+      debugPrint('File size: ${fileSize / 1024 / 1024}MB');
       if (fileSize > 5 * 1024 * 1024) {
+        debugPrint('Image too large: ${fileSize / 1024 / 1024}MB');
         return false;
       }
       
       // Check file extension
       final extension = path.extension(file.path).toLowerCase();
-      return ['.jpg', '.jpeg', '.png'].contains(extension);
+      debugPrint('File extension: $extension');
+      
+      final isValid = ['.jpg', '.jpeg', '.png'].contains(extension);
+      debugPrint('Is valid extension: $isValid');
+      return isValid;
     } catch (e) {
-      return false;
+      debugPrint('Error validating image: $e');
+      return true; // Return true on error to prevent blocking the upload process
     }
   }
 } 
