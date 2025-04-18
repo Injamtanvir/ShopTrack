@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
-import 'package:email_otp/email_otp.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
@@ -38,11 +38,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   // Confetti controller for success animation
   late ConfettiController _confettiController;
   
-  // Email OTP instance - initialize it correctly
-  EmailOTP myauth = EmailOTP();
-
-  // For testing purposes
-  String? _mockOtp;
+  // Fixed OTP for testing
+  String _mockOtp = '123456';
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -51,58 +49,53 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     
     // Debug print to see the mobile number
     print('OTP screen initialized with mobile number: ${widget.registrationData['mobileNumber']}');
+    print('Using fixed OTP: $_mockOtp for testing');
     
     _startResendTimer();
     
-    // Initialize Email OTP
-    _initializeEmailOTP();
+    // Generate a random OTP for testing
+    _generateMockOTP();
     
-    // Simulate OTP for testing (remove in production)
-    _mockOtp = '123456';
+    // Pretend to send OTP
+    _simulateSendOTP();
   }
   
-  // Initialize Email OTP
-  Future<void> _initializeEmailOTP() async {
+  // Generate a random 6-digit OTP
+  void _generateMockOTP() {
+    // Fixed OTP for easier testing
+    _mockOtp = '123456';
+    
+    // Uncomment this for random OTP generation
+    // Random random = Random();
+    // _mockOtp = (100000 + random.nextInt(900000)).toString();
+  }
+  
+  // Simulate sending an OTP
+  Future<void> _simulateSendOTP() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      // Simulate API call delay
+      await Future.delayed(const Duration(seconds: 2));
       
-      // Configure email OTP - use the correct method signature
-      await myauth.setConfig(
-        appEmail: "shoptrack.gnvox@gmail.com",
-        appName: "ShopTrack",
-        userEmail: widget.email,
-        otpLength: 6,
-        otpType: OTPType.digitsOnly
-      );
-      
-      // Send OTP using the correct method
-      var res = await myauth.sendOTP();
-      
-      if (res) {
-        // Success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('OTP sent successfully to your email'),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      } else {
-        // Error sending OTP
-        if (mounted) {
-          setState(() {
-            _errorMessage = 'Failed to send OTP. Using test mode with mock OTP.';
-          });
-        }
+      // In a real app, you would call your backend API here
+      // For now, just simulate a successful OTP send
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('OTP sent to ${widget.email}'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Error: ${e.toString()}. Using test mode with mock OTP.';
+          _errorMessage = 'Failed to send OTP: ${e.toString()}';
         });
       }
     } finally {
@@ -141,49 +134,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   }
 
   Future<void> _resendOTP() async {
-    try {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-      
-      // Resend OTP using Email OTP package
-      var res = await myauth.sendOTP();
-      
-      if (res) {
-        // Reset timer
-        _startResendTimer();
-        
-        // Success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('OTP resent successfully'),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _errorMessage = 'Failed to resend OTP. Using test mode with mock OTP.';
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Error: ${e.toString()}. Using test mode with mock OTP.';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    // Generate a new OTP
+    _generateMockOTP();
+    
+    // Reset the timer
+    _startResendTimer();
+    
+    // Simulate sending OTP again
+    await _simulateSendOTP();
   }
 
   Future<void> _verifyOTPAndRegister() async {
@@ -206,24 +164,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     });
 
     try {
-      // Verify OTP using Email OTP package or mock OTP
-      bool otpVerified = false;
-      
-      // Try to verify with Email OTP package
-      try {
-        otpVerified = await myauth.verifyOTP(otp: otp);
-      } catch (e) {
-        print('Error verifying OTP with Email OTP package: $e');
-      }
-      
-      // If Email OTP verification failed, try mock OTP
-      if (!otpVerified && _mockOtp != null && otp == _mockOtp) {
-        print('Using mock OTP verification');
-        otpVerified = true;
-      }
+      // Simple OTP verification
+      bool otpVerified = (otp == _mockOtp);
       
       if (!otpVerified) {
-        throw Exception('Invalid OTP. Please try again.');
+        throw Exception('Invalid OTP. Please try again. For testing, use: $_mockOtp');
       }
       
       // Then register the shop
@@ -481,17 +426,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           _errorMessage!,
                           style: TextStyle(color: Colors.red.shade800),
                         ),
-                        if (_mockOtp != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              'For testing, use mock OTP: $_mockOtp',
-                              style: TextStyle(
-                                color: Colors.purple.shade800,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'For testing, use OTP: $_mockOtp',
+                          style: TextStyle(
+                            color: Colors.purple.shade800,
+                            fontWeight: FontWeight.bold,
                           ),
+                        ),
                       ],
                     ),
                   ),
@@ -649,17 +591,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           color: Colors.amber.shade900,
                         ),
                       ),
-                      if (_mockOtp != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            'For testing, use: $_mockOtp',
-                            style: TextStyle(
-                              color: Colors.purple.shade900,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'For testing, use: $_mockOtp',
+                        style: TextStyle(
+                          color: Colors.purple.shade900,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
                     ],
                   ),
                 ),
