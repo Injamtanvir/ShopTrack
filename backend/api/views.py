@@ -1079,6 +1079,7 @@ class SendOTPView(APIView):
         serializer = SendOTPSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
+            mobile_number = serializer.validated_data.get('mobile_number')
             
             # Check if the email exists
             if users_collection.find_one({"email": email}):
@@ -1091,15 +1092,19 @@ class SendOTPView(APIView):
             otp = generate_otp()
             
             # Store OTP in database (replace if exists)
+            otp_data = {
+                "otp": otp,
+                "verified": False,
+                "created_at": datetime.now(),
+            }
+            
+            # Add mobile number if provided
+            if mobile_number:
+                otp_data["mobile_number"] = mobile_number
+                
             otp_collection.update_one(
                 {"email": email},
-                {
-                    "$set": {
-                        "otp": otp,
-                        "verified": False,
-                        "created_at": datetime.now(),
-                    }
-                },
+                {"$set": otp_data},
                 upsert=True
             )
             
