@@ -38,8 +38,8 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   // Confetti controller for success animation
   late ConfettiController _confettiController;
   
-  // Email OTP instance
-  late EmailOTP myAuth;
+  // Email OTP instance - initialize it correctly
+  EmailOTP myauth = EmailOTP();
 
   // For testing purposes
   String? _mockOtp;
@@ -68,20 +68,19 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         _isLoading = true;
       });
       
-      // Configure email OTP
-      myAuth = EmailOTP();
-      myAuth.setConfig(
+      // Configure email OTP - use the correct method signature
+      await myauth.setConfig(
         appEmail: "shoptrack.gnvox@gmail.com",
         appName: "ShopTrack",
         userEmail: widget.email,
         otpLength: 6,
-        otpType: OTPType.numeric
+        otpType: OTPType.digitsOnly
       );
       
-      // Send OTP
-      bool otpSent = await myAuth.sendOTP();
+      // Send OTP using the correct method
+      var res = await myauth.sendOTP();
       
-      if (otpSent) {
+      if (res) {
         // Success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -149,9 +148,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       });
       
       // Resend OTP using Email OTP package
-      bool otpSent = await myAuth.sendOTP();
+      var res = await myauth.sendOTP();
       
-      if (otpSent) {
+      if (res) {
         // Reset timer
         _startResendTimer();
         
@@ -212,7 +211,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       
       // Try to verify with Email OTP package
       try {
-        otpVerified = await myAuth.verifyOTP(otp: otp);
+        otpVerified = await myauth.verifyOTP(otp: otp);
       } catch (e) {
         print('Error verifying OTP with Email OTP package: $e');
       }
