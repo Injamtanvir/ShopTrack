@@ -10,6 +10,11 @@ import hashlib
 import jwt
 import os
 from django.conf import settings
+import random
+import string
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from datetime import datetime, timedelta
 
@@ -21,6 +26,7 @@ from .db import (
     products_collection,
     generate_shop_id,
     invoices_collection,
+    otp_collection,
     NextInvoiceNumberView,
     SaveInvoiceView,
     GenerateInvoiceView,
@@ -38,12 +44,21 @@ from .serializers import (
     SalesPersonRegistrationSerializer,
     AdminRegistrationSerializer,
     ProductSerializer,
-    UpdateProductPriceSerializer
+    UpdateProductPriceSerializer,
+    SendOTPSerializer,
+    VerifyOTPSerializer
 )
 
 
 # Secret key for JWT
 JWT_SECRET = os.getenv('SECRET_KEY', '1XRG32NbM@nuva7022')
+
+# Email settings - replace with your actual email configuration
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'your-email@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'your-app-password')
+EMAIL_USE_TLS = True
 
 
 def hash_password(password):
@@ -69,11 +84,20 @@ class ShopRegistrationView(APIView):
         if serializer.is_valid():
             # Get validated data
             data = serializer.validated_data
+            email = data['email']
 
             # Check if email already exists
-            if users_collection.find_one({"email": data['email']}):
+            if users_collection.find_one({"email": email}):
                 return Response(
                     {"error": "Email already registered"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Check if OTP was verified for this email
+            otp_record = otp_collection.find_one({"email": email})
+            if not otp_record or not otp_record.get("verified", False):
+                return Response(
+                    {"error": "Email not verified. Please verify your email with OTP first."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -90,6 +114,13 @@ class ShopRegistrationView(APIView):
                 "created_at": datetime.now(),
                 "updated_at": datetime.now()
             }
+            
+            # Add mobile number and NID if provided
+            if 'mobile_number' in data:
+                shop_data['mobile_number'] = data['mobile_number']
+            if 'nid_number' in data:
+                shop_data['nid_number'] = data['nid_number']
+                
             shops_collection.insert_one(shop_data)
 
             # Create owner user for this shop (changed from admin to owner)
@@ -103,7 +134,17 @@ class ShopRegistrationView(APIView):
                 "updated_at": datetime.now(),
                 "created_by": data['email']  # Self-created
             }
+            
+            # Add mobile number and NID if provided
+            if 'mobile_number' in data:
+                user_data['mobile_number'] = data['mobile_number']
+            if 'nid_number' in data:
+                user_data['nid_number'] = data['nid_number']
+                
             users_collection.insert_one(user_data)
+
+            # Remove OTP record after successful registration
+            otp_collection.delete_one({"email": email})
 
             return Response({
                 "message": "Shop registered successfully",
@@ -993,3 +1034,125 @@ class PublicInvoiceView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+def generate_otp():
+    """Generate a 6-digit OTP"""
+    return ''.join(random.choices(string.digits, k=6))
+
+def send_email_otp(email, otp):
+    """Send OTP via email"""
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_HOST_USER
+        msg['To'] = email
+        msg['Subject'] = 'ShopTrack - OTP Verification'
+        
+        body = f"""
+        <html>
+        <body>
+            <h3>ShopTrack Verification Code</h3>
+            <p>Your OTP verification code is: <strong>{otp}</strong></p>
+            <p>This code will expire in 15 minutes.</p>
+            <p>If you didn't request this code, please ignore this email.</p>
+            <p>Thank you,<br>
+            ShopTrack Team</p>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server.starttls()
+        server.login(EMAIL_HOST_USER, EMAIL_HOST_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        
+        return True
+    except Exception as e:
+        print(f"Error sending email: {str(e)}")
+        return False
+
+class SendOTPView(APIView):
+    def post(self, request):
+        """Generate and send OTP via email"""
+        serializer = SendOTPSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            
+            # Check if the email exists
+            if users_collection.find_one({"email": email}):
+                return Response(
+                    {"error": "Email already registered. Please login instead."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Generate OTP
+            otp = generate_otp()
+            
+            # Store OTP in database (replace if exists)
+            otp_collection.update_one(
+                {"email": email},
+                {
+                    "$set": {
+                        "otp": otp,
+                        "verified": False,
+                        "created_at": datetime.now(),
+                    }
+                },
+                upsert=True
+            )
+            
+            # Send OTP via email
+            if not send_email_otp(email, otp):
+                return Response(
+                    {"error": "Failed to send OTP. Please try again later."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            return Response({"message": "OTP sent successfully"})
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyOTPView(APIView):
+    def post(self, request):
+        """Verify OTP and mark as verified"""
+        serializer = VerifyOTPSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            otp = serializer.validated_data['otp']
+            
+            # Find OTP record
+            otp_record = otp_collection.find_one({"email": email})
+            
+            if not otp_record:
+                return Response(
+                    {"error": "No OTP found for this email. Please request a new OTP."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if OTP is expired (it should be auto-removed by TTL index,
+            # but double check in case of database delays)
+            otp_time = otp_record.get("created_at")
+            if otp_time and (datetime.now() - otp_time).total_seconds() > 900:  # 15 minutes
+                return Response(
+                    {"error": "OTP expired. Please request a new OTP."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if OTP matches
+            if otp_record.get("otp") != otp:
+                return Response(
+                    {"error": "Invalid OTP. Please try again."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Mark OTP as verified
+            otp_collection.update_one(
+                {"email": email},
+                {"$set": {"verified": True}}
+            )
+            
+            return Response({"message": "OTP verified successfully"})
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

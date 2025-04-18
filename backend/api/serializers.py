@@ -8,11 +8,21 @@ class ShopRegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(min_length=6, write_only=True)
     confirm_password = serializers.CharField(min_length=6, write_only=True)
+    mobile_number = serializers.CharField(max_length=15, required=False)
+    nid_number = serializers.CharField(max_length=20, required=False)
 
     def validate(self, data):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords don't match")
         return data
+
+class SendOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    mobile_number = serializers.CharField(max_length=15, required=False)
+
+class VerifyOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6)
 
 class UserLoginSerializer(serializers.Serializer):
     shop_id = serializers.CharField(max_length=8)

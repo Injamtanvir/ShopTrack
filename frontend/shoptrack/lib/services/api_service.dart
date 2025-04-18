@@ -82,6 +82,9 @@ class ApiService {
     required String email,
     required String password,
     required String confirmPassword,
+    required String mobileNumber,
+    required String nidNumber,
+    String? ownerPhotoPath,
   }) async {
     // print('Registering shop with name: $name, email: $email');
 
@@ -97,6 +100,9 @@ class ApiService {
           'email': email,
           'password': password,
           'confirm_password': confirmPassword,
+          'mobile_number': mobileNumber,
+          'nid_number': nidNumber,
+          'owner_photo_path': ownerPhotoPath,
         }),
       ));
     } catch (e) {
@@ -526,6 +532,46 @@ class ApiService {
       // print('User deleted successfully');
     } catch (e) {
       // print('Error deleting user: $e');
+      rethrow;
+    }
+  }
+
+  // Send OTP for registration
+  Future<Map<String, dynamic>> sendOTP({
+    required String email,
+    String? mobileNumber,
+  }) async {
+    try {
+      return await _safeApiCall(() => http.post(
+        Uri.parse(ApiConstants.sendOTP),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'mobile_number': mobileNumber,
+        }),
+      ));
+    } catch (e) {
+      print('Error sending OTP: $e');
+      rethrow;
+    }
+  }
+
+  // Verify OTP
+  Future<Map<String, dynamic>> verifyOTP({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      return await _safeApiCall(() => http.post(
+        Uri.parse(ApiConstants.verifyOTP),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+        }),
+      ));
+    } catch (e) {
+      print('Error verifying OTP: $e');
       rethrow;
     }
   }

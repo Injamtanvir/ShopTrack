@@ -27,4 +27,8 @@ class ApiConstants {
   static const String getTodayInvoices = '$baseUrl/today-invoices/';
   static const String getShopUsers = '$baseUrl/shop-users/';
   static const String deleteUser = '$baseUrl/delete-user/';
+
+  // Auth endpoints
+  static const String sendOTP = '$baseUrl/send-otp/';
+  static const String verifyOTP = '$baseUrl/verify-otp/';
 }

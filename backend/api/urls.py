@@ -13,6 +13,8 @@ from .db import (
 
 urlpatterns = [
     path('test/', views.test_api_view, name='test_api'),  # Note the corrected function name
+    path('send-otp/', views.SendOTPView.as_view(), name='send-otp'),
+    path('verify-otp/', views.VerifyOTPView.as_view(), name='verify-otp'),
     path('register-shop/', views.ShopRegistrationView.as_view(), name='register-shop'),
     path('login/', views.UserLoginView.as_view(), name='login'),
     path('register-sales-person/', views.SalesPersonRegistrationView.as_view(), name='register-sales-person'),

@@ -23,6 +23,13 @@ users_collection = db["users"]
 products_collection = db["products"]
 invoices_collection = db["invoices"]
 
+# Create a new collection for OTP verification
+otp_collection = db['otp_verification']
+
+# Create indexes for OTP collection
+otp_collection.create_index("email", unique=True)
+otp_collection.create_index("created_at", expireAfterSeconds=900)  # Expire after 15 minutes
+
 def generate_shop_id():
     """Generate a unique 8-digit shop ID"""
     while True:

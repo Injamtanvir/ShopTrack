@@ -54,6 +54,9 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     required String confirmPassword,
+    required String mobileNumber,
+    required String nidNumber,
+    String? ownerPhotoPath,
   }) async {
     _setLoading(true);
     _clearError();
@@ -66,6 +69,9 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
         confirmPassword: confirmPassword,
+        mobileNumber: mobileNumber,
+        nidNumber: nidNumber,
+        ownerPhotoPath: ownerPhotoPath,
       );
       return result['shop_id'];
     } on SocketException {
