@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:confetti/confetti.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
@@ -32,10 +33,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   int _remainingSeconds = 60;
   Timer? _timer;
   bool _enableResend = false;
+  
+  // Confetti controller for success animation
+  late ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _startResendTimer();
     // In a real app, you would trigger OTP sending here
     _sendOTP();
@@ -45,6 +50,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   void dispose() {
     _otpController.dispose();
     _timer?.cancel();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -89,6 +95,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         SnackBar(
           content: Text('OTP sent to ${widget.email}'),
           backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       
@@ -115,6 +122,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         const SnackBar(
           content: Text('Please enter a valid 6-digit OTP'),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -132,6 +140,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         email: widget.email,
         otp: otp,
       );
+      
+      // Check if owner photo path exists in registration data
+      if (widget.registrationData['ownerPhotoPath'] == null) {
+        throw Exception('Owner photo is missing. Please go back and upload a photo.');
+      }
       
       // Then register the shop
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -153,6 +166,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
           _generatedShopId = shopId;
           _isLoading = false;
         });
+        
+        // Play confetti animation on success
+        _confettiController.play();
       }
     } on SocketException {
       if (mounted) {
@@ -183,136 +199,162 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     if (_generatedShopId != null) {
       return Scaffold(
         backgroundColor: const Color(0xFFEDF2F9),
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      spreadRadius: 1,
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.check_circle_outline,
-                      color: Colors.green,
-                      size: 80,
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Registration Successful!',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Your shop has been registered successfully.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 32),
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.indigo.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.indigo.shade200),
-                      ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Your Shop ID',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Color(0xFF1A237E),
-                            ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.green,
+                          size: 80,
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Registration Successful!',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Your shop has been registered successfully.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(height: 32),
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.indigo.shade200),
+                          ),
+                          child: Column(
                             children: [
-                              Text(
-                                _generatedShopId!,
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2,
-                                  color: Colors.indigo,
+                              const Text(
+                                'Your Shop ID',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF1A237E),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.copy, color: Colors.indigo),
-                                onPressed: () {
-                                  Clipboard.setData(
-                                    ClipboardData(text: _generatedShopId!),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Shop ID copied to clipboard'),
-                                      duration: Duration(seconds: 2),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _generatedShopId!,
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 2,
+                                      color: Colors.indigo,
                                     ),
-                                  );
-                                },
-                                tooltip: 'Copy to Clipboard',
-                                padding: EdgeInsets.zero,
-                                iconSize: 28,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.copy, color: Colors.indigo),
+                                    onPressed: () {
+                                      Clipboard.setData(
+                                        ClipboardData(text: _generatedShopId!),
+                                      );
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Shop ID copied to clipboard'),
+                                          duration: Duration(seconds: 2),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    },
+                                    tooltip: 'Copy to Clipboard',
+                                    padding: EdgeInsets.zero,
+                                    iconSize: 28,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Please save this Shop ID. You will need it to login.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.red,
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Please save this Shop ID. You will need it to login.',
-                            textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pushNamedAndRemoveUntil(
+                                context, LoginScreen.routeName, (route) => false);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Proceed to Login',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.red,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamedAndRemoveUntil(
-                            context, LoginScreen.routeName, (route) => false);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
                         ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Proceed to Login',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
+            
+            // Confetti overlay
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                particleDrag: 0.05,
+                emissionFrequency: 0.05,
+                numberOfParticles: 50,
+                gravity: 0.1,
+                colors: const [
+                  Colors.green,
+                  Colors.blue,
+                  Colors.pink,
+                  Colors.orange,
+                  Colors.purple,
+                  Colors.indigo,
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -410,7 +452,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                     enableActiveFill: true,
                     keyboardType: TextInputType.number,
                     onChanged: (value) {
-                      // You can handle changes here if needed
+                      // Auto-verify when 6 digits are entered
+                      if (value.length == 6) {
+                        // Optional: Auto-verify when all digits are entered
+                        // _verifyOTPAndRegister();
+                      }
                     },
                   ),
                 ),
@@ -478,7 +524,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 
                 const SizedBox(height: 16),
                 
-                // Demo note
+                // Info note
                 Container(
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(top: 12),
@@ -487,12 +533,31 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.amber.shade200),
                   ),
-                  child: const Text(
-                    'Enter the 6-digit code sent to your email. If you don\'t receive it, you can request another code after the countdown.',
-                    style: TextStyle(
-                      color: Colors.amber.shade900,
-                      fontStyle: FontStyle.italic,
-                    ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.amber.shade800, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Verification Instructions',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Enter the 6-digit code sent to your email. If you don\'t receive it, you can request another code after the countdown.',
+                        style: TextStyle(
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

@@ -2,14 +2,18 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import 'login_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'otp_verification_screen.dart';
+import '../utils/image_utils.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const routeName = '/register';
@@ -47,6 +51,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // 1 - Owner Information
   // 2 - Account Information
 
+  // Mobile number formatter
+  final _mobileFormatter = MaskTextInputFormatter(
+    mask: '+880 ### ### ####',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+  
+  // NID formatter
+  final _nidFormatter = MaskTextInputFormatter(
+    mask: '#### #### ####',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+
   @override
   void dispose() {
     _shopNameController.dispose();
@@ -61,55 +77,160 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery, 
-        imageQuality: 50,
-      );
-      if (image != null) {
+      // Show loading indicator
+      setState(() {
+        _isLoading = true;
+      });
+      
+      final imageFile = await ImageUtils.pickAndCompressImage(source, context: context);
+      
+      if (mounted) {
         setState(() {
-          _ownerPhoto = File(image.path);
+          _isLoading = false;
+        });
+      }
+      
+      if (imageFile != null) {
+        final isValid = await ImageUtils.isValidImage(imageFile);
+        if (isValid) {
+          setState(() {
+            _ownerPhoto = imageFile;
+          });
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo uploaded successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid image. Please select a JPG or PNG file under 5MB.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else if (mounted) {
+        // Only show this if the user canceled the selection
+        setState(() {
+          _isLoading = false;
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
-      );
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error picking image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   bool _validateCurrentStep() {
     if (_currentStep == 0) {
       // Validate shop information
-      if (_shopNameController.text.isEmpty || 
-          _shopAddressController.text.isEmpty || 
-          _licenseNumberController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please fill all shop information fields')),
-        );
+      if (_shopNameController.text.trim().isEmpty) {
+        _showError('Shop name is required');
+        return false;
+      }
+      if (_shopAddressController.text.trim().isEmpty) {
+        _showError('Shop address is required');
+        return false;
+      }
+      if (_licenseNumberController.text.trim().isEmpty) {
+        _showError('License number is required');
         return false;
       }
     } else if (_currentStep == 1) {
       // Validate owner information
-      if (_ownerNameController.text.isEmpty || 
-          _mobileNumberController.text.isEmpty ||
-          _nidNumberController.text.isEmpty ||
-          _ownerPhoto == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please fill all owner information fields and upload a photo')),
-        );
+      if (_ownerNameController.text.trim().isEmpty) {
+        _showError('Owner name is required');
+        return false;
+      }
+      if (_mobileNumberController.text.isEmpty || 
+          _mobileNumberController.text.replaceAll(RegExp(r'[^0-9]'), '').length < 10) {
+        _showError('Please enter a valid mobile number');
+        return false;
+      }
+      if (_nidNumberController.text.isEmpty || 
+          !RegExp(r'^[0-9]{10}$|^[0-9]{13}$|^[0-9]{17}$').hasMatch(_nidNumberController.text.replaceAll(RegExp(r'[^0-9]'), ''))) {
+        _showError('Please enter a valid NID number');
+        return false;
+      }
+      if (_ownerPhoto == null) {
+        _showError('Please upload owner photo');
+        return false;
+      }
+      
+      // Check if image is currently being processed
+      if (_isLoading) {
+        _showError('Please wait while the image is being processed');
+        return false;
+      }
+    } else if (_currentStep == 2) {
+      // Validate account information
+      if (_emailController.text.trim().isEmpty) {
+        _showError('Email is required');
+        return false;
+      }
+      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text.trim())) {
+        _showError('Please enter a valid email address');
+        return false;
+      }
+      if (_passwordController.text.isEmpty) {
+        _showError('Password is required');
+        return false;
+      }
+      if (_passwordController.text.length < 6) {
+        _showError('Password must be at least 6 characters');
+        return false;
+      }
+      if (_passwordController.text != _confirmPasswordController.text) {
+        _showError('Passwords do not match');
+        return false;
+      }
+      if (!_agreeToTerms) {
+        _showError('You must agree to the terms and conditions');
         return false;
       }
     }
+    
     return true;
+  }
+
+  void _showError(String message) {
+    setState(() {
+      _errorMessage = message;
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   void _nextStep() {
     if (_validateCurrentStep()) {
       setState(() {
+        _errorMessage = null;
         if (_currentStep < 2) {
           _currentStep++;
+        } else {
+          _proceedToOTP();
         }
       });
     }
@@ -123,36 +244,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  Future<void> _registerShop() async {
-    if (_currentStep < 2) {
-      _moveToNextStep();
+  void _proceedToOTP() {
+    if (!_validateCurrentStep()) {
       return;
     }
-
-    if (!_formKey.currentState!.validate()) return;
-
-    if (!_agreeToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please agree to the terms and conditions'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (_ownerPhoto == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please upload owner\'s photo'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // Now we collect all the data and navigate to OTP verification screen
-    Map<String, dynamic> registrationData = {
+    
+    // Create registration data map to pass to OTP screen
+    final registrationData = {
       'shopName': _shopNameController.text.trim(),
       'shopAddress': _shopAddressController.text.trim(),
       'ownerName': _ownerNameController.text.trim(),
@@ -160,12 +258,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'email': _emailController.text.trim(),
       'password': _passwordController.text,
       'confirmPassword': _confirmPasswordController.text,
-      'mobileNumber': _mobileNumberController.text.trim(),
-      'nidNumber': _nidNumberController.text.trim(),
+      'mobileNumber': _mobileFormatter.getUnmaskedText(),
+      'nidNumber': _nidFormatter.getUnmaskedText(),
       'ownerPhotoPath': _ownerPhoto?.path,
     };
-
-    // Navigate to OTP verification screen
+    
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -414,22 +511,108 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: _pickImage,
+          onTap: _isLoading ? null : _showPhotoOptionsDialog,
           child: Container(
-            height: 120,
+            height: 150,
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: _ownerPhoto != null ? Colors.indigo.shade300 : Colors.grey.shade300),
             ),
-            child: _ownerPhoto != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.file(
-                      _ownerPhoto!,
-                      fit: BoxFit.cover,
+            child: _isLoading 
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo.shade300),
+                            strokeWidth: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Processing image...',
+                          style: TextStyle(
+                            color: Colors.indigo.shade300,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
+                  )
+                : (_ownerPhoto != null
+                ? Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
+                          _ownerPhoto!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                        ),
+                      ),
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _ownerPhoto = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.8),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 20,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 8,
+                        bottom: 8,
+                        child: InkWell(
+                          onTap: _showPhotoOptionsDialog,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.edit,
+                                  size: 16,
+                                  color: Colors.indigo,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Change',
+                                  style: TextStyle(
+                                    color: Colors.indigo,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -444,10 +627,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         'Upload Photo',
                         style: TextStyle(
                           color: Colors.indigo.shade300,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        Platform.isWindows || Platform.isLinux || Platform.isMacOS 
+                            ? 'Choose from your files'
+                            : 'Take a photo or choose from gallery',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
                         ),
                       ),
                     ],
-                  ),
+                  )),
           ),
         ),
       ],
@@ -608,6 +802,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  // Show photo options dialog
+  void _showPhotoOptionsDialog() {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      // On desktop, only show gallery option
+      _pickImage(ImageSource.gallery);
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Select Photo Source'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.indigo),
+              title: const Text('Take Photo'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.indigo),
+              title: const Text('Choose from Gallery'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -712,7 +949,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ? null
                             : _currentStep < 2
                                 ? _nextStep
-                                : _registerShop,
+                                : _proceedToOTP,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.indigo,
                           foregroundColor: Colors.white,

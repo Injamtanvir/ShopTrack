@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/api_constants.dart';
 import '../models/user.dart';
+import 'package:path/path.dart' as path;
 
 class ApiService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -73,7 +74,7 @@ class ApiService {
     }
   }
 
-  // Register a new shop with improved error handling
+  // Register a shop owner with improved error handling
   Future<Map<String, dynamic>> registerShop({
     required String name,
     required String address,
@@ -86,28 +87,77 @@ class ApiService {
     required String nidNumber,
     String? ownerPhotoPath,
   }) async {
-    // print('Registering shop with name: $name, email: $email');
-
     try {
-      return await _safeApiCall(() => http.post(
+      print('Registering shop: $name');
+      
+      Map<String, dynamic> requestBody = {
+        'name': name,
+        'address': address,
+        'owner_name': ownerName,
+        'license_number': licenseNumber,
+        'email': email,
+        'password': password,
+        'confirm_password': confirmPassword,
+        'mobile_number': mobileNumber,
+        'nid_number': nidNumber,
+      };
+      
+      // Handle photo upload
+      if (ownerPhotoPath != null) {
+        final response = await uploadOwnerPhoto(ownerPhotoPath);
+        if (response != null && response.containsKey('photo_url')) {
+          requestBody['owner_photo_url'] = response['photo_url'];
+        }
+      }
+      
+      final result = await _safeApiCall(() => http.post(
         Uri.parse(ApiConstants.registerShop),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': name,
-          'address': address,
-          'owner_name': ownerName,
-          'license_number': licenseNumber,
-          'email': email,
-          'password': password,
-          'confirm_password': confirmPassword,
-          'mobile_number': mobileNumber,
-          'nid_number': nidNumber,
-          'owner_photo_path': ownerPhotoPath,
-        }),
+        body: jsonEncode(requestBody),
       ));
+      
+      print('Shop registered successfully with ID: ${result['shop_id']}');
+      return result;
     } catch (e) {
-      // print('Shop registration error: $e');
+      print('Error registering shop: $e');
       rethrow;
+    }
+  }
+
+  // Upload an owner photo to the server
+  Future<Map<String, dynamic>?> uploadOwnerPhoto(String imagePath) async {
+    try {
+      // Create multipart request
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(ApiConstants.uploadPhoto),
+      );
+      
+      // Add file to request
+      var file = await http.MultipartFile.fromPath(
+        'photo',
+        imagePath,
+        filename: path.basename(imagePath),
+      );
+      request.files.add(file);
+      
+      // Send request
+      var streamedResponse = await request.send().timeout(requestTimeout);
+      var response = await http.Response.fromStream(streamedResponse);
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('Failed to upload photo: ${response.body}');
+        return null;
+      }
+    } on SocketException {
+      throw Exception('Network error: Unable to connect to the server. Please check your internet connection.');
+    } on TimeoutException {
+      throw Exception('Network timeout: The server took too long to respond. Please try again later.');
+    } catch (e) {
+      print('Error uploading photo: $e');
+      return null;
     }
   }
 

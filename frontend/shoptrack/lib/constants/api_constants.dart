@@ -31,4 +31,5 @@ class ApiConstants {
   // Auth endpoints
   static const String sendOTP = '$baseUrl/send-otp/';
   static const String verifyOTP = '$baseUrl/verify-otp/';
+  static const String uploadPhoto = '$baseUrl/upload-photo/';
 }

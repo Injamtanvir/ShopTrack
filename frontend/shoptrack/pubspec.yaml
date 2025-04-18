@@ -11,16 +11,24 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   http: ^1.1.0
-  shared_preferences: ^2.2.2
   provider: ^6.0.5
-  flutter_secure_storage: ^9.0.0
+  shared_preferences: ^2.2.0
+  flutter_secure_storage: ^8.0.0
+  pin_code_fields: ^8.0.1
   intl: ^0.18.1
+  path_provider: ^2.1.0
+  image_picker: ^1.0.4
+  permission_handler: ^10.4.3
+  flutter_image_compress: ^2.0.4
+  path: ^1.8.3
+  confetti: ^0.7.0
+  mask_text_input_formatter: ^2.5.0
   pdf: ^3.7.1
-  path_provider: ^2.1.1
   share_plus: ^7.0.0
   connectivity_plus: ^5.0.1
   universal_html: ^2.2.4
   path_provider_platform_interface: ^2.1.0
+  font_awesome_flutter: ^10.5.0
 
 
 dev_dependencies:
