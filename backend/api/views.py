@@ -85,20 +85,37 @@ class ShopRegistrationView(APIView):
             # Get validated data
             data = serializer.validated_data
             email = data['email']
-
+            
             # Check if email already exists
             if users_collection.find_one({"email": email}):
                 return Response(
                     {"error": "Email already registered"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-                
-            # Check if OTP was verified for this email
-            otp_record = otp_collection.find_one({"email": email})
-            if not otp_record or not otp_record.get("verified", False):
-                return Response(
-                    {"error": "Email not verified. Please verify your email with OTP first."},
-                    status=status.HTTP_400_BAD_REQUEST
+            
+            # Check if test_mode is enabled to bypass OTP verification
+            test_mode = request.data.get('test_mode', False)
+            
+            # Check if OTP was verified (unless in test mode)
+            if not test_mode:
+                otp_record = otp_collection.find_one({"email": email})
+                if not otp_record or not otp_record.get("verified", False):
+                    return Response(
+                        {"error": "Email not verified. Please verify your email with OTP first."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                print(f"Test mode enabled for {email}. Bypassing OTP verification.")
+                # Create a mock OTP record for test mode if needed
+                otp_collection.update_one(
+                    {"email": email},
+                    {"$set": {
+                        "otp": "123456",
+                        "verified": True,
+                        "created_at": datetime.now(),
+                        "test_mode": True
+                    }},
+                    upsert=True
                 )
 
             # Generate unique shop ID

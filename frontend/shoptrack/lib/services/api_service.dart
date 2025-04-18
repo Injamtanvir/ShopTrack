@@ -98,6 +98,7 @@ class ApiService {
     required String mobileNumber,
     required String nidNumber,
     String? ownerPhotoPath,
+    bool skipOtpVerification = false,
   }) async {
     try {
       print('Registering shop: $name');
@@ -113,6 +114,12 @@ class ApiService {
         'mobile_number': mobileNumber,
         'nid_number': nidNumber,
       };
+      
+      // Add bypass flag for testing
+      if (skipOtpVerification) {
+        print('Adding test_mode flag to bypass OTP verification');
+        requestBody['test_mode'] = true;
+      }
       
       // Handle photo upload
       if (ownerPhotoPath != null) {

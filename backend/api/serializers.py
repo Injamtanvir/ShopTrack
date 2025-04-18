@@ -10,6 +10,7 @@ class ShopRegistrationSerializer(serializers.Serializer):
     confirm_password = serializers.CharField(min_length=6, write_only=True)
     mobile_number = serializers.CharField(max_length=15, required=False)
     nid_number = serializers.CharField(max_length=20, required=False)
+    test_mode = serializers.BooleanField(required=False, default=False)
 
     def validate(self, data):
         if data['password'] != data['confirm_password']:

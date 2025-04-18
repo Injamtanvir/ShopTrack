@@ -57,6 +57,7 @@ class AuthProvider extends ChangeNotifier {
     required String mobileNumber,
     required String nidNumber,
     String? ownerPhotoPath,
+    bool skipOtpVerification = false,
   }) async {
     try {
       _setLoading(true);
@@ -73,6 +74,7 @@ class AuthProvider extends ChangeNotifier {
         mobileNumber: mobileNumber,
         nidNumber: nidNumber,
         ownerPhotoPath: ownerPhotoPath,
+        skipOtpVerification: skipOtpVerification,
       );
 
       final shopId = response['shop_id'];

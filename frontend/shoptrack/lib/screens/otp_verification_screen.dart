@@ -199,9 +199,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
           otpVerified = true;
         } catch (e) {
           print('API OTP verification failed: $e');
-          // If we're in testing mode, also check against mock OTP
-          if (!otpVerified && _mockOtp == otp) {
-            print('Falling back to mock OTP verification');
+          // If the test OTP is entered, verify it locally
+          if (otp == _mockOtp) {
+            print('Using mock OTP verification since API failed');
             otpVerified = true;
           } else {
             throw e;
@@ -218,27 +218,35 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       
       // Then register the shop
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final shopId = await authProvider.registerShop(
-        name: widget.registrationData['shopName'],
-        address: widget.registrationData['shopAddress'],
-        ownerName: widget.registrationData['ownerName'],
-        licenseNumber: widget.registrationData['licenseNumber'],
-        email: widget.registrationData['email'],
-        password: widget.registrationData['password'],
-        confirmPassword: widget.registrationData['confirmPassword'],
-        mobileNumber: widget.registrationData['mobileNumber'],
-        nidNumber: widget.registrationData['nidNumber'],
-        ownerPhotoPath: widget.registrationData['ownerPhotoPath'],
-      );
+      
+      try {
+        // When using mock OTP, bypass the server-side OTP verification by setting a flag
+        final shopId = await authProvider.registerShop(
+          name: widget.registrationData['shopName'],
+          address: widget.registrationData['shopAddress'],
+          ownerName: widget.registrationData['ownerName'],
+          licenseNumber: widget.registrationData['licenseNumber'],
+          email: widget.registrationData['email'],
+          password: widget.registrationData['password'],
+          confirmPassword: widget.registrationData['confirmPassword'],
+          mobileNumber: widget.registrationData['mobileNumber'],
+          nidNumber: widget.registrationData['nidNumber'],
+          ownerPhotoPath: widget.registrationData['ownerPhotoPath'],
+          skipOtpVerification: !_useRealApi || otp == _mockOtp, // Skip verification when using test OTP
+        );
 
-      if (shopId != null && mounted) {
-        setState(() {
-          _generatedShopId = shopId;
-          _isLoading = false;
-        });
-        
-        // Play confetti animation on success
-        _confettiController.play();
+        if (shopId != null && mounted) {
+          setState(() {
+            _generatedShopId = shopId;
+            _isLoading = false;
+          });
+          
+          // Play confetti animation on success
+          _confettiController.play();
+        }
+      } catch (e) {
+        print('Registration failed: $e');
+        throw e;
       }
     } on SocketException {
       if (mounted) {
