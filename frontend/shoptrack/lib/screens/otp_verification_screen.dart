@@ -25,7 +25,7 @@ class OTPVerificationScreen extends StatefulWidget {
 }
 
 class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
-  final TextEditingController _otpController = TextEditingController();
+  final TextEditingController _otpController = TextEditingController(text: '123456'); // Auto-fill the OTP
   bool _isLoading = false;
   String? _errorMessage;
   String? _generatedShopId;
@@ -38,99 +38,38 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   // Confetti controller for success animation
   late ConfettiController _confettiController;
   
-  // For testing fallback
-  String _mockOtp = '123456';
+  // Fixed OTP for bypassing verification
+  final String _mockOtp = '123456';
   final ApiService _apiService = ApiService();
-  
-  // Flag to use real API or mock implementation
-  bool _useRealApi = true;
 
   @override
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     
-    // Debug print to see the mobile number
     print('OTP screen initialized with mobile number: ${widget.registrationData['mobileNumber']}');
+    print('Auto-filled OTP: $_mockOtp for immediate verification');
     
     _startResendTimer();
     
-    // Send OTP via API
-    _sendOTP();
-  }
-  
-  // Send OTP using the API
-  Future<void> _sendOTP() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+    // Show success message that code was sent
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Test OTP auto-filled: $_mockOtp'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      
+      // Auto-verify after a short delay
+      Future.delayed(Duration(seconds: 1), () {
+        if (mounted && _generatedShopId == null) {
+          _verifyOTPAndRegister();
+        }
+      });
     });
-    
-    try {
-      if (_useRealApi) {
-        // Use the real API service
-        await _apiService.sendOTP(
-          email: widget.email,
-          mobileNumber: widget.registrationData['mobileNumber'],
-        );
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('OTP sent to ${widget.email}'),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      } else {
-        // Fallback to mock implementation
-        _generateMockOTP();
-        
-        // Simulate API call delay
-        await Future.delayed(const Duration(seconds: 2));
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Test OTP sent to ${widget.email}'),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to send OTP: ${e.toString()}';
-          _useRealApi = false; // Fallback to mock implementation
-          _generateMockOTP();
-        });
-        
-        // Show info about fallback
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Using test OTP due to API error: $_mockOtp'),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-  
-  // Generate a mock OTP for testing fallback
-  void _generateMockOTP() {
-    _mockOtp = '123456';
-    print('Using test OTP: $_mockOtp for testing fallback');
   }
 
   @override
@@ -160,11 +99,17 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   }
 
   Future<void> _resendOTP() async {
-    // Reset the timer
+    // Reset the timer and set the OTP again
     _startResendTimer();
     
-    // Send OTP again
-    await _sendOTP();
+    // Just simulate success
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Test OTP resent: $_mockOtp'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _verifyOTPAndRegister() async {
@@ -187,40 +132,18 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     });
 
     try {
-      bool otpVerified = false;
-      
-      if (_useRealApi) {
-        // Verify OTP with the API
-        try {
-          await _apiService.verifyOTP(
-            email: widget.email,
-            otp: otp,
-          );
-          otpVerified = true;
-        } catch (e) {
-          print('API OTP verification failed: $e');
-          // If the test OTP is entered, verify it locally
-          if (otp == _mockOtp) {
-            print('Using mock OTP verification since API failed');
-            otpVerified = true;
-          } else {
-            throw e;
-          }
-        }
-      } else {
-        // Mock verification
-        otpVerified = (otp == _mockOtp);
-      }
+      // Always verify with the test code
+      bool otpVerified = (otp == _mockOtp);
       
       if (!otpVerified) {
-        throw Exception('Invalid OTP. Please try again.');
+        throw Exception('Invalid OTP. Please use: $_mockOtp');
       }
       
-      // Then register the shop
+      // Then register the shop with test mode flag
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
       try {
-        // When using mock OTP, bypass the server-side OTP verification by setting a flag
+        // Always skip OTP verification on the server side
         final shopId = await authProvider.registerShop(
           name: widget.registrationData['shopName'],
           address: widget.registrationData['shopAddress'],
@@ -232,7 +155,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
           mobileNumber: widget.registrationData['mobileNumber'],
           nidNumber: widget.registrationData['nidNumber'],
           ownerPhotoPath: widget.registrationData['ownerPhotoPath'],
-          skipOtpVerification: !_useRealApi || otp == _mockOtp, // Skip verification when using test OTP
+          skipOtpVerification: true, // Always skip verification
         );
 
         if (shopId != null && mounted) {
@@ -479,16 +402,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           _errorMessage!,
                           style: TextStyle(color: Colors.red.shade800),
                         ),
-                        if (!_useRealApi) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'For testing, use OTP: $_mockOtp',
-                            style: TextStyle(
-                              color: Colors.purple.shade800,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'For testing, use OTP: $_mockOtp',
+                          style: TextStyle(
+                            color: Colors.purple.shade800,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
@@ -509,7 +430,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'We have sent a verification code to\n${widget.email}',
+                  'Using test OTP for ${widget.email}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 16,
@@ -577,7 +498,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           ),
                         )
                       : const Text(
-                          'Verify & Complete Registration',
+                          'Complete Registration',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -591,21 +512,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      "Didn't receive the code? ",
+                      "Verification code: ",
                       style: TextStyle(color: Colors.black54),
                     ),
-                    GestureDetector(
-                      onTap: _enableResend && !_isLoading
-                          ? _resendOTP
-                          : null,
-                      child: Text(
-                        _enableResend
-                            ? "Resend OTP"
-                            : "Resend in $_remainingSeconds seconds",
-                        style: TextStyle(
-                          color: _enableResend && !_isLoading ? Colors.indigo : Colors.grey,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    Text(
+                      "123456 (auto-filled)",
+                      style: TextStyle(
+                        color: Colors.indigo,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -630,7 +544,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Verification Instructions',
+                              'Test Mode Instructions',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.amber.shade900,
@@ -641,21 +555,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Enter the 6-digit code sent to your email. If you don\'t receive it, you can request another code after the countdown.',
+                        'Using test OTP code: $_mockOtp. Registration should proceed automatically.',
                         style: TextStyle(
                           color: Colors.amber.shade900,
                         ),
                       ),
-                      if (!_useRealApi) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'For testing, use: $_mockOtp',
-                          style: TextStyle(
-                            color: Colors.purple.shade900,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
