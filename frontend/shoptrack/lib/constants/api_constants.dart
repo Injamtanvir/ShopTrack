@@ -26,4 +26,6 @@ class ApiConstants {
   static const String deleteProduct = '$baseUrl/delete-product/';
   static const String getTodayStats = '$baseUrl/today-stats/';
   static const String getTodayInvoices = '$baseUrl/today-invoices/';
+  static const String getShopUsers = '$baseUrl/shop-users/';
+  static const String deleteUser = '$baseUrl/delete-user/';
 }

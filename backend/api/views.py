@@ -101,7 +101,7 @@ class ShopRegistrationView(APIView):
                 "name": data['owner_name'],
                 "email": data['email'],
                 "password": hash_password(data['password']),
-                "role": "admin",
+                "role": "owner",
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
                 "created_by": data['email'] # Self-created
@@ -742,3 +742,109 @@ class ProductPriceListView(APIView):
 
 
         return Response(result)
+
+
+class ShopUsersView(APIView):
+    def get(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            role = payload.get('role', '')
+            
+            # Only owners and admins can view all users
+            if role not in ['owner', 'admin']:
+                return Response(
+                    {"error": "Only owners and admins can view all users"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        try:
+            # Get all users for this shop
+            users = list(users_collection.find({"shop_id": shop_id}))
+            
+            # Remove password and convert ObjectId to string
+            for user in users:
+                user['_id'] = str(user['_id'])
+                if 'password' in user:
+                    del user['password']
+            
+            return Response(users)
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class DeleteUserView(APIView):
+    def delete(self, request, user_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            role = payload.get('role', '')
+            user_email = payload['email']
+            
+            # Only owners can delete users
+            if role != 'owner':
+                return Response(
+                    {"error": "Only owners can delete users"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        try:
+            # Get the user to be deleted
+            user = users_collection.find_one({"_id": ObjectId(user_id)})
+            
+            if not user:
+                return Response(
+                    {"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Check if the user belongs to this shop
+            if user['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            # Prevent owners from being deleted
+            if user['role'] == 'owner':
+                return Response(
+                    {"error": "Owners cannot be deleted"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Delete the user
+            result = users_collection.delete_one({"_id": ObjectId(user_id)})
+            
+            if result.deleted_count == 0:
+                return Response(
+                    {"error": "Failed to delete user"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+                
+            return Response({"message": "User deleted successfully"})
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

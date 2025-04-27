@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -11,6 +10,8 @@ import 'screens/register_admin_screen.dart';
 import 'screens/register_sales_person_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/seller_home_screen.dart';
+import 'screens/owner_home_screen.dart';
+import 'screens/shop_users_screen.dart';
 import 'screens/add_product_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/price_list_screen.dart';
@@ -93,6 +94,8 @@ class MyApp extends StatelessWidget {
           AdminPendingInvoicesScreen.routeName: (ctx) => const AdminPendingInvoicesScreen(),
           // Then add this to your routes map in the MaterialApp widget
           DailyTrackingScreen.routeName: (ctx) => const DailyTrackingScreen(),
+          OwnerHomeScreen.routeName: (ctx) => const OwnerHomeScreen(),
+          ShopUsersScreen.routeName: (ctx) => const ShopUsersScreen(),
         },
       ),
     );
@@ -132,7 +135,9 @@ class _InitScreenState extends State<InitScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context);
     if (authProvider.isLoggedIn) {
-      if (authProvider.isAdmin) {
+      if (authProvider.isOwner) {
+        return const OwnerHomeScreen();
+      } else if (authProvider.isAdmin) {
         return const AdminHomeScreen();
       } else {
         return const SellerHomeScreen();

@@ -13,6 +13,7 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _user != null;
   bool get isAdmin => _user?.role == 'admin';
+  bool get isOwner => _user?.role == 'owner';
 
   // Initialize provider - check if user is already logged in
   Future<void> initialize() async {
@@ -186,6 +187,43 @@ class AuthProvider extends ChangeNotifier {
   void _clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  // Get all users for the shop
+  Future<List<dynamic>> getShopUsers() async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final users = await _apiService.getShopUsers();
+      return users;
+    } catch (e) {
+      _setError(e.toString());
+      return [];
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Delete a user (for owner)
+  Future<bool> deleteUser(String userId) async {
+    if (!isOwner) {
+      _setError('Only owners can delete users');
+      return false;
+    }
+
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _apiService.deleteUser(userId);
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 }
 
