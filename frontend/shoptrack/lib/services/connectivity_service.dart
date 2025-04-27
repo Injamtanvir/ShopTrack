@@ -1,8 +1,8 @@
+// Stub implementation for connectivity service
+// Original connectivity_plus implementation temporarily disabled due to Gradle compatibility issues
 import 'dart:async';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
 class ConnectivityService {
-  final Connectivity _connectivity = Connectivity();
   final StreamController<bool> _connectionStatusController = StreamController<bool>.broadcast();
 
   Stream<bool> get connectionStatus => _connectionStatusController.stream;
@@ -12,22 +12,17 @@ class ConnectivityService {
   }
 
   void _init() async {
-    ConnectivityResult result = await _connectivity.checkConnectivity();
-    _updateConnectionStatus(result);
-
-    _connectivity.onConnectivityChanged.listen((ConnectivityResult result) {
-      _updateConnectionStatus(result);
-    });
+    // Always assume connected during development
+    _updateConnectionStatus(true);
   }
 
-  void _updateConnectionStatus(ConnectivityResult result) {
-    bool isConnected = result != ConnectivityResult.none;
+  void _updateConnectionStatus(bool isConnected) {
     _connectionStatusController.add(isConnected);
   }
 
   Future<bool> isConnected() async {
-    ConnectivityResult result = await _connectivity.checkConnectivity();
-    return result != ConnectivityResult.none;
+    // Always return true during development
+    return true;
   }
 
   void dispose() {
