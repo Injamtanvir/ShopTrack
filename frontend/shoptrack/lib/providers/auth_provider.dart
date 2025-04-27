@@ -12,7 +12,8 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _user != null;
-  bool get isAdmin => _user?.role == 'admin';
+  bool get isManager => _user?.role == 'manager';
+  bool get isAdmin => _user?.role == 'manager';
   bool get isOwner => _user?.role == 'owner';
 
   // Initialize provider - check if user is already logged in
@@ -93,17 +94,28 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-
-  // Register a sales person (for admin)
-  Future<bool> registerSalesPerson({
+  // Register another admin (for admin)
+  Future<bool> registerAdmin({
     required String name,
-    required String designation,
-    required String sellerId,
     required String email,
     required String password,
   }) async {
-    if (!isAdmin) {
-      _setError('Only admins can register sales persons');
+    // Call the existing registerManager method since functionality is the same
+    return registerManager(
+      name: name,
+      email: email,
+      password: password,
+    );
+  }
+
+  // Register another admin (for admin)
+  Future<bool> registerManager({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    if (!isManager && !isOwner) {
+      _setError('Only managers and owners can register managers');
       return false;
     }
 
@@ -111,10 +123,8 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      await _apiService.registerSalesPerson(
+      await _apiService.registerManager(
         name: name,
-        designation: designation,
-        sellerId: sellerId,
         email: email,
         password: password,
       );
@@ -128,14 +138,16 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Register another admin (for admin)
-  Future<bool> registerAdmin({
+  // Register a sales person (for admin)
+  Future<bool> registerSalesPerson({
     required String name,
+    required String designation,
+    required String sellerId,
     required String email,
     required String password,
   }) async {
-    if (!isAdmin) {
-      _setError('Only admins can register other admins');
+    if (!isManager && !isOwner) {
+      _setError('Only managers and owners can register sales persons');
       return false;
     }
 
@@ -143,8 +155,10 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      await _apiService.registerAdmin(
+      await _apiService.registerSalesPerson(
         name: name,
+        designation: designation,
+        sellerId: sellerId,
         email: email,
         password: password,
       );

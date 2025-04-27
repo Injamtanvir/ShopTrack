@@ -115,7 +115,9 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
                         _passwordController.clear();
                       });
                     },
-                    color: Colors.indigoAccent,
+                    buttonStyle: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigoAccent,
+                    ),
                   ),
                 ],
               ),

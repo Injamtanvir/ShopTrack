@@ -115,7 +115,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   onPressed: () {
                     Navigator.pop(context);
                   },
-                  color: Colors.grey[700],
+                  buttonStyle: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[700],
+                  ),
                 ),
               ],
             ),

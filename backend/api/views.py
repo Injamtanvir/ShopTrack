@@ -190,9 +190,9 @@ class SalesPersonRegistrationView(APIView):
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             # Check if user is admin
-            if payload['role'] != 'admin':
+            if payload['role'] != 'manager':
                 return Response(
-                    {"error": "Only admins can register sales persons"},
+                    {"error": "Only managers can register sales persons"},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -260,9 +260,9 @@ class DeleteInvoiceView(APIView):
             role = payload.get('role', '')
             
             # Only admins can delete invoices
-            if role != 'admin':
+            if role != 'manager':
                 return Response(
-                    {"error": "Only admins can delete invoices"},
+                    {"error": "Only managers can delete invoices"},
                     status=status.HTTP_403_FORBIDDEN
                 )
                 
@@ -327,9 +327,9 @@ class DeleteProductView(APIView):
             role = payload.get('role', '')
             
             # Only admins can delete products
-            if role != 'admin':
+            if role != 'manager':
                 return Response(
-                    {"error": "Only admins can delete products"},
+                    {"error": "Only managers can delete products"},
                     status=status.HTTP_403_FORBIDDEN
                 )
                 
@@ -478,9 +478,9 @@ class AdminRegistrationView(APIView):
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             # Check if user is admin
-            if payload['role'] != 'admin':
+            if payload['role'] != 'manager':
                 return Response(
-                    {"error": "Only admins can register other admins"},
+                    {"error": "Only managers can register other managers"},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -520,7 +520,7 @@ class AdminRegistrationView(APIView):
                 "name": data['name'],
                 "email": data['email'],
                 "password": hash_password(data['password']),
-                "role": "admin",
+                "role": "manager",
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
                 "created_by": admin_email
@@ -529,7 +529,7 @@ class AdminRegistrationView(APIView):
 
 
             return Response({
-                "message": "Admin registered successfully"
+                "message": "Manager registered successfully"
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -653,9 +653,9 @@ class UpdateProductPriceView(APIView):
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             # Check if user is admin
-            if payload['role'] != 'admin':
+            if payload['role'] != 'manager':
                 return Response(
-                    {"error": "Only admins can update product prices"},
+                    {"error": "Only managers can update product prices"},
                     status=status.HTTP_403_FORBIDDEN
                 )
             shop_id = payload['shop_id']
@@ -754,9 +754,9 @@ class ShopUsersView(APIView):
             role = payload.get('role', '')
             
             # Only owners and admins can view all users
-            if role not in ['owner', 'admin']:
+            if role not in ['owner', 'manager']:
                 return Response(
-                    {"error": "Only owners and admins can view all users"},
+                    {"error": "Only owners and managers can view all users"},
                     status=status.HTTP_403_FORBIDDEN
                 )
                 

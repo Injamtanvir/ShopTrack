@@ -1,21 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../constants/theme_constants.dart';
+import '../widgets/dashboard_header.dart';
+import '../widgets/custom_bottom_nav.dart';
+import '../widgets/connectivity_banner.dart';
 import 'login_screen.dart';
-import 'register_admin_screen.dart';
+import 'register_manager_screen.dart';
 import 'register_sales_person_screen.dart';
 import 'add_product_screen.dart';
 import 'product_list_screen.dart';
 import 'price_list_screen.dart';
 import 'create_invoice_screen.dart';
-import 'admin_pending_invoice_screen.dart';
+import 'admin_pending_invoices_screen.dart';
 import 'invoice_history_screen.dart';
 import 'daily_tracking_screen.dart';
 import 'shop_users_screen.dart';
 
-class OwnerHomeScreen extends StatelessWidget {
+class OwnerHomeScreen extends StatefulWidget {
   static const routeName = '/owner-home';
   const OwnerHomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<OwnerHomeScreen> createState() => _OwnerHomeScreenState();
+}
+
+class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
+  int _currentNavIndex = 0;
+  
+  // Mock data for statistics
+  final Map<String, double> _statsData = {
+    'todaySales': 5420.00,
+    'stockValue': 120500.00,
+    'pendingOrders': 3,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   Future<void> _logout(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -23,6 +46,90 @@ class OwnerHomeScreen extends StatelessWidget {
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, LoginScreen.routeName);
     }
+  }
+
+  void _handleNavigationTap(int index) {
+    setState(() {
+      _currentNavIndex = index;
+    });
+
+    switch (index) {
+      case 0:
+        // Already on home screen
+        break;
+      case 1:
+        Navigator.pushNamed(context, ProductListScreen.routeName);
+        break;
+      case 2:
+        Navigator.pushNamed(context, CreateInvoiceScreen.routeName);
+        break;
+      case 3:
+        _showComingSoonSnackBar('Reports and Analytics');
+        break;
+      case 4:
+        _showMenuOptions();
+        break;
+    }
+  }
+
+  void _showComingSoonSnackBar(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature will be available in future updates'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showMenuOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.people, color: kOwnerRoleColor),
+                title: const Text('Manage Users'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, ShopUsersScreen.routeName);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings, color: kNewSecondaryColor),
+                title: const Text('Settings'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showComingSoonSnackBar('Settings');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.price_change, color: kNewAccentColor),
+                title: const Text('Price List'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, PriceListScreen.routeName);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: kNewErrorColor),
+                title: const Text('Logout', style: TextStyle(color: kNewErrorColor)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _logout(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -42,657 +149,438 @@ class OwnerHomeScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('${user.shopName} Dashboard'),
-        backgroundColor: Colors.red.shade800, // Different color to distinguish from admin
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
-            tooltip: 'Logout',
+      backgroundColor: kNewBackgroundColor,
+      body: ConnectivityBanner(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Dashboard Header
+                DashboardHeader(
+                  shopName: user.shopName ?? 'Your Shop',
+                  balance: _statsData['todaySales'] ?? 0.0,
+                  userName: user.name,
+                  designation: 'OWNER',
+                  shopId: user.shopId,
+                  notificationCount: 3,
+                  onLogout: () => _logout(context),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Stats Summary
+                _buildStatsSummary(),
+                
+                const SizedBox(height: 24),
+                
+                // Quick Actions
+                _buildQuickActions(),
+                
+                const SizedBox(height: 24),
+                
+                // Main Feature Grid
+                _buildMainFeatureGrid(),
+                
+                const SizedBox(height: 24),
+                
+                // User Management Section
+                _buildUserManagementSection(),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _currentNavIndex,
+        onTap: _handleNavigationTap,
+      ),
+    );
+  }
+
+  Widget _buildStatsSummary() {
+    return Row(
+      children: [
+        _buildStatCard(
+          title: "Today's Sales",
+          value: _statsData['todaySales'] ?? 0.0,
+          icon: Icons.trending_up,
+          color: kNewSuccessColor,
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          title: "Stock Value",
+          value: _statsData['stockValue'] ?? 0.0,
+          icon: Icons.inventory_2,
+          color: kNewPrimaryColor,
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          title: "Pending Orders",
+          value: _statsData['pendingOrders'] ?? 0.0,
+          icon: Icons.pending_actions,
+          color: kNewWarningColor,
+          isCount: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required double value,
+    required IconData icon,
+    required Color color,
+    bool isCount = false,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, color: color, size: 22),
+                Text(
+                  isCount ? value.toInt().toString() : '৳ ${value.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                color: kNewSecondaryTextColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quick Actions',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: kNewTextColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
             children: [
-              // Welcome header
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome, ${user.name}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Shop: ${user.shopName}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Shop ID: ${user.shopId}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Email: ${user.email}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Role: Owner',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              _buildActionButton(
+                icon: Icons.receipt_long,
+                title: 'Create Invoice',
+                onTap: () => Navigator.pushNamed(context, CreateInvoiceScreen.routeName),
+                color: kNewPrimaryColor,
               ),
-              const SizedBox(height: 32),
-              // User Management
-              const Text(
-                'User Management',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+              _buildActionButton(
+                icon: Icons.add_circle_outline,
+                title: 'Add Product',
+                onTap: () => Navigator.pushNamed(context, AddProductScreen.routeName),
+                color: kNewSecondaryColor,
               ),
-              const SizedBox(height: 16),
-              // View All Users
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, ShopUsersScreen.routeName);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.people,
-                            color: Colors.red.shade800,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Manage Shop Users',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'View and manage all users of this shop',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 16),
-                      ],
-                    ),
-                  ),
-                ),
+              _buildActionButton(
+                icon: Icons.pending_actions,
+                title: 'Pending Invoices',
+                onTap: () => Navigator.pushNamed(context, AdminPendingInvoicesScreen.routeName),
+                color: kNewWarningColor,
               ),
-              const SizedBox(height: 16),
-              // Register Sales Person button
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, RegisterSalesPersonScreen.routeName);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.person_add,
-                            color: Colors.blue.shade800,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Register Sales Person',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Add a new sales person to your shop',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 16),
-                      ],
-                    ),
-                  ),
-                ),
+              _buildActionButton(
+                icon: Icons.history,
+                title: 'Invoice History',
+                onTap: () => Navigator.pushNamed(context, InvoiceHistoryScreen.routeName),
+                color: kNewAccentColor,
               ),
-              const SizedBox(height: 16),
-              // Register Admin button
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, RegisterAdminScreen.routeName);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.admin_panel_settings,
-                            color: Colors.purple.shade800,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Register Admin',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Add another admin to your shop',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 16),
-                      ],
-                    ),
-                  ),
-                ),
+              _buildActionButton(
+                icon: Icons.people,
+                title: 'Manage Users',
+                onTap: () => Navigator.pushNamed(context, ShopUsersScreen.routeName),
+                color: kOwnerRoleColor,
               ),
-              
-              // The rest of the UI is similar to the admin home screen
-              const SizedBox(height: 32),
-              // Shop Operations
-              const Text(
-                'Shop Operations',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 110,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: kCardShadow,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
+                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(height: 16),
-              // Product Management Cards
-              Row(
-                children: [
-                  Expanded(
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(context, AddProductScreen.routeName);
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: HSLColor.fromColor(Colors.green).withLightness(0.8).toColor(),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.add_shopping_cart,
-                                  color: Colors.green,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Add Product',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Add new products to inventory',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(context, ProductListScreen.routeName);
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: HSLColor.fromColor(Colors.blue).withLightness(0.8).toColor(),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.inventory,
-                                  color: Colors.blue,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Product List',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Manage existing products',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Price List Card
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, PriceListScreen.routeName);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: HSLColor.fromColor(Colors.orange).withLightness(0.8).toColor(),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.description,
-                            color: Colors.orange,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Price List',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'View and share product price list',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 16),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Invoice Management Section
-              const Text(
-                'Invoice Management',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Create Invoice Card
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, CreateInvoiceScreen.routeName);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.receipt,
-                            color: Colors.purple,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Create Invoice',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Generate new customer invoices',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 16),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Row with Pending Invoices and Invoice History cards
-              Row(
-                children: [
-                  // Pending Invoices Card
-                  Expanded(
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(context, AdminPendingInvoicesScreen.routeName);
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.pending_actions,
-                                  color: Colors.amber,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Pending Invoices',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Review and process saved invoices',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Invoice History Card
-                  Expanded(
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(context, InvoiceHistoryScreen.routeName);
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.history,
-                                  color: Colors.green,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Invoice History',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'View and share completed invoices',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              // Daily Tracking Card
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, DailyTrackingScreen.routeName);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.analytics,
-                            color: Colors.teal,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Daily Sales Tracking',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'View today\'s sales and revenue',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 16),
-                      ],
-                    ),
-                  ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: kNewTextColor,
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainFeatureGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Shop Operations',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: kNewTextColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        GridView.count(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          crossAxisCount: 2,
+          childAspectRatio: 1.5,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          children: [
+            _buildFeatureCard(
+              title: 'Products',
+              description: 'Manage your inventory',
+              icon: Icons.inventory_2,
+              onTap: () => Navigator.pushNamed(context, ProductListScreen.routeName),
+              color: kNewPrimaryColor,
+            ),
+            _buildFeatureCard(
+              title: 'Price List',
+              description: 'Manage pricing',
+              icon: Icons.price_change,
+              onTap: () => Navigator.pushNamed(context, PriceListScreen.routeName),
+              color: kNewSecondaryColor,
+            ),
+            _buildFeatureCard(
+              title: 'Daily Reports',
+              description: 'Track daily performance',
+              icon: Icons.analytics,
+              onTap: () => Navigator.pushNamed(context, DailyTrackingScreen.routeName),
+              color: kNewAccentColor,
+            ),
+            _buildFeatureCard(
+              title: 'Users',
+              description: 'Manage shop users',
+              icon: Icons.people,
+              onTap: () => Navigator.pushNamed(context, ShopUsersScreen.routeName),
+              color: kOwnerRoleColor,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFeatureCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const Spacer(),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: kNewTextColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 12,
+                color: kNewSecondaryTextColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserManagementSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'User Management',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: kNewTextColor,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.pushNamed(context, ShopUsersScreen.routeName),
+              icon: const Icon(Icons.people_outline, size: 16),
+              label: const Text('View All'),
+              style: TextButton.styleFrom(
+                foregroundColor: kOwnerRoleColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildUserActionCard(
+                title: 'Add Manager',
+                description: 'Register a manager for your shop',
+                icon: Icons.admin_panel_settings,
+                onTap: () => Navigator.pushNamed(context, RegisterManagerScreen.routeName),
+                color: kManagerRoleColor,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildUserActionCard(
+                title: 'Add Seller',
+                description: 'Register a salesperson',
+                icon: Icons.person_add,
+                onTap: () => Navigator.pushNamed(context, RegisterSalesPersonScreen.routeName),
+                color: kSellerRoleColor,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserActionCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: kNewTextColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 12,
+                color: kNewSecondaryTextColor,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -6,6 +6,7 @@ import '../widgets/custom_text_field.dart';
 import 'admin_home_screen.dart';
 import 'register_screen.dart';
 import 'seller_home_screen.dart';
+import 'owner_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   static const routeName = '/login';
@@ -44,7 +45,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success && mounted) {
       // Navigate based on user role
-      if (authProvider.isAdmin) {
+      if (authProvider.isOwner) {
+        Navigator.pushReplacementNamed(context, OwnerHomeScreen.routeName);
+      } else if (authProvider.isAdmin) {
         Navigator.pushReplacementNamed(context, AdminHomeScreen.routeName);
       } else {
         Navigator.pushReplacementNamed(context, SellerHomeScreen.routeName);

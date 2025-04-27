@@ -21,6 +21,7 @@ import 'screens/pending_invoices_screen.dart';
 import 'screens/invoice_history_screen.dart';
 import 'screens/admin_pending_invoice_screen.dart';
 import 'screens/daily_tracking_screen.dart';
+import 'screens/admin_users_screen.dart';
 
 
 
@@ -96,6 +97,7 @@ class MyApp extends StatelessWidget {
           DailyTrackingScreen.routeName: (ctx) => const DailyTrackingScreen(),
           OwnerHomeScreen.routeName: (ctx) => const OwnerHomeScreen(),
           ShopUsersScreen.routeName: (ctx) => const ShopUsersScreen(),
+          AdminUsersScreen.routeName: (ctx) => const AdminUsersScreen(),
         },
       ),
     );

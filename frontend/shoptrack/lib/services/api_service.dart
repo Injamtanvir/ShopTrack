@@ -127,7 +127,7 @@ class ApiService {
   }
 
   // Register another admin (admin only)
-  Future<Map<String, dynamic>> registerAdmin({
+  Future<Map<String, dynamic>> registerManager({
     required String name,
     required String email,
     required String password,
@@ -139,7 +139,7 @@ class ApiService {
     }
 
     final response = await http.post(
-      Uri.parse(ApiConstants.registerAdmin),
+      Uri.parse(ApiConstants.registerManager),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',

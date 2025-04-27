@@ -107,7 +107,9 @@ class _RegisterAdminScreenState extends State<RegisterAdminScreen> {
                         _passwordController.clear();
                       });
                     },
-                    color: Colors.indigoAccent,
+                    buttonStyle: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigoAccent,
+                    ),
                   ),
                 ],
               ),
