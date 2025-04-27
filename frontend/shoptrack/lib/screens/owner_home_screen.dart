@@ -12,7 +12,7 @@ import 'add_product_screen.dart';
 import 'product_list_screen.dart';
 import 'price_list_screen.dart';
 import 'create_invoice_screen.dart';
-import 'admin_pending_invoices_screen.dart';
+import 'admin_pending_invoice_screen.dart';
 import 'invoice_history_screen.dart';
 import 'daily_tracking_screen.dart';
 import 'shop_users_screen.dart';
