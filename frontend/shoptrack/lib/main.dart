@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
+import 'providers/connectivity_provider.dart';
+import 'services/connectivity_service.dart';
 
 import 'screens/admin_home_screen.dart';
 import 'screens/login_screen.dart';
@@ -29,16 +31,24 @@ void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  runApp(const MyApp());
+  // Create the connectivity service as a singleton
+  final connectivityService = ConnectivityService();
+
+  runApp(MyApp(connectivityService: connectivityService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  final ConnectivityService connectivityService;
+  
+  const MyApp({Key? key, required this.connectivityService}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (ctx) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (ctx) => AuthProvider()),
+        ChangeNotifierProvider(create: (ctx) => ConnectivityProvider(connectivityService)),
+      ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'ShopTrack',

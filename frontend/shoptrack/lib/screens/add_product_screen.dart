@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
+import '../providers/connectivity_provider.dart';
 
 class AddProductScreen extends StatefulWidget {
   static const routeName = '/add-product';
@@ -33,6 +35,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   Future<void> _addProduct() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Check network connectivity
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot add product. No internet connection available.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isLoading = true;

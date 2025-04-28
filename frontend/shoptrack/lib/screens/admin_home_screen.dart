@@ -15,6 +15,7 @@ import 'create_invoice_screen.dart';
 import 'admin_pending_invoice_screen.dart';
 import 'invoice_history_screen.dart';
 import 'daily_tracking_screen.dart';
+import 'dart:async';
 
 class AdminHomeScreen extends StatefulWidget {
   static const routeName = '/admin-home';
@@ -28,6 +29,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentNavIndex = 0;
   final StatsService _statsService = StatsService();
   bool _isLoading = false;
+  Timer? _refreshTimer;
   
   // Statistics data
   final Map<String, double> _statsData = {
@@ -40,9 +42,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   void initState() {
     super.initState();
     _loadStats();
+    // Set up timer to refresh stats every 30 seconds
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadStats();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadStats() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
     });
@@ -54,21 +70,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       if (shopId != null) {
         final todayStats = await _statsService.getTodaySalesStats(shopId);
         
-        setState(() {
-          _statsData['todaySales'] = (todayStats['total_revenue'] ?? 0).toDouble();
-          _statsData['pendingAmount'] = (todayStats['pending_amount'] ?? 0).toDouble();
-          _statsData['pendingInvoices'] = (todayStats['pending_invoices'] ?? 0).toDouble();
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _statsData['todaySales'] = (todayStats['total_revenue'] ?? 0).toDouble();
+            _statsData['pendingAmount'] = (todayStats['pending_amount'] ?? 0).toDouble();
+            _statsData['pendingInvoices'] = (todayStats['pending_invoices'] ?? 0).toDouble();
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       // Fallback to dummy data if API call fails
-      setState(() {
-        _statsData['todaySales'] = 2800.00;
-        _statsData['pendingAmount'] = 9500.00;
-        _statsData['pendingInvoices'] = 2;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _statsData['todaySales'] = 2800.00;
+          _statsData['pendingAmount'] = 9500.00;
+          _statsData['pendingInvoices'] = 2;
+          _isLoading = false;
+        });
+      }
     }
   }
 

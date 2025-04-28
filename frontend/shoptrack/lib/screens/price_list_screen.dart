@@ -155,14 +155,14 @@ class _PriceListScreenState extends State<PriceListScreen> {
   String _formatPrice(dynamic price) {
     try {
       if (price is int) {
-        return '\$${price.toDouble().toStringAsFixed(2)}';
+        return '৳${price.toDouble().toStringAsFixed(2)}';
       } else if (price is double) {
-        return '\$${price.toStringAsFixed(2)}';
+        return '৳${price.toStringAsFixed(2)}';
       } else {
-        return '\$${double.parse(price.toString()).toStringAsFixed(2)}';
+        return '৳${double.parse(price.toString()).toStringAsFixed(2)}';
       }
     } catch (e) {
-      return '\$0.00';
+      return '৳0.00';
     }
   }
 
@@ -461,11 +461,19 @@ class _PriceListScreenState extends State<PriceListScreen> {
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
-                                        _formatPrice(product['selling_price']),
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: inStock ? Colors.green : Colors.grey,
+                                        'Selling Price: ৳${_formatPrice(product['selling_price'])}',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Buying Price: ৳${_formatPrice(product['buying_price'])}',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.orange,
                                         ),
                                       ),
                                       const Spacer(),

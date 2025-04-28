@@ -1,69 +1,57 @@
 import 'dart:async';
-import 'package:flutter_connectivity/flutter_connectivity.dart';
-import 'package:log_plus/log_plus.dart';  // Import for LogLevel enum
+import 'package:connectivity_plus/connectivity_plus.dart';
+
+enum NetworkStatus { online, offline }
 
 class ConnectivityService {
-  late FlutterConnectivity _connectivity;
-  final StreamController<bool> _connectionStatusController = StreamController<bool>.broadcast();
+  // Create a stream controller to broadcast connection changes
+  final StreamController<NetworkStatus> _networkStatusController = 
+      StreamController<NetworkStatus>.broadcast();
 
-  Stream<bool> get connectionStatus => _connectionStatusController.stream;
+  // Expose the stream to listen to
+  Stream<NetworkStatus> get networkStatusStream => _networkStatusController.stream;
 
-  // Track the current connection status
-  bool _isConnected = true;
+  // Store the current connectivity status
+  NetworkStatus _currentStatus = NetworkStatus.online;
+  NetworkStatus get currentStatus => _currentStatus;
 
-  ConnectivityService() {
-    // Initialize with your backend endpoint
-    _connectivity = FlutterConnectivity(endpoint: 'https://api.shoptrack.com');
-
-    // Configure the connectivity monitoring
-    _connectivity.configure(
-      allowedFailedRequests: 2, // Number of failed requests before reporting connection loss
-      checkInterval: const Duration(seconds: 5), // Check every 5 seconds
-      logLevel: LogLevel.error, // Minimal logging
-    );
-
-    // Set latency thresholds (in milliseconds)
-    _connectivity.setLatencyThresholds(
-      disconnected: 10000, // 10 seconds
-      slow: 5000,         // 5 seconds
-      moderate: 2000,     // 2 seconds
-      fast: 500,          // 0.5 seconds
-    );
-
-    _init();
-  }
-
-  void _init() {
-    // Listen to connectivity changes
-    _connectivity.listenToLatencyChanges((ConnectivityStatus status, int latency) {
-      final bool isConnected = status != ConnectivityStatus.disconnected;
-
-      // Only notify listeners if the connection status has changed
-      if (isConnected != _isConnected) {
-        _isConnected = isConnected;
-        _updateConnectionStatus(isConnected);
-      }
+  // Constructor with optional initial check
+  ConnectivityService({bool checkImmediately = true}) {
+    // Initialize listener for connectivity changes
+    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
+      _updateConnectionStatus(result);
     });
+
+    if (checkImmediately) {
+      checkConnectivity();
+    }
   }
 
-  void _updateConnectionStatus(bool isConnected) {
-    _connectionStatusController.add(isConnected);
+  // Check connectivity immediately
+  Future<NetworkStatus> checkConnectivity() async {
+    final ConnectivityResult result = await Connectivity().checkConnectivity();
+    _updateConnectionStatus(result);
+    return _currentStatus;
   }
 
-  Future<bool> isConnected() async {
-    return _isConnected;
+  // Update the connection status based on connectivity result
+  void _updateConnectionStatus(ConnectivityResult result) {
+    NetworkStatus previousStatus = _currentStatus;
+    
+    if (result == ConnectivityResult.none) {
+      _currentStatus = NetworkStatus.offline;
+    } else {
+      _currentStatus = NetworkStatus.online;
+    }
+
+    // Only add to stream if status has changed
+    if (previousStatus != _currentStatus) {
+      _networkStatusController.add(_currentStatus);
+    }
   }
 
-  void pause() {
-    _connectivity.pause();
-  }
-
-  void resume() {
-    _connectivity.resume();
-  }
-
+  // Dispose the controller when done
   void dispose() {
-    _connectivity.dispose();
-    _connectionStatusController.close();
+    _networkStatusController.close();
   }
 }

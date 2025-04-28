@@ -499,15 +499,23 @@ class TodayStatsView(APIView):
                 "created_at": {"$gte": today_start, "$lte": now}
             }))
             
+            # Query pending invoices
+            pending_invoices = list(invoices_collection.find({
+                "shop_id": shop_id,
+                "status": "pending"
+            }))
+            
             # Calculate stats
             total_sales = len(today_invoices)
-            # total_revenue = sum(invoice.get('total_amount', 0) for invoice in today_invoices)
-            # In TodayStatsView class in views.py
             total_revenue = sum(invoice.get('total_amount', 0) for invoice in today_invoices)
+            pending_count = len(pending_invoices)
+            pending_amount = sum(invoice.get('total_amount', 0) for invoice in pending_invoices)
 
             return Response({
                 "total_sales": total_sales,
                 "total_revenue": total_revenue,
+                "pending_invoices": pending_count,
+                "pending_amount": pending_amount,
                 "date": today_start.strftime('%Y-%m-%d')
             })
             

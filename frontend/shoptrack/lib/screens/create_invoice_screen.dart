@@ -9,6 +9,7 @@ import '../utils/invoice_utils.dart';
 import '../utils/sharing_utils.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
+import '../providers/connectivity_provider.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   static const routeName = '/create-invoice';
@@ -200,6 +201,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
+    // Check network connectivity
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot save invoice. No internet connection available.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
     });
@@ -253,6 +266,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     if (_invoiceItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please add at least one product')),
+      );
+      return;
+    }
+
+    // Check network connectivity
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot generate invoice. No internet connection available.'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -527,7 +552,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 return ListTile(
                                   title: Text(product['name']),
                                   subtitle: Text(
-                                      'Price: \$${product['selling_price'].toStringAsFixed(2)} - In Stock: ${product['quantity']}'
+                                      'Price: ৳${product['selling_price'].toStringAsFixed(2)} - In Stock: ${product['quantity']}'
                                   ),
                                   onTap: () => _selectProduct(product),
                                 );
@@ -694,7 +719,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Text(
-                                  '\$${_invoiceItems[i].unitPrice.toStringAsFixed(2)}',
+                                  '৳${_invoiceItems[i].unitPrice.toStringAsFixed(2)}',
                                   style: const TextStyle(fontSize: 14),
                                   textAlign: TextAlign.right,
                                 ),
@@ -702,7 +727,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Text(
-                                  '\$${_invoiceItems[i].totalPrice.toStringAsFixed(2)}',
+                                  '৳${_invoiceItems[i].totalPrice.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -773,7 +798,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               children: const [
                                 Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 12),
-                                  child: Text('\$'),
+                                  child: Text('৳'),
                                 ),
                                 Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 12),
@@ -814,7 +839,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               style: TextStyle(fontSize: 16),
                             ),
                             Text(
-                              '\$${_subtotal.toStringAsFixed(2)}',
+                              '৳${_subtotal.toStringAsFixed(2)}',
                               style: const TextStyle(fontSize: 16),
                             ),
                           ],
@@ -829,7 +854,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                                 style: const TextStyle(fontSize: 16),
                               ),
                               Text(
-                                '-\$${_discountAmount.toStringAsFixed(2)}',
+                                '-৳${_discountAmount.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   color: Colors.red,
@@ -850,7 +875,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               ),
                             ),
                             Text(
-                              '\$${_totalWithDiscount.toStringAsFixed(2)}',
+                              '৳${_totalWithDiscount.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,

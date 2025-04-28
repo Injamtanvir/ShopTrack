@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/invoice.dart';
 import '../providers/auth_provider.dart';
+import '../providers/connectivity_provider.dart';
 import '../services/invoice_service.dart';
 import '../utils/invoice_utils.dart';
 import '../utils/sharing_utils.dart';
@@ -54,6 +55,18 @@ class _AdminPendingInvoicesScreenState extends State<AdminPendingInvoicesScreen>
   }
 
   Future<void> _generateInvoice(Invoice invoice) async {
+    // Check network connectivity
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot generate invoice. No internet connection available.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
     });
@@ -95,6 +108,18 @@ class _AdminPendingInvoicesScreenState extends State<AdminPendingInvoicesScreen>
 
   // Method to delete pending invoice
   Future<void> _deleteInvoice(String invoiceId) async {
+    // Check network connectivity
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot delete invoice. No internet connection available.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
     });

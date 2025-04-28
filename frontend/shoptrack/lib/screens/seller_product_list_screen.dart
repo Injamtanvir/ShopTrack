@@ -140,12 +140,8 @@ class _SellerProductListScreenState extends State<SellerProductListScreen> {
                                 const Icon(Icons.sell, size: 16, color: Colors.green),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Selling Price: \$${product.sellingPrice.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  'Selling Price: ৳${product.sellingPrice.toStringAsFixed(2)}',
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
                             ),
@@ -155,11 +151,8 @@ class _SellerProductListScreenState extends State<SellerProductListScreen> {
                                 const Icon(Icons.payments, size: 16, color: Colors.orange),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Buying Price: \$${product.buyingPrice.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.orange,
-                                  ),
+                                  'Buying Price: ৳${product.buyingPrice.toStringAsFixed(2)}',
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
                             ),

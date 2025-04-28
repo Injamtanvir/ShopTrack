@@ -22,9 +22,6 @@ class InvoiceUtils {
     final smallStyle = pw.TextStyle(fontSize: 10);
     final boldStyle = pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold);
 
-    // Create elegant ampersand logo (like in the example)
-    final logo = pw.Text('&', style: pw.TextStyle(fontSize: 36, fontWeight: pw.FontWeight.bold));
-
     // Create the PDF
     pdf.addPage(
       pw.Page(
@@ -38,7 +35,7 @@ class InvoiceUtils {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  logo,
+                  pw.Text(invoice.shopName, style: titleStyle),
                   pw.Text('INVOICE', style: titleStyle),
                 ],
               ),
@@ -124,11 +121,11 @@ class InvoiceUtils {
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('৳${item.unitPrice.toStringAsFixed(2)}', style: normalStyle),
+                        child: pw.Text('Tk${item.unitPrice.toStringAsFixed(2)}', style: normalStyle),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('৳${item.totalPrice.toStringAsFixed(2)}', style: normalStyle),
+                        child: pw.Text('Tk${item.totalPrice.toStringAsFixed(2)}', style: normalStyle),
                       ),
                     ],
                   )).toList(),
@@ -152,7 +149,7 @@ class InvoiceUtils {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text('Subtotal:', style: normalStyle),
-                            pw.Text('৳${invoice.subtotalAmount.toStringAsFixed(2)}', style: normalStyle),
+                            pw.Text('Tk${invoice.subtotalAmount.toStringAsFixed(2)}', style: normalStyle),
                           ],
                         ),
                         
@@ -164,7 +161,7 @@ class InvoiceUtils {
                             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                             children: [
                               pw.Text('Discount:', style: normalStyle),
-                              pw.Text('-৳${invoice.discountAmount.toStringAsFixed(2)}',
+                              pw.Text('-Tk${invoice.discountAmount.toStringAsFixed(2)}',
                                   style: pw.TextStyle(
                                     fontSize: 12,
                                     color: PdfColors.red,
@@ -174,16 +171,6 @@ class InvoiceUtils {
                           ),
                         ],
                         
-                        // Tax row (0%)
-                        pw.SizedBox(height: 4),
-                        pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text('Tax (0%):', style: normalStyle),
-                            pw.Text('৳0', style: normalStyle),
-                          ],
-                        ),
-                        
                         // Divider for total
                         pw.Divider(),
                         
@@ -192,7 +179,7 @@ class InvoiceUtils {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text('Total:', style: boldStyle),
-                            pw.Text('৳${invoice.totalAmount.toStringAsFixed(2)}', style: boldStyle),
+                            pw.Text('Tk${invoice.totalAmount.toStringAsFixed(2)}', style: boldStyle),
                           ],
                         ),
                       ],
@@ -208,22 +195,22 @@ class InvoiceUtils {
               
               pw.SizedBox(height: 30),
               
-              // Payment and Shop Information section
+              // Shop Information section (was Payment Information)
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  // Payment Information (left)
+                  // Shop Information (left)
                   pw.Container(
                     width: 250,
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('PAYMENT INFORMATION', style: boldStyle),
+                        pw.Text('SHOP INFORMATION', style: boldStyle),
                         pw.SizedBox(height: 8),
-                        pw.Text('Bkash/Nagad/Cash', style: normalStyle),
-                        pw.Text('Account Name: ${invoice.shopName}', style: normalStyle),
-                        pw.Text('Account No.: ***-***-****', style: normalStyle),
+                        pw.Text('Shop Name: ${invoice.shopName}', style: normalStyle),
+                        pw.Text('Shop Address: ${invoice.shopAddress}', style: normalStyle),
+                        pw.Text('Shop ID: ${invoice.shopId}', style: normalStyle),
                         pw.Text('Pay by: ${DateTime.now().add(Duration(days: 30)).day} ${DateFormat('MMM yyyy').format(DateTime.now())}', style: normalStyle),
                       ],
                     ),
@@ -281,7 +268,7 @@ class InvoiceUtils {
 
   // Format currency values
   static String formatCurrency(double amount) {
-    final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final formatter = NumberFormat.currency(symbol: 'Tk', decimalDigits: 2);
     return formatter.format(amount);
   }
 

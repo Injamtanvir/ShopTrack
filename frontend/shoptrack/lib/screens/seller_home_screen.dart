@@ -11,6 +11,7 @@ import 'price_list_screen.dart';
 import 'create_invoice_screen.dart';
 import 'pending_invoices_screen.dart';
 import 'invoice_history_screen.dart';
+import 'dart:async';
 
 class SellerHomeScreen extends StatefulWidget {
   static const routeName = '/seller-home';
@@ -28,14 +29,29 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
     'totalInvoices': 0.0,
     'pendingInvoices': 0.0,
   };
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadStats();
+    // Set up timer to refresh stats every 30 seconds
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadStats();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadStats() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
     });
@@ -47,25 +63,29 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
       if (shopId != null) {
         final todayStats = await _statsService.getTodaySalesStats(shopId);
         
+        if (mounted) {
+          setState(() {
+            _statsData = {
+              'todaySales': (todayStats['total_revenue'] ?? 0).toDouble(),
+              'totalInvoices': (todayStats['total_sales'] ?? 0).toDouble(),
+              'pendingInvoices': (todayStats['pending_invoices'] ?? 0).toDouble(),
+            };
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      // Fallback to mock data if API call fails
+      if (mounted) {
         setState(() {
           _statsData = {
-            'todaySales': (todayStats['total_revenue'] ?? 0).toDouble(),
-            'totalInvoices': (todayStats['total_sales'] ?? 0).toDouble(),
-            'pendingInvoices': (todayStats['pending_invoices'] ?? 0).toDouble(),
+            'todaySales': 2500.0,
+            'totalInvoices': 4.0,
+            'pendingInvoices': 1.0,
           };
           _isLoading = false;
         });
       }
-    } catch (e) {
-      // Fallback to mock data if API call fails
-      setState(() {
-        _statsData = {
-          'todaySales': 2500.0,
-          'totalInvoices': 4.0,
-          'pendingInvoices': 1.0,
-        };
-        _isLoading = false;
-      });
     }
   }
 
