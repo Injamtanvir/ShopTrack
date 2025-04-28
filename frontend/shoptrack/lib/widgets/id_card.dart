@@ -86,7 +86,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
       ),
       child: Container(
         width: 320,
-        height: 500,
+        height: 480,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
           gradient: const LinearGradient(
@@ -161,24 +161,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
                 fontSize: 16,
               ),
             ),
-            const SizedBox(height: 30),
-            // Barcode placeholder
-            Container(
-              width: 200,
-              height: 50,
-              color: Colors.white,
-              child: Center(
-                child: Text(
-                  '||||| ||| ||||||| ||| |||||',
-                  style: TextStyle(
-                    fontFamily: 'Courier',
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
             // ID Number and Department
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -187,11 +170,12 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ID: ${widget.userData['userId'] ?? ''}',
+                      'ID: ${widget.userData['userId'] ?? '*******'}',
                       style: const TextStyle(color: Colors.white),
                     ),
+                    const SizedBox(height: 5),
                     Text(
-                      'Role: ${widget.userData['designation'] ?? ''}',
+                      'Role: ${widget.userData['designation'] ?? '*******'}',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ],
@@ -205,7 +189,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
               child: Container(
                 height: 60,
                 width: double.infinity,
-                color: Colors.white,
+                color: Colors.yellow.withOpacity(0.8),
               ),
             ),
           ],
@@ -222,7 +206,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
       ),
       child: Container(
         width: 320,
-        height: 500,
+        height: 480,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
           gradient: const LinearGradient(
@@ -316,7 +300,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
       ),
       child: Container(
         width: 320,
-        height: 500,
+        height: 480,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
           gradient: const LinearGradient(
@@ -377,24 +361,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
                 fontSize: 16,
               ),
             ),
-            const SizedBox(height: 30),
-            // Barcode placeholder
-            Container(
-              width: 200,
-              height: 50,
-              color: Colors.white,
-              child: Center(
-                child: Text(
-                  '||||| ||| ||||||| ||| |||||',
-                  style: TextStyle(
-                    fontFamily: 'Courier',
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 50),
             // Shop Info
             Column(
               children: [
@@ -422,7 +389,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
               child: Container(
                 height: 60,
                 width: double.infinity,
-                color: Colors.white,
+                color: Colors.yellow.withOpacity(0.8),
               ),
             ),
           ],
@@ -439,7 +406,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
       ),
       child: Container(
         width: 320,
-        height: 500,
+        height: 480,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
           gradient: const LinearGradient(

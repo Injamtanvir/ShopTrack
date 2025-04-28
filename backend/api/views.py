@@ -997,18 +997,30 @@ class UserInfoView(APIView):
             return Response({"error": "You don't have permission to access this user's information"}, 
                            status=status.HTTP_403_FORBIDDEN)
         
-        # Get user additional info
+        # Get user info
         user_info = users_collection.find_one(
             {"_id": ObjectId(user_id)},
-            {"additional_info": 1}
+            {"additional_info": 1, "employee_id": 1, "email": 1, "name": 1, "role": 1}
         )
         
         if not user_info:
             return Response({"error": "User not found"}, 
                            status=status.HTTP_404_NOT_FOUND)
         
-        # Return additional_info if it exists, otherwise return empty object
-        return Response(user_info.get("additional_info", {}))
+        # Combine default info with additional info
+        result = user_info.get("additional_info", {})
+        
+        # Add core user fields
+        if "employee_id" in user_info:
+            result["userId"] = user_info["employee_id"]
+        if "email" in user_info:
+            result["email"] = user_info["email"]
+        if "name" in user_info:
+            result["name"] = user_info["name"]
+        if "role" in user_info:
+            result["designation"] = user_info["role"].upper()
+        
+        return Response(result)
     
     def post(self, request, user_id):
         # Verify JWT token from headers
@@ -1075,18 +1087,31 @@ class ShopInfoView(APIView):
             return Response({"error": "You don't have permission to access this shop's information"}, 
                            status=status.HTTP_403_FORBIDDEN)
         
-        # Get shop additional info
+        # Get shop info
         shop_info = shops_collection.find_one(
             {"shop_id": shop_id},
-            {"additional_info": 1}
+            {"additional_info": 1, "name": 1, "address": 1, "created_at": 1}
         )
         
         if not shop_info:
             return Response({"error": "Shop not found"}, 
                            status=status.HTTP_404_NOT_FOUND)
         
-        # Return additional_info if it exists, otherwise return empty object
-        return Response(shop_info.get("additional_info", {}))
+        # Combine default info with additional info
+        result = shop_info.get("additional_info", {})
+        
+        # Add core shop fields
+        result["shopName"] = shop_info.get("name", "")
+        result["shopAddress"] = shop_info.get("address", "")
+        
+        # Format registration date if available
+        if "created_at" in shop_info and shop_info["created_at"]:
+            try:
+                result["registrationDate"] = shop_info["created_at"].strftime('%Y-%m-%d')
+            except:
+                pass
+        
+        return Response(result)
     
     def post(self, request, shop_id):
         # Verify JWT token from headers
