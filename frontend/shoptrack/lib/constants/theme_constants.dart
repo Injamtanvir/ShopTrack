@@ -85,3 +85,11 @@ const LinearGradient kNewAccentGradient = LinearGradient(
 const Color kOwnerRoleColor = Color(0xFFE53935); // Red
 const Color kManagerRoleColor = Color(0xFF1E88E5); // Blue
 const Color kSellerRoleColor = Color(0xFF43A047); // Green 
+
+// Feature-specific colors
+const Color kProductsColor = Color(0xFF4CAF50); // Green
+const Color kSalesColor = Color(0xFF2196F3);    // Blue
+const Color kInvoiceColor = Color(0xFF9C27B0);  // Purple
+const Color kPriceColor = Color(0xFFFF9800);    // Orange
+const Color kPendingColor = Color(0xFFFFC107);  // Amber
+const Color kHistoryColor = Color(0xFF607D8B);  // Blue Gray 

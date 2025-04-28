@@ -47,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Navigate based on user role
       if (authProvider.isOwner) {
         Navigator.pushReplacementNamed(context, OwnerHomeScreen.routeName);
-      } else if (authProvider.isAdmin) {
+      } else if (authProvider.isManager) {
         Navigator.pushReplacementNamed(context, AdminHomeScreen.routeName);
       } else {
         Navigator.pushReplacementNamed(context, SellerHomeScreen.routeName);
