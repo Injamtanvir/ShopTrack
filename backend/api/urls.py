@@ -34,4 +34,6 @@ urlpatterns = [
     path('today-invoices/<str:shop_id>/', views.TodayInvoicesView.as_view(), name='today-invoices'),
     path('shop-users/', views.ShopUsersView.as_view(), name='shop-users'),
     path('delete-user/<str:user_id>/', views.DeleteUserView.as_view(), name='delete-user'),
+    path('users/<str:user_id>/info/', views.UserInfoView.as_view(), name='user-info'),
+    path('shops/<str:shop_id>/info/', views.ShopInfoView.as_view(), name='shop-info'),
 ]

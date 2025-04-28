@@ -968,3 +968,165 @@ class DeleteUserView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+# New API endpoints for user and shop information
+class UserInfoView(APIView):
+    def get(self, request, user_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return Response({"error": "Authorization token is required"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return Response({"error": "Token has expired"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return Response({"error": "Invalid token"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Only allow access to own info or if admin/owner
+        requesting_user = users_collection.find_one({"_id": ObjectId(payload["user_id"])})
+        if not requesting_user:
+            return Response({"error": "User not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+            
+        if requesting_user['role'] not in ['owner', 'manager'] and str(requesting_user['_id']) != user_id:
+            return Response({"error": "You don't have permission to access this user's information"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        # Get user additional info
+        user_info = users_collection.find_one(
+            {"_id": ObjectId(user_id)},
+            {"additional_info": 1}
+        )
+        
+        if not user_info:
+            return Response({"error": "User not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        
+        # Return additional_info if it exists, otherwise return empty object
+        return Response(user_info.get("additional_info", {}))
+    
+    def post(self, request, user_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return Response({"error": "Authorization token is required"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return Response({"error": "Token has expired"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return Response({"error": "Invalid token"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Only allow access to own info or if admin/owner
+        requesting_user = users_collection.find_one({"_id": ObjectId(payload["user_id"])})
+        if not requesting_user:
+            return Response({"error": "User not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+            
+        if requesting_user['role'] not in ['owner', 'manager'] and str(requesting_user['_id']) != user_id:
+            return Response({"error": "You don't have permission to update this user's information"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        # Get data from request
+        data = request.data
+        
+        # Update user additional info
+        result = users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"additional_info": data, "updated_at": datetime.now()}}
+        )
+        
+        if result.matched_count == 0:
+            return Response({"error": "User not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({"message": "User information updated successfully"}, 
+                       status=status.HTTP_200_OK)
+
+
+class ShopInfoView(APIView):
+    def get(self, request, shop_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return Response({"error": "Authorization token is required"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return Response({"error": "Token has expired"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return Response({"error": "Invalid token"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Check if user belongs to the shop
+        if payload["shop_id"] != shop_id:
+            return Response({"error": "You don't have permission to access this shop's information"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        # Get shop additional info
+        shop_info = shops_collection.find_one(
+            {"shop_id": shop_id},
+            {"additional_info": 1}
+        )
+        
+        if not shop_info:
+            return Response({"error": "Shop not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        
+        # Return additional_info if it exists, otherwise return empty object
+        return Response(shop_info.get("additional_info", {}))
+    
+    def post(self, request, shop_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return Response({"error": "Authorization token is required"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return Response({"error": "Token has expired"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return Response({"error": "Invalid token"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Check if user belongs to the shop and has owner/manager permissions
+        if payload["shop_id"] != shop_id:
+            return Response({"error": "You don't have permission to update this shop's information"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        # Only owner or manager can update shop info
+        user = users_collection.find_one({"_id": ObjectId(payload["user_id"])})
+        if not user or user['role'] not in ['owner', 'manager']:
+            return Response({"error": "Only shop owners and managers can update shop information"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        # Get data from request
+        data = request.data
+        
+        # Update shop additional info
+        result = shops_collection.update_one(
+            {"shop_id": shop_id},
+            {"$set": {"additional_info": data, "updated_at": datetime.now()}}
+        )
+        
+        if result.matched_count == 0:
+            return Response({"error": "Shop not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({"message": "Shop information updated successfully"}, 
+                       status=status.HTTP_200_OK)

@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:icons_flutter/icons_flutter.dart';
+import 'package:provider/provider.dart';
 import '../constants/theme_constants.dart';
+import '../providers/auth_provider.dart';
+import '../services/shop_info_service.dart';
+import '../services/user_info_service.dart';
+import 'id_card.dart';
+import 'shop_info_form.dart';
+import 'user_info_form.dart';
 
-class SellerDashboardHeader extends StatelessWidget {
+class SellerDashboardHeader extends StatefulWidget {
   final String? shopName;
   final String? userName;
   final String? designation;
@@ -17,6 +24,106 @@ class SellerDashboardHeader extends StatelessWidget {
     this.shopId,
     this.onLogout,
   }) : super(key: key);
+
+  @override
+  State<SellerDashboardHeader> createState() => _SellerDashboardHeaderState();
+}
+
+class _SellerDashboardHeaderState extends State<SellerDashboardHeader> {
+  final ShopInfoService _shopInfoService = ShopInfoService();
+  final UserInfoService _userInfoService = UserInfoService();
+  Map<String, dynamic> _shopAdditionalInfo = {};
+  Map<String, dynamic> _userAdditionalInfo = {};
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdditionalInfo();
+  }
+
+  void _loadAdditionalInfo() {
+    // Get user details from provider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user;
+    
+    if (user != null) {
+      try {
+        // Load shop info
+        _shopInfoService.getShopAdditionalInfo(widget.shopId ?? '').then((shopInfo) {
+          if (mounted) {
+            setState(() {
+              _shopAdditionalInfo = shopInfo;
+            });
+          }
+        });
+        
+        // Load user info
+        _userInfoService.getUserInfo(user.id).then((userInfo) {
+          if (mounted && userInfo != null) {
+            setState(() {
+              _userAdditionalInfo = userInfo;
+            });
+          }
+        });
+      } catch (e) {
+        debugPrint("Error loading additional info: $e");
+      }
+    }
+  }
+
+  void _showShopIdCard() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user!;
+    
+    final shopData = {
+      'shopId': widget.shopId,
+      'shopName': widget.shopName,
+      'shopCategory': _shopAdditionalInfo['shopCategory'] ?? '*******',
+      'shopLicense': _shopAdditionalInfo['shopLicense'] ?? '*******',
+      'shopVatLicense': _shopAdditionalInfo['shopVatLicense'] ?? '*******',
+      'shopAddress': user.address ?? '*******',
+      'registrationDate': user.createdAt?.split('T')[0] ?? '*******',
+    };
+    
+    showDialog(
+      context: context,
+      builder: (context) => IDCard(
+        userData: {
+          'name': widget.userName,
+          'designation': widget.designation,
+        },
+        shopData: shopData,
+        isUserCard: false,
+      ),
+    );
+  }
+
+  void _showUserIdCard() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user!;
+    
+    final userData = {
+      'name': widget.userName,
+      'designation': _userAdditionalInfo['designation'] ?? widget.designation ?? '*******',
+      'userId': _userAdditionalInfo['userId'] ?? '*******',
+      'email': user.email,
+    };
+    
+    final shopData = {
+      'shopId': widget.shopId,
+      'shopName': widget.shopName,
+    };
+    
+    showDialog(
+      context: context,
+      builder: (context) => IDCard(
+        userData: userData,
+        shopData: shopData,
+        isUserCard: true,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,23 +148,26 @@ class SellerDashboardHeader extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      // Shop icon in circle
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          FlutterIcons.store_mdi,
-                          color: Colors.white,
-                          size: 16,
+                      // Shop icon in circle - now clickable
+                      InkWell(
+                        onTap: _showShopIdCard,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            FlutterIcons.store_mdi,
+                            color: Colors.white,
+                            size: 16,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       // Shop name
                       Text(
-                        shopName ?? 'Shop',
+                        widget.shopName ?? 'Shop',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -70,25 +180,28 @@ class SellerDashboardHeader extends StatelessWidget {
                   // User info with avatar and designation
                   Row(
                     children: [
-                      // User avatar circle
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
-                        ),
-                        child: const Icon(
-                          FlutterIcons.user_faw,
-                          color: Colors.white,
-                          size: 18,
+                      // User avatar circle - now clickable
+                      InkWell(
+                        onTap: _showUserIdCard,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                          ),
+                          child: const Icon(
+                            FlutterIcons.user_faw,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       // User name
                       Text(
-                        userName ?? 'User',
+                        widget.userName ?? 'User',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.9),
                           fontWeight: FontWeight.w500,
@@ -97,7 +210,7 @@ class SellerDashboardHeader extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       // User designation
-                      if (designation != null) Container(
+                      if (widget.designation != null) Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8, 
                           vertical: 4,
@@ -108,7 +221,7 @@ class SellerDashboardHeader extends StatelessWidget {
                           border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
                         ),
                         child: Text(
-                          designation!.toUpperCase(),
+                          widget.designation!.toUpperCase(),
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.9),
                             fontWeight: FontWeight.bold,
@@ -152,7 +265,7 @@ class SellerDashboardHeader extends StatelessWidget {
                 
                 // Logout button
                 InkWell(
-                  onTap: onLogout,
+                  onTap: widget.onLogout,
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
