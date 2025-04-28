@@ -1,7 +1,7 @@
 # Add these imports at the top of your views.py file
 from bson.objectid import ObjectId
 from django.http import JsonResponse
-from datetime import datetime
+from datetime import datetime, date
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,6 +12,10 @@ import os
 import base64
 import uuid
 from django.conf import settings
+import json
+import random
+import string
+import re
 
 from datetime import datetime, timedelta
 
@@ -298,7 +302,14 @@ class SalesPersonRegistrationView(APIView):
                 try:
                     date_of_birth = datetime.fromisoformat(date_of_birth.replace('Z', '+00:00'))
                 except ValueError:
-                    pass
+                    # Try more format options
+                    try:
+                        date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d')
+                    except ValueError:
+                        pass
+            # Convert date object to datetime object if needed
+            elif isinstance(date_of_birth, date) and not isinstance(date_of_birth, datetime):
+                date_of_birth = datetime.combine(date_of_birth, datetime.min.time())
 
             # Create sales person user
             user_data = {
@@ -606,7 +617,14 @@ class AdminRegistrationView(APIView):
                 try:
                     date_of_birth = datetime.fromisoformat(date_of_birth.replace('Z', '+00:00'))
                 except ValueError:
-                    pass
+                    # Try more format options
+                    try:
+                        date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d')
+                    except ValueError:
+                        pass
+            # Convert date object to datetime object if needed
+            elif isinstance(date_of_birth, date) and not isinstance(date_of_birth, datetime):
+                date_of_birth = datetime.combine(date_of_birth, datetime.min.time())
 
             # Create admin user
             user_data = {
