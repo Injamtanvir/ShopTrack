@@ -97,15 +97,47 @@ class AuthProvider extends ChangeNotifier {
   // Register another admin (for admin)
   Future<bool> registerAdmin({
     required String name,
+    required String designation,
+    required String employeeId,
     required String email,
     required String password,
+    String? imageBase64,
+    required String idNumber,
+    required DateTime dateOfBirth,
+    required String address,
+    required String phoneNumber,
+    required double salary,
   }) async {
-    // Call the existing registerManager method since functionality is the same
-    return registerManager(
-      name: name,
-      email: email,
-      password: password,
-    );
+    if (!isManager && !isOwner) {
+      _setError('Only managers and owners can register managers');
+      return false;
+    }
+
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _apiService.registerManager(
+        name: name,
+        designation: designation,
+        employeeId: employeeId,
+        email: email,
+        password: password,
+        imageBase64: imageBase64,
+        idNumber: idNumber,
+        dateOfBirth: dateOfBirth,
+        address: address,
+        phoneNumber: phoneNumber,
+        salary: salary,
+      );
+
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 
   // Register another admin (for admin)
@@ -142,9 +174,15 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> registerSalesPerson({
     required String name,
     required String designation,
-    required String sellerId,
+    required String employeeId,
     required String email,
     required String password,
+    String? imageBase64,
+    required String idNumber,
+    required DateTime dateOfBirth,
+    required String address,
+    required String phoneNumber,
+    required double salary,
   }) async {
     if (!isManager && !isOwner) {
       _setError('Only managers and owners can register sales persons');
@@ -158,9 +196,15 @@ class AuthProvider extends ChangeNotifier {
       await _apiService.registerSalesPerson(
         name: name,
         designation: designation,
-        sellerId: sellerId,
+        employeeId: employeeId,
         email: email,
         password: password,
+        imageBase64: imageBase64,
+        idNumber: idNumber,
+        dateOfBirth: dateOfBirth,
+        address: address,
+        phoneNumber: phoneNumber,
+        salary: salary,
       );
 
       return true;

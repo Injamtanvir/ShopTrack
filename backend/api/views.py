@@ -9,6 +9,8 @@ from rest_framework import status
 import hashlib
 import jwt
 import os
+import base64
+import uuid
 from django.conf import settings
 
 from datetime import datetime, timedelta
@@ -45,6 +47,64 @@ from .serializers import (
 # Secret key for JWT
 JWT_SECRET = os.getenv('SECRET_KEY', '1XRG32NbM@nuva7022')
 
+# Directory for storing uploaded images
+UPLOAD_DIR = os.path.join(settings.BASE_DIR, 'uploads')
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+def save_image(image):
+    """Save an uploaded image and return its URL"""
+    if not image:
+        return None
+        
+    # Create unique filename
+    ext = image.name.split('.')[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    
+    # Save file
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, 'wb+') as destination:
+        for chunk in image.chunks():
+            destination.write(chunk)
+    
+    # Return relative URL
+    return f"/uploads/{filename}"
+
+def save_base64_image(base64_string):
+    """Save a base64 encoded image and return its URL"""
+    if not base64_string:
+        return None
+    
+    try:
+        # Extract the base64 data
+        if ',' in base64_string:
+            format_data, base64_data = base64_string.split(',', 1)
+        else:
+            base64_data = base64_string
+            
+        # Determine file extension from the header
+        file_ext = 'jpg'  # Default to jpg
+        if 'image/png' in base64_string:
+            file_ext = 'png'
+        elif 'image/gif' in base64_string:
+            file_ext = 'gif'
+            
+        # Create unique filename
+        filename = f"{uuid.uuid4()}.{file_ext}"
+        
+        # Convert base64 to binary
+        image_data = base64.b64decode(base64_data)
+        
+        # Save the file
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        with open(filepath, 'wb') as f:
+            f.write(image_data)
+            
+        # Return relative URL
+        return f"/uploads/{filename}"
+    except Exception as e:
+        print(f"Error saving base64 image: {e}")
+        return None
 
 def hash_password(password):
     """Create a SHA-256 hash of the password"""
@@ -224,7 +284,21 @@ class SalesPersonRegistrationView(APIView):
                     {"error": "Email already registered"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+                
+            # Handle image upload (from file or base64)
+            image_url = None
+            if 'image' in request.FILES:
+                image_url = save_image(request.FILES['image'])
+            elif 'image_base64' in request.data and request.data['image_base64']:
+                image_url = save_base64_image(request.data['image_base64'])
 
+            # Format date of birth
+            date_of_birth = data['date_of_birth']
+            if isinstance(date_of_birth, str):
+                try:
+                    date_of_birth = datetime.fromisoformat(date_of_birth.replace('Z', '+00:00'))
+                except ValueError:
+                    pass
 
             # Create sales person user
             user_data = {
@@ -234,7 +308,13 @@ class SalesPersonRegistrationView(APIView):
                 "password": hash_password(data['password']),
                 "role": "seller",
                 "designation": data['designation'],
-                "seller_id": data['seller_id'],
+                "employee_id": data['employee_id'],
+                "image_url": image_url,
+                "id_number": data['id_number'],
+                "date_of_birth": date_of_birth,
+                "address": data['address'],
+                "phone_number": data['phone_number'],
+                "salary": data['salary'],
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
                 "created_by": admin_email
@@ -512,7 +592,21 @@ class AdminRegistrationView(APIView):
                     {"error": "Email already registered"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
+                
+            # Handle image upload (from file or base64)
+            image_url = None
+            if 'image' in request.FILES:
+                image_url = save_image(request.FILES['image'])
+            elif 'image_base64' in request.data and request.data['image_base64']:
+                image_url = save_base64_image(request.data['image_base64'])
+                
+            # Format date of birth
+            date_of_birth = data['date_of_birth']
+            if isinstance(date_of_birth, str):
+                try:
+                    date_of_birth = datetime.fromisoformat(date_of_birth.replace('Z', '+00:00'))
+                except ValueError:
+                    pass
 
             # Create admin user
             user_data = {
@@ -521,6 +615,14 @@ class AdminRegistrationView(APIView):
                 "email": data['email'],
                 "password": hash_password(data['password']),
                 "role": "manager",
+                "designation": data['designation'],
+                "employee_id": data['employee_id'],
+                "image_url": image_url,
+                "id_number": data['id_number'],
+                "date_of_birth": date_of_birth,
+                "address": data['address'],
+                "phone_number": data['phone_number'],
+                "salary": data['salary'],
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
                 "created_by": admin_email

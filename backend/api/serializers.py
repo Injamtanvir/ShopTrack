@@ -22,15 +22,28 @@ class UserLoginSerializer(serializers.Serializer):
 class SalesPersonRegistrationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
     designation = serializers.CharField(max_length=100)
-    seller_id = serializers.CharField(max_length=50)
+    employee_id = serializers.CharField(max_length=50)
     email = serializers.EmailField()
     password = serializers.CharField(min_length=6, write_only=True)
+    image = serializers.ImageField(required=False)
+    id_number = serializers.CharField(max_length=100)
+    date_of_birth = serializers.DateField()
+    address = serializers.CharField(max_length=200)
+    phone_number = serializers.CharField(max_length=20)
+    salary = serializers.FloatField(min_value=0)
 
 class AdminRegistrationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
+    designation = serializers.CharField(max_length=100)
+    employee_id = serializers.CharField(max_length=50)
     email = serializers.EmailField()
     password = serializers.CharField(min_length=6, write_only=True)
-
+    image = serializers.ImageField(required=False)
+    id_number = serializers.CharField(max_length=100)
+    date_of_birth = serializers.DateField()
+    address = serializers.CharField(max_length=200)
+    phone_number = serializers.CharField(max_length=20)
+    salary = serializers.FloatField(min_value=0)
 
 class ProductSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)

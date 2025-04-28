@@ -23,12 +23,18 @@ class User:
         "name": str,
         "email": str,
         "password": str,  # This will be hashed
-        "role": str,  # "admin" or "seller"
-        "designation": str,  # Only for sellers
-        "seller_id": str,  # Only for sellers
+        "role": str,  # "owner", "manager", or "seller"
+        "designation": str,
+        "employee_id": str,
+        "image_url": str,  # URL to stored image
+        "id_number": str,  # NID or Birth Certificate
+        "date_of_birth": datetime,
+        "address": str,
+        "phone_number": str,
+        "salary": float,
         "created_at": datetime,
         "updated_at": datetime,
-        "created_by": str  # Email of the admin who created this user
+        "created_by": str  # Email of the user who created this user
     }
     
 class Product:

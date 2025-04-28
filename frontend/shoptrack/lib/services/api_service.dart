@@ -98,9 +98,15 @@ class ApiService {
   Future<Map<String, dynamic>> registerSalesPerson({
     required String name,
     required String designation,
-    required String sellerId,
+    required String employeeId,
     required String email,
     required String password,
+    String? imageBase64,
+    required String idNumber,
+    required DateTime dateOfBirth,
+    required String address,
+    required String phoneNumber,
+    required double salary,
   }) async {
     final token = await _storage.read(key: 'token') ?? '';
 
@@ -117,9 +123,15 @@ class ApiService {
       body: jsonEncode({
         'name': name,
         'designation': designation,
-        'seller_id': sellerId,
+        'employee_id': employeeId,
         'email': email,
         'password': password,
+        'image_base64': imageBase64,
+        'id_number': idNumber,
+        'date_of_birth': dateOfBirth.toIso8601String(),
+        'address': address,
+        'phone_number': phoneNumber,
+        'salary': salary,
       }),
     );
 
@@ -129,8 +141,16 @@ class ApiService {
   // Register another admin (admin only)
   Future<Map<String, dynamic>> registerManager({
     required String name,
+    required String designation,
+    required String employeeId,
     required String email,
     required String password,
+    String? imageBase64,
+    required String idNumber,
+    required DateTime dateOfBirth,
+    required String address,
+    required String phoneNumber,
+    required double salary,
   }) async {
     final token = await _storage.read(key: 'token') ?? '';
 
@@ -146,8 +166,16 @@ class ApiService {
       },
       body: jsonEncode({
         'name': name,
+        'designation': designation,
+        'employee_id': employeeId,
         'email': email,
         'password': password,
+        'image_base64': imageBase64,
+        'id_number': idNumber,
+        'date_of_birth': dateOfBirth.toIso8601String(),
+        'address': address,
+        'phone_number': phoneNumber,
+        'salary': salary,
       }),
     );
 
