@@ -17,7 +17,7 @@ class DashboardHeader extends StatefulWidget {
   final VoidCallback? onLogout;
   
   const DashboardHeader({
-    Key? key, 
+    Key? key,
     this.shopName,
     this.userName,
     this.designation,
@@ -185,7 +185,7 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                             fontSize: 18,
                           ),
                         ),
-                        Text(
+                    Text(
                           'Shop ID: ${widget.shopId ?? ''}',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.8),
@@ -227,8 +227,8 @@ class _DashboardHeaderState extends State<DashboardHeader> {
           
           // Bottom row with user info and actions
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
               // User info
               InkWell(
                 onTap: _showUserIdCard,
@@ -284,11 +284,11 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                     ),
                   ],
                 ),
-              ),
-              
-              // Action buttons
-              Row(
-                children: [
+                ),
+                
+                // Action buttons 
+                Row(
+                  children: [
                   // Notification
                   Stack(
                     children: [
@@ -302,11 +302,11 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
+                        shape: BoxShape.circle,
+                      ),
                           child: const Icon(
                             FlutterIcons.bells_ant,
                             color: Colors.white,
@@ -316,40 +316,47 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                       ),
                       if (widget.notificationCount != null && widget.notificationCount! > 0)
                         Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
                               widget.notificationCount! > 9 ? '9+' : widget.notificationCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                              ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
+                        ],
+                      ),
                   const SizedBox(width: 12),
                   
-                  // Logout
+                  // Connect link instead of Logout
                   InkWell(
-                    onTap: widget.onLogout,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Connectivity features will be implemented in a future update'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        FlutterIcons.logout_ant,
-                        color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                        FlutterIcons.link_ant,
+                          color: Colors.white,
                         size: 20,
                       ),
                     ),

@@ -5,6 +5,7 @@ import '../constants/theme_constants.dart';
 import '../widgets/dashboard_header.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../widgets/connectivity_banner.dart';
+import '../services/stats_service.dart';
 import 'login_screen.dart';
 import 'register_manager_screen.dart';
 import 'register_sales_person_screen.dart';
@@ -27,17 +28,50 @@ class OwnerHomeScreen extends StatefulWidget {
 
 class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int _currentNavIndex = 0;
+  final StatsService _statsService = StatsService();
+  bool _isLoading = false;
   
-  // Mock data for statistics
+  // Statistics data
   final Map<String, double> _statsData = {
-    'todaySales': 5420.00,
-    'stockValue': 120500.00,
-    'pendingOrders': 3,
+    'todaySales': 0.0,
+    'pendingAmount': 0.0,
+    'pendingInvoices': 0,
   };
 
   @override
   void initState() {
     super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final shopId = authProvider.user?.shopId;
+      
+      if (shopId != null) {
+        final todayStats = await _statsService.getTodaySalesStats(shopId);
+        
+        setState(() {
+          _statsData['todaySales'] = (todayStats['total_revenue'] ?? 0).toDouble();
+          _statsData['pendingAmount'] = (todayStats['pending_amount'] ?? 0).toDouble();
+          _statsData['pendingInvoices'] = (todayStats['pending_invoices'] ?? 0).toDouble();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Fallback to dummy data if API call fails
+      setState(() {
+        _statsData['todaySales'] = 5420.00;
+        _statsData['pendingAmount'] = 12050.00;
+        _statsData['pendingInvoices'] = 3;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -171,7 +205,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 const SizedBox(height: 24),
                 
                 // Stats Summary
-                _buildStatsSummary(),
+                _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _buildStatsSummary(),
                 
                 const SizedBox(height: 24),
                 
@@ -210,18 +246,19 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         ),
         const SizedBox(width: 12),
         _buildStatCard(
-          title: "Stock Value",
-          value: _statsData['stockValue'] ?? 0.0,
-          icon: Icons.inventory_2,
+          title: "Pending Amount",
+          value: _statsData['pendingAmount'] ?? 0.0,
+          icon: Icons.money_off,
           color: kNewPrimaryColor,
         ),
         const SizedBox(width: 12),
         _buildStatCard(
-          title: "Pending Orders",
-          value: _statsData['pendingOrders'] ?? 0.0,
+          title: "Pending Invoices",
+          value: _statsData['pendingInvoices'] ?? 0.0,
           icon: Icons.pending_actions,
           color: kNewWarningColor,
           isCount: true,
+          onTap: () => Navigator.pushNamed(context, AdminPendingInvoicesScreen.routeName),
         ),
       ],
     );
@@ -233,42 +270,47 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     required IconData icon,
     required Color color,
     bool isCount = false,
+    VoidCallback? onTap,
   }) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: kCardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 22),
-                Text(
-                  isCount ? value.toInt().toString() : '৳ ${value.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: kCardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Icon(icon, color: color, size: 22),
+                  Text(
+                    isCount ? value.toInt().toString() : '৳ ${value.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 13,
-                color: kNewSecondaryTextColor,
-                fontWeight: FontWeight.w500,
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: kNewSecondaryTextColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

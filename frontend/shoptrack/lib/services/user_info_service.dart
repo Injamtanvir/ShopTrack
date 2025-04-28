@@ -15,7 +15,7 @@ class UserInfoService {
 
     try {
       final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/users/$userId/info'),
+        Uri.parse('${ApiConstants.baseUrl}/users/$userId/info/'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
@@ -43,7 +43,7 @@ class UserInfoService {
 
     try {
       final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/users/$userId/info'),
+        Uri.parse('${ApiConstants.baseUrl}/users/$userId/info/'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

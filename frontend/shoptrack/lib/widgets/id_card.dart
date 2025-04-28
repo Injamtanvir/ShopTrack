@@ -102,20 +102,13 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            // Shop logo
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                (widget.shopData['shopName'] ?? 'Shop').substring(0, 1).toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+            // Shop name instead of just logo
+            Text(
+              widget.shopData['shopName'] ?? 'Shop',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 20),
@@ -175,7 +168,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      'Role: ${widget.userData['designation'] ?? '*******'}',
+                      'Designation: ${widget.userData['designation'] ?? '*******'}',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ],
@@ -257,7 +250,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
                   const SizedBox(height: 8),
                   _buildDetailRow('Role:', widget.userData['designation'] ?? ''),
                   const SizedBox(height: 8),
-                  _buildDetailRow('User ID:', widget.userData['userId'] ?? ''),
+                  _buildDetailRow('User ID:', widget.userData['userId'] ?? '******'),
                   const SizedBox(height: 8),
                   _buildDetailRow('Email:', widget.userData['email'] ?? ''),
                   const SizedBox(height: 8),
@@ -374,6 +367,14 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
                 ),
                 const SizedBox(height: 8),
                 Text(
+                  'Address: ${widget.shopData['shopAddress'] ?? 'N/A'}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
                   'Est. ${widget.shopData['registrationDate'] ?? 'N/A'}',
                   style: const TextStyle(
                     color: Colors.white70,
@@ -463,7 +464,7 @@ class _IDCardState extends State<IDCard> with SingleTickerProviderStateMixin {
                   const SizedBox(height: 8),
                   _buildDetailRow('VAT License:', widget.shopData['shopVatLicense'] ?? '******'),
                   const SizedBox(height: 8),
-                  _buildDetailRow('Address:', widget.shopData['shopAddress'] ?? ''),
+                  _buildDetailRow('Address:', widget.shopData['shopAddress'] ?? '******'),
                   const SizedBox(height: 30),
                   Text(
                     'This shop is registered with ShopTrack. For verification or more information, please contact ShopTrack support.',

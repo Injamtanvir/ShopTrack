@@ -28,4 +28,6 @@ class ApiConstants {
   static const String getTodayInvoices = '$baseUrl/today-invoices/';
   static const String getShopUsers = '$baseUrl/shop-users/';
   static const String deleteUser = '$baseUrl/delete-user/';
+  static const String getUserInfo = '$baseUrl/users/'; // Base endpoint for user operations
+  static const String getShopInfo = '$baseUrl/shops/'; // Base endpoint for shop operations
 }
