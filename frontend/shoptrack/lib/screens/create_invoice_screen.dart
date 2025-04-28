@@ -22,6 +22,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _customerNameController = TextEditingController();
   final _customerAddressController = TextEditingController();
+  final _customerPhoneController = TextEditingController();
   // Controllers for product search and quantity
   final _productSearchController = TextEditingController();
   final _quantityController = TextEditingController();
@@ -51,6 +52,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   void dispose() {
     _customerNameController.dispose();
     _customerAddressController.dispose();
+    _customerPhoneController.dispose();
     _productSearchController.dispose();
     _quantityController.dispose();
     _discountController.dispose();
@@ -214,6 +216,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         shopLicense: '', // This would need to be fetched from somewhere
         customerName: _customerNameController.text,
         customerAddress: _customerAddressController.text,
+        customerPhone: _customerPhoneController.text,
         date: DateTime.now(),
         items: _invoiceItems,
         status: 'pending',
@@ -270,6 +273,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         shopLicense: '', // This would need to be fetched from somewhere
         customerName: _customerNameController.text,
         customerAddress: _customerAddressController.text,
+        customerPhone: _customerPhoneController.text,
         date: DateTime.now(),
         items: _invoiceItems,
         status: 'pending', // Save as pending first
@@ -337,6 +341,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     _formKey.currentState?.reset();
     _customerNameController.clear();
     _customerAddressController.clear();
+    _customerPhoneController.clear();
     _productSearchController.clear();
     _quantityController.clear();
     _discountController.text = '0';
@@ -456,6 +461,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter customer address';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              CustomTextField(
+                label: 'Customer Phone',
+                controller: _customerPhoneController,
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter customer phone';
                   }
                   return null;
                 },

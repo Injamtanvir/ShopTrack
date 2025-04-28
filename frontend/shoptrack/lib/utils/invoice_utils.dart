@@ -19,15 +19,11 @@ class InvoiceUtils {
     final headerStyle = pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold);
     final subheaderStyle = pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold);
     final normalStyle = pw.TextStyle(fontSize: 12);
+    final smallStyle = pw.TextStyle(fontSize: 10);
     final boldStyle = pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold);
 
-    // Create colorful ShopTrack logo
-    final logo = pw.Row(
-      children: [
-        pw.Text('Shop', style: pw.TextStyle(color: PdfColors.blue, fontSize: 20, fontWeight: pw.FontWeight.bold)),
-        pw.Text('Track', style: pw.TextStyle(color: PdfColors.red, fontSize: 20, fontWeight: pw.FontWeight.bold)),
-      ],
-    );
+    // Create elegant ampersand logo (like in the example)
+    final logo = pw.Text('&', style: pw.TextStyle(fontSize: 36, fontWeight: pw.FontWeight.bold));
 
     // Create the PDF
     pdf.addPage(
@@ -43,68 +39,67 @@ class InvoiceUtils {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   logo,
+                  pw.Text('INVOICE', style: titleStyle),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              
+              // Bill to section
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Customer information (left)
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('BILLED TO:', style: smallStyle),
+                      pw.SizedBox(height: 4),
+                      pw.Text(invoice.customerName, style: normalStyle),
+                      pw.Text('+${invoice.customerPhone}', style: normalStyle),
+                      pw.Text(invoice.customerAddress, style: normalStyle),
+                    ],
+                  ),
+                  
+                  // Invoice details (right)
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
-                      pw.Text('INVOICE', style: titleStyle),
-                      pw.Text('# ${invoice.invoiceNumber}', style: subheaderStyle),
-                      pw.SizedBox(height: 4),
-                      pw.Text('Date: ${invoice.getFormattedDate()}', style: normalStyle),
+                      pw.Text('Invoice No: ${invoice.invoiceNumber}', style: normalStyle),
+                      pw.Text(invoice.getFormattedDateTime(), style: normalStyle),
                     ],
                   ),
                 ],
               ),
-              pw.SizedBox(height: 20),
-              // Shop Information
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text('From:', style: boldStyle),
-                        pw.Text(invoice.shopName, style: normalStyle),
-                        pw.Text(invoice.shopAddress, style: normalStyle),
-                        pw.Text('License: ${invoice.shopLicense}', style: normalStyle),
-                        pw.Text('Shop ID: ${invoice.shopId}', style: normalStyle),
-                      ],
-                    ),
-                  ),
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text('To:', style: boldStyle),
-                        pw.Text(invoice.customerName, style: normalStyle),
-                        pw.Text(invoice.customerAddress, style: normalStyle),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 30),
-              // Invoice Items Table
+              
+              pw.SizedBox(height: 40),
+              
+              // Invoice Items Table - modernized with clean lines
               pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.black),
+                border: pw.TableBorder(
+                  bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+                  horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+                ),
                 columnWidths: {
-                  0: const pw.FlexColumnWidth(4),
-                  1: const pw.FlexColumnWidth(1),
-                  2: const pw.FlexColumnWidth(2),
-                  3: const pw.FlexColumnWidth(2),
+                  0: const pw.FlexColumnWidth(4),   // Item
+                  1: const pw.FlexColumnWidth(1),   // Quantity
+                  2: const pw.FlexColumnWidth(2),   // Unit Price
+                  3: const pw.FlexColumnWidth(2),   // Total
                 },
                 children: [
                   // Table header
                   pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.5))
+                    ),
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Product', style: boldStyle),
+                        child: pw.Text('Item', style: boldStyle),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Qty', style: boldStyle),
+                        child: pw.Text('Quantity', style: boldStyle),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
@@ -129,18 +124,20 @@ class InvoiceUtils {
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('\$${item.unitPrice.toStringAsFixed(2)}', style: normalStyle),
+                        child: pw.Text('৳${item.unitPrice.toStringAsFixed(2)}', style: normalStyle),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('\$${item.totalPrice.toStringAsFixed(2)}', style: normalStyle),
+                        child: pw.Text('৳${item.totalPrice.toStringAsFixed(2)}', style: normalStyle),
                       ),
                     ],
                   )).toList(),
                 ],
               ),
+              
               // Totals Section
               pw.SizedBox(height: 20),
+              
               // Align to the right
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.end,
@@ -155,9 +152,10 @@ class InvoiceUtils {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text('Subtotal:', style: normalStyle),
-                            pw.Text('\$${invoice.subtotalAmount.toStringAsFixed(2)}', style: normalStyle),
+                            pw.Text('৳${invoice.subtotalAmount.toStringAsFixed(2)}', style: normalStyle),
                           ],
                         ),
+                        
                         // If there's a discount, show it
                         if (invoice.discountAmount > 0) ...[
                           pw.SizedBox(height: 4),
@@ -166,7 +164,7 @@ class InvoiceUtils {
                             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                             children: [
                               pw.Text('Discount:', style: normalStyle),
-                              pw.Text('-\$${invoice.discountAmount.toStringAsFixed(2)}',
+                              pw.Text('-৳${invoice.discountAmount.toStringAsFixed(2)}',
                                   style: pw.TextStyle(
                                     fontSize: 12,
                                     color: PdfColors.red,
@@ -175,50 +173,76 @@ class InvoiceUtils {
                             ],
                           ),
                         ],
+                        
+                        // Tax row (0%)
+                        pw.SizedBox(height: 4),
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text('Tax (0%):', style: normalStyle),
+                            pw.Text('৳0', style: normalStyle),
+                          ],
+                        ),
+                        
+                        // Divider for total
+                        pw.Divider(),
+                        
+                        // Total Amount
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text('Total:', style: boldStyle),
+                            pw.Text('৳${invoice.totalAmount.toStringAsFixed(2)}', style: boldStyle),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
-              // Total Amount
-              pw.SizedBox(height: 8),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.end,
-                children: [
-                  pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.grey200,
-                      border: pw.Border.all(color: PdfColors.black),
-                    ),
-                    child: pw.Row(
-                      children: [
-                        pw.Text('Total Amount: ', style: boldStyle),
-                        pw.Text('\$${invoice.totalAmount.toStringAsFixed(2)}', style: boldStyle),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              // Footer
+              
               pw.SizedBox(height: 40),
-              pw.Divider(),
-              pw.SizedBox(height: 10),
-              pw.Center(
-                child: pw.Text(
-                  'Thank you for your business!',
-                  style: pw.TextStyle(
-                    fontStyle: pw.FontStyle.italic,
-                    fontSize: 14,
+              
+              // Thank you text
+              pw.Text('Thank you!', style: headerStyle),
+              
+              pw.SizedBox(height: 30),
+              
+              // Payment and Shop Information section
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Payment Information (left)
+                  pw.Container(
+                    width: 250,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('PAYMENT INFORMATION', style: boldStyle),
+                        pw.SizedBox(height: 8),
+                        pw.Text('Bkash/Nagad/Cash', style: normalStyle),
+                        pw.Text('Account Name: ${invoice.shopName}', style: normalStyle),
+                        pw.Text('Account No.: ***-***-****', style: normalStyle),
+                        pw.Text('Pay by: ${DateTime.now().add(Duration(days: 30)).day} ${DateFormat('MMM yyyy').format(DateTime.now())}', style: normalStyle),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              pw.Center(
-                child: pw.Text(
-                  'Generated using ShopTrack',
-                  style: normalStyle,
-                ),
+                  
+                  // Generated by information (right)
+                  pw.Container(
+                    width: 200,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(invoice.createdBy, style: boldStyle),
+                        pw.SizedBox(height: 4),
+                        pw.Text('${invoice.shopName}', style: normalStyle),
+                        pw.Text('${invoice.shopAddress}', style: smallStyle),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           );
@@ -249,7 +273,7 @@ class InvoiceUtils {
       if (e.toString().contains('MissingPluginException')) {
         // Fallback for platforms without path_provider support
         final bytes = await pdf.save();
-        return {'bytes': bytes, 'error': 'Platform not supported for file saving'};
+        return bytes;
       }
       rethrow;
     }

@@ -52,6 +52,7 @@ class Invoice {
   final String shopLicense;
   final String customerName;
   final String customerAddress;
+  final String customerPhone;
   final DateTime date;
   final List<InvoiceItem> items;
   final double subtotalAmount;
@@ -70,6 +71,7 @@ class Invoice {
     required this.shopLicense,
     required this.customerName,
     required this.customerAddress,
+    this.customerPhone = '',
     required this.date,
     required this.items,
     required this.status,
@@ -103,6 +105,7 @@ class Invoice {
       'shop_license': shopLicense,
       'customer_name': customerName,
       'customer_address': customerAddress,
+      'customer_phone': customerPhone,
       'date': date.toIso8601String(),
       'items': items.map((item) => item.toJson()).toList(),
       'subtotal_amount': subtotalAmount,
@@ -141,6 +144,7 @@ class Invoice {
       shopLicense: json['shop_license'],
       customerName: json['customer_name'],
       customerAddress: json['customer_address'],
+      customerPhone: json['customer_phone'] ?? '',
       date: DateTime.parse(json['date']),
       items: parseItems(json['items'] as List),
       status: json['status'],
@@ -153,5 +157,9 @@ class Invoice {
 
   String getFormattedDate() {
     return DateFormat('MMMM dd, yyyy').format(date);
+  }
+
+  String getFormattedDateTime() {
+    return DateFormat('MMMM dd, yyyy HH:mm').format(date);
   }
 }

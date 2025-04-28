@@ -103,6 +103,7 @@ class SaveInvoiceView(APIView):
             "shop_license": request.data['shop_license'],
             "customer_name": request.data['customer_name'],
             "customer_address": request.data['customer_address'],
+            "customer_phone": request.data.get('customer_phone', ''),  # Add customer phone with default empty string
             "date": request.data['date'],
             "items": request.data['items'],
             "subtotal_amount": request.data['subtotal_amount'],
