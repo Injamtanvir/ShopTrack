@@ -11,7 +11,7 @@ class Shop:
         "name": str,
         "address": str,
         "owner_name": str,
-        "license_number": str,
+        "owner_phone": str,
         "created_at": datetime,
         "updated_at": datetime
     }

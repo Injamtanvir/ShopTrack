@@ -7,6 +7,7 @@ class CustomTextField extends StatelessWidget {
   final bool obscureText;
   final TextInputType keyboardType;
   final Widget? suffixIcon;
+  final dynamic prefixIcon; // Can be IconData or Widget
   final int? maxLines;
   final int? maxLength;
   final String? hintText;
@@ -20,6 +21,7 @@ class CustomTextField extends StatelessWidget {
     this.obscureText = false,
     this.keyboardType = TextInputType.text,
     this.suffixIcon,
+    this.prefixIcon,
     this.maxLines = 1,
     this.maxLength,
     this.hintText,
@@ -67,6 +69,11 @@ class CustomTextField extends StatelessWidget {
               borderSide: const BorderSide(color: Colors.red, width: 2),
             ),
             suffixIcon: suffixIcon,
+            prefixIcon: prefixIcon is IconData 
+                ? Icon(prefixIcon) 
+                : prefixIcon is Widget 
+                    ? prefixIcon 
+                    : null,
           ),
         ),
       ],

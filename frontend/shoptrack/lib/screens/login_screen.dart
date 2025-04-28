@@ -127,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                             child: Icon(
-                              Icons.storefront_rounded,
+                              Icons.store,
                               size: 60,
                               color: const Color(0xFF5D5FEF),
                             ),
@@ -417,4 +417,173 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+class ShopPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = size.width;
+    final height = size.height;
+    
+    // Define paints
+    final buildingPaint = Paint()
+      ..color = const Color(0xFFE8EAF6)
+      ..style = PaintingStyle.fill;
+    
+    final roofPaint = Paint()
+      ..color = const Color(0xFF5D5FEF)
+      ..style = PaintingStyle.fill;
+    
+    final doorPaint = Paint()
+      ..color = const Color(0xFF3949AB)
+      ..style = PaintingStyle.fill;
+      
+    final windowPaint = Paint()
+      ..color = const Color(0xFFBBDEFB)
+      ..style = PaintingStyle.fill;
+      
+    final borderPaint = Paint()
+      ..color = const Color(0xFF3F51B5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+      
+    final signPaint = Paint()
+      ..color = const Color(0xFFFFC107)
+      ..style = PaintingStyle.fill;
+
+    // Building base
+    final buildingPath = Path()
+      ..moveTo(width * 0.15, height * 0.35)
+      ..lineTo(width * 0.15, height * 0.92)
+      ..lineTo(width * 0.85, height * 0.92)
+      ..lineTo(width * 0.85, height * 0.35)
+      ..close();
+    
+    // Roof
+    final roofPath = Path()
+      ..moveTo(width * 0.08, height * 0.35)
+      ..lineTo(width * 0.5, height * 0.12)
+      ..lineTo(width * 0.92, height * 0.35)
+      ..close();
+    
+    // Draw building and roof
+    canvas.drawPath(buildingPath, buildingPaint);
+    canvas.drawPath(buildingPath, borderPaint);
+    canvas.drawPath(roofPath, roofPaint);
+    canvas.drawPath(roofPath, borderPaint);
+    
+    // Door
+    final doorRect = Rect.fromLTWH(
+      width * 0.38, 
+      height * 0.65,
+      width * 0.24,
+      height * 0.27
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(doorRect, Radius.circular(4)),
+      doorPaint
+    );
+    
+    // Door handle
+    canvas.drawCircle(
+      Offset(width * 0.42, height * 0.78),
+      width * 0.02,
+      Paint()..color = Colors.yellow
+    );
+    
+    // Windows
+    final leftWindowRect = Rect.fromLTWH(
+      width * 0.23, 
+      height * 0.45,
+      width * 0.18,
+      height * 0.15
+    );
+    final rightWindowRect = Rect.fromLTWH(
+      width * 0.59, 
+      height * 0.45,
+      width * 0.18,
+      height * 0.15
+    );
+    
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(leftWindowRect, Radius.circular(2)),
+      windowPaint
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(leftWindowRect, Radius.circular(2)),
+      borderPaint
+    );
+    
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rightWindowRect, Radius.circular(2)),
+      windowPaint
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rightWindowRect, Radius.circular(2)),
+      borderPaint
+    );
+    
+    // Window panes
+    canvas.drawLine(
+      Offset(width * 0.32, height * 0.45),
+      Offset(width * 0.32, height * 0.60),
+      borderPaint
+    );
+    canvas.drawLine(
+      Offset(width * 0.23, height * 0.525),
+      Offset(width * 0.41, height * 0.525),
+      borderPaint
+    );
+    
+    canvas.drawLine(
+      Offset(width * 0.68, height * 0.45),
+      Offset(width * 0.68, height * 0.60),
+      borderPaint
+    );
+    canvas.drawLine(
+      Offset(width * 0.59, height * 0.525),
+      Offset(width * 0.77, height * 0.525),
+      borderPaint
+    );
+    
+    // Shop sign
+    final signRect = Rect.fromLTWH(
+      width * 0.3, 
+      height * 0.25,
+      width * 0.4,
+      height * 0.08
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(signRect, Radius.circular(4)),
+      signPaint
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(signRect, Radius.circular(4)),
+      borderPaint
+    );
+    
+    // Text on sign
+    final textPainter = TextPainter(
+      text: const TextSpan(
+        text: 'SHOP',
+        style: TextStyle(
+          color: Color(0xFF3F51B5),
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(
+      canvas, 
+      Offset(
+        width * 0.5 - textPainter.width / 2, 
+        height * 0.25 + (height * 0.08 - textPainter.height) / 2
+      )
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

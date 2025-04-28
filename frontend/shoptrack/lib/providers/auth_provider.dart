@@ -39,7 +39,7 @@ class AuthProvider extends ChangeNotifier {
     required String name,
     required String address,
     required String ownerName,
-    required String licenseNumber,
+    required String ownerPhone,
     required String email,
     required String password,
     required String confirmPassword,
@@ -52,7 +52,7 @@ class AuthProvider extends ChangeNotifier {
         name: name,
         address: address,
         ownerName: ownerName,
-        licenseNumber: licenseNumber,
+        ownerPhone: ownerPhone,
         email: email,
         password: password,
         confirmPassword: confirmPassword,
@@ -143,8 +143,16 @@ class AuthProvider extends ChangeNotifier {
   // Register another admin (for admin)
   Future<bool> registerManager({
     required String name,
+    required String designation,
+    required String employeeId,
     required String email,
     required String password,
+    String? imageBase64,
+    required String idNumber,
+    required DateTime dateOfBirth,
+    required String address,
+    required String phoneNumber,
+    required double salary,
   }) async {
     if (!isManager && !isOwner) {
       _setError('Only managers and owners can register managers');
@@ -157,8 +165,16 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _apiService.registerManager(
         name: name,
+        designation: designation,
+        employeeId: employeeId,
         email: email,
         password: password,
+        imageBase64: imageBase64,
+        idNumber: idNumber,
+        dateOfBirth: dateOfBirth,
+        address: address,
+        phoneNumber: phoneNumber,
+        salary: salary,
       );
 
       return true;

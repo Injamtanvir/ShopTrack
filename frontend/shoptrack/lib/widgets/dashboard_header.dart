@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:icons_flutter/icons_flutter.dart';
 import '../constants/app_styles.dart';
 import '../constants/theme_constants.dart';
 
@@ -79,7 +80,7 @@ class DashboardHeader extends StatelessWidget {
                     Text(
                       subtitle,
                       style: AppTextStyles.body.copyWith(
-                        color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.9 * 255),
+                        color: Colors.white.withOpacity(0.9),
                       ),
                     ),
                   ],
@@ -93,7 +94,7 @@ class DashboardHeader extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.small),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.2 * 255),
+                color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(AppRadius.small),
               ),
               child: TextField(
@@ -102,12 +103,12 @@ class DashboardHeader extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: searchHint,
                   hintStyle: AppTextStyles.body.copyWith(
-                    color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.7 * 255),
+                    color: Colors.white.withOpacity(0.7),
                   ),
                   border: InputBorder.none,
                   prefixIcon: Icon(
                     Icons.search,
-                    color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.9 * 255),
+                    color: Colors.white.withOpacity(0.9),
                   ),
                 ),
               ),
@@ -119,6 +120,16 @@ class DashboardHeader extends StatelessWidget {
   }
   
   Widget _buildLegacyHeader(BuildContext context) {
+    // Determine the appropriate role color based on designation
+    Color roleColor = kOwnerRoleColor;
+    if (designation?.toLowerCase() == 'manager') {
+      roleColor = kManagerRoleColor;
+    } else if (designation?.toLowerCase() == 'seller') {
+      roleColor = kSellerRoleColor;
+    } else if (designation?.toLowerCase() == 'admin') {
+      roleColor = kNewPrimaryColor;
+    }
+
     return Container(
       decoration: BoxDecoration(
         gradient: kNewPrimaryGradient,
@@ -135,124 +146,147 @@ class DashboardHeader extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Shop and user info
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.store, 
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          shopName ?? 'Shop',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(
-                          userName ?? 'User',
-                          style: TextStyle(
-                            color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.9 * 255),
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        if (designation != null) Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6, 
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.2 * 255),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            designation!,
-                            style: TextStyle(
-                              color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.9 * 255),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // Shop icon in circle
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              FlutterIcons.store_mdi,
+                              color: Colors.white,
+                              size: 16,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    if (shopId != null) Text(
-                      'ID: $shopId',
-                      style: TextStyle(
-                        color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.8 * 255),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                
-                // Action buttons 
-                Row(
-                  children: [
-                    if (notificationCount != null) Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.2 * 255),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Stack(
-                        children: [
-                          const Icon(
-                            Icons.notifications_outlined,
-                            color: Colors.white,
-                            size: 22,
+                          const SizedBox(width: 8),
+                          // Shop name
+                          Text(
+                            shopName ?? 'Shop',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
                           ),
-                          if (notificationCount! > 0) Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 14,
-                                minHeight: 14,
-                              ),
-                              child: Text(
-                                notificationCount.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // User info with avatar and designation
+                      Row(
+                        children: [
+                          // User avatar circle
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                            ),
+                            child: const Icon(
+                              FlutterIcons.user_faw,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // User name
+                          Text(
+                            userName ?? 'User',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // User designation
+                          if (designation != null) Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8, 
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: roleColor.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                            ),
+                            child: Text(
+                              designation!.toUpperCase(),
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    if (onLogout != null) InkWell(
-                      onTap: onLogout,
+                      const SizedBox(height: 4),
+                      if (shopId != null) Text(
+                        'ID: $shopId',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Action buttons 
+                Row(
+                  children: [
+                    // Notification icon
+                    InkWell(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Notifications will be implemented in a future update'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.2 * 255),
+                          color: Colors.white.withOpacity(0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Icons.logout,
+                          FlutterIcons.bells_ant,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    
+                    // Connect button (replaced logout)
+                    InkWell(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Connect to other shops will be implemented in a future update'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          FlutterIcons.link_fea,
                           color: Colors.white,
                           size: 22,
                         ),
@@ -269,7 +303,7 @@ class DashboardHeader extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.1 * 255),
+              color: Colors.white.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(16),
                 bottomRight: Radius.circular(16),
@@ -281,7 +315,7 @@ class DashboardHeader extends StatelessWidget {
                 Text(
                   "Today's Sales",
                   style: TextStyle(
-                    color: Colors.white.withValues(red: null, green: null, blue: null, alpha: 0.9 * 255),
+                    color: Colors.white.withOpacity(0.9),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),

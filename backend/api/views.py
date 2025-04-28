@@ -148,7 +148,7 @@ class ShopRegistrationView(APIView):
                 "name": data['name'],
                 "address": data['address'],
                 "owner_name": data['owner_name'],
-                "license_number": data['license_number'],
+                "owner_phone": data['owner_phone'],
                 "created_at": datetime.now(),
                 "updated_at": datetime.now()
             }

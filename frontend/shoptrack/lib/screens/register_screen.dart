@@ -21,7 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _shopNameController = TextEditingController();
   final _shopAddressController = TextEditingController();
   final _ownerNameController = TextEditingController();
-  final _licenseNumberController = TextEditingController();
+  final _ownerPhoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -35,7 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _shopNameController.dispose();
     _shopAddressController.dispose();
     _ownerNameController.dispose();
-    _licenseNumberController.dispose();
+    _ownerPhoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -51,7 +51,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       name: _shopNameController.text.trim(),
       address: _shopAddressController.text.trim(),
       ownerName: _ownerNameController.text.trim(),
-      licenseNumber: _licenseNumberController.text.trim(),
+      ownerPhone: _ownerPhoneController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
       confirmPassword: _confirmPasswordController.text,
@@ -362,12 +362,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 
                 // License Number
                 _buildTextField(
-                  controller: _licenseNumberController,
-                  label: 'License Number',
-                  prefixIcon: Icons.badge_outlined,
+                  controller: _ownerPhoneController,
+                  label: 'Owner Phone Number',
+                  prefixIcon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter license number';
+                      return 'Please enter phone number';
+                    }
+                    if (!RegExp(r'^\+?[0-9]{10,15}$').hasMatch(value)) {
+                      return 'Please enter a valid phone number';
                     }
                     return null;
                   },

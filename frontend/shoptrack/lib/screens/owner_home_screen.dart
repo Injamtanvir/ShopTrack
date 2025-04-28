@@ -165,8 +165,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                   userName: user.name,
                   designation: 'OWNER',
                   shopId: user.shopId,
-                  notificationCount: 3,
-                  onLogout: () => _logout(context),
+                  notificationCount: 0,
                 ),
                 
                 const SizedBox(height: 24),

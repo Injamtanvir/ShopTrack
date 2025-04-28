@@ -147,7 +147,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'Full Name',
           controller: _nameController,
-          prefixIcon: const Icon(Icons.person_outline),
+          prefixIcon: Icons.person_outline,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter full name';
@@ -160,7 +160,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'Designation',
           controller: _designationController,
-          prefixIcon: const Icon(Icons.work_outline),
+          prefixIcon: Icons.work_outline,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter designation';
@@ -191,7 +191,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'NID/Birth Certificate Number',
           controller: _idNumberController,
-          prefixIcon: const Icon(Icons.badge_outlined),
+          prefixIcon: Icons.badge_outlined,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter ID number';
@@ -220,7 +220,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'Address',
           controller: _addressController,
-          prefixIcon: const Icon(Icons.home_outlined),
+          prefixIcon: Icons.home_outlined,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter address';
@@ -233,7 +233,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'Phone Number',
           controller: _phoneController,
-          prefixIcon: const Icon(Icons.phone_outlined),
+          prefixIcon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -263,7 +263,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'Employee ID',
           controller: _employeeIdController,
-          prefixIcon: const Icon(Icons.badge_outlined),
+          prefixIcon: Icons.badge_outlined,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter employee ID';
@@ -276,7 +276,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'Salary',
           controller: _salaryController,
-          prefixIcon: const Icon(Icons.attach_money),
+          prefixIcon: Icons.attach_money,
           keyboardType: TextInputType.number,
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -309,7 +309,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'Email',
           controller: _emailController,
-          prefixIcon: const Icon(Icons.email_outlined),
+          prefixIcon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -326,7 +326,7 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
         CustomTextField(
           label: 'Password',
           controller: _passwordController,
-          prefixIcon: const Icon(Icons.lock_outline),
+          prefixIcon: Icons.lock_outline,
           obscureText: _obscurePassword,
           validator: (value) {
             if (value == null || value.isEmpty) {

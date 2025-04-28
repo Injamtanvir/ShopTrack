@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/custom_text_field.dart';
 import '../constants/theme_constants.dart';
 
 class RegisterManagerScreen extends StatefulWidget {
@@ -148,15 +149,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'Full Name',
           controller: _nameController,
-          decoration: InputDecoration(
-            labelText: 'Full Name',
-            prefixIcon: const Icon(Icons.person_outline),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          prefixIcon: Icons.person_outline,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter manager name';
@@ -166,15 +162,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'Designation',
           controller: _designationController,
-          decoration: InputDecoration(
-            labelText: 'Designation',
-            prefixIcon: const Icon(Icons.work_outline),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          prefixIcon: Icons.work_outline,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter designation';
@@ -202,15 +193,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'NID/Birth Certificate Number',
           controller: _idNumberController,
-          decoration: InputDecoration(
-            labelText: 'NID/Birth Certificate Number',
-            prefixIcon: const Icon(Icons.badge_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          prefixIcon: Icons.badge_outlined,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter ID number';
@@ -236,15 +222,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'Address',
           controller: _addressController,
-          decoration: InputDecoration(
-            labelText: 'Address',
-            prefixIcon: const Icon(Icons.home_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          prefixIcon: Icons.home_outlined,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter address';
@@ -254,15 +235,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'Phone Number',
           controller: _phoneController,
-          decoration: InputDecoration(
-            labelText: 'Phone Number',
-            prefixIcon: const Icon(Icons.phone_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          prefixIcon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -289,15 +265,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'Employee ID',
           controller: _employeeIdController,
-          decoration: InputDecoration(
-            labelText: 'Employee ID',
-            prefixIcon: const Icon(Icons.badge_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          prefixIcon: Icons.badge_outlined,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter employee ID';
@@ -307,15 +278,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'Salary',
           controller: _salaryController,
-          decoration: InputDecoration(
-            labelText: 'Salary',
-            prefixIcon: const Icon(Icons.attach_money),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          prefixIcon: Icons.attach_money,
           keyboardType: TextInputType.number,
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -345,15 +311,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'Email',
           controller: _emailController,
-          decoration: InputDecoration(
-            labelText: 'Email',
-            prefixIcon: const Icon(Icons.email_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          prefixIcon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -367,24 +328,19 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         ),
         const SizedBox(height: 16),
         
-        TextFormField(
+        CustomTextField(
+          label: 'Password',
           controller: _passwordController,
-          decoration: InputDecoration(
-            labelText: 'Password',
-            prefixIcon: const Icon(Icons.lock_outline),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-              ),
-              onPressed: () {
-                setState(() {
-                  _isPasswordVisible = !_isPasswordVisible;
-                });
-              },
+          prefixIcon: Icons.lock_outline,
+          suffixIcon: IconButton(
+            icon: Icon(
+              _isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            onPressed: () {
+              setState(() {
+                _isPasswordVisible = !_isPasswordVisible;
+              });
+            },
           ),
           obscureText: !_isPasswordVisible,
           validator: (value) {

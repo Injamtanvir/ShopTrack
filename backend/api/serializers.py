@@ -4,7 +4,7 @@ class ShopRegistrationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
     address = serializers.CharField(max_length=200)
     owner_name = serializers.CharField(max_length=100)
-    license_number = serializers.CharField(max_length=50)
+    owner_phone = serializers.CharField(max_length=15)
     email = serializers.EmailField()
     password = serializers.CharField(min_length=6, write_only=True)
     confirm_password = serializers.CharField(min_length=6, write_only=True)
