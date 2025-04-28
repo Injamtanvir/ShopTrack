@@ -114,6 +114,9 @@ class ApiService {
       throw Exception('Authorization token not found');
     }
 
+    // Format the date as YYYY-MM-DD
+    final formattedDate = "${dateOfBirth.year}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}";
+
     final response = await http.post(
       Uri.parse(ApiConstants.registerSalesPerson),
       headers: {
@@ -128,7 +131,7 @@ class ApiService {
         'password': password,
         'image_base64': imageBase64,
         'id_number': idNumber,
-        'date_of_birth': dateOfBirth.toIso8601String(),
+        'date_of_birth': formattedDate,
         'address': address,
         'phone_number': phoneNumber,
         'salary': salary,
@@ -158,28 +161,43 @@ class ApiService {
       throw Exception('Authorization token not found');
     }
 
-    final response = await http.post(
-      Uri.parse(ApiConstants.registerManager),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'name': name,
-        'designation': designation,
-        'employee_id': employeeId,
-        'email': email,
-        'password': password,
-        'image_base64': imageBase64,
-        'id_number': idNumber,
-        'date_of_birth': dateOfBirth.toIso8601String(),
-        'address': address,
-        'phone_number': phoneNumber,
-        'salary': salary,
-      }),
-    );
+    // Format the date as YYYY-MM-DD
+    final formattedDate = "${dateOfBirth.year}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}";
 
-    return await _handleApiResponse(response);
+    print('Registering manager at: ${ApiConstants.registerManager}');
+    print('Using token: ${token.substring(0, 20)}... (truncated)');
+    print('Sending data with date: $formattedDate');
+
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.registerManager),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'name': name,
+          'designation': designation,
+          'employee_id': employeeId,
+          'email': email,
+          'password': password,
+          'image_base64': imageBase64,
+          'id_number': idNumber,
+          'date_of_birth': formattedDate,
+          'address': address,
+          'phone_number': phoneNumber,
+          'salary': salary,
+        }),
+      );
+
+      print('Response status code: ${response.statusCode}');
+      print('Response body preview: ${response.body.substring(0, min(100, response.body.length))}...');
+
+      return await _handleApiResponse(response);
+    } catch (e) {
+      print('Error registering manager: $e');
+      rethrow;
+    }
   }
 
   // Add this method to your ApiService class

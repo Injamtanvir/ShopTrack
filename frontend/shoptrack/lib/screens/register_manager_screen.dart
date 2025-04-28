@@ -128,35 +128,70 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
       final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final parsedDate = DateTime.parse(formattedDate);
       
-      final result = await authProvider.registerManager(
-        name: _nameController.text.trim(),
-        designation: _designationController.text.trim(),
-        employeeId: _employeeIdController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        imageBase64: _base64Image,
-        idNumber: _idNumberController.text.trim(),
-        dateOfBirth: parsedDate,
-        address: _addressController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
-        salary: double.tryParse(_salaryController.text) ?? 0,
-      );
+      // Show loading indicator
+      setState(() {});
 
-      if (result) {
+      // Try to register with up to 3 retries
+      int retries = 0;
+      bool success = false;
+      String errorMessage = "";
+      
+      while (retries < 3 && !success) {
+        try {
+          success = await authProvider.registerManager(
+            name: _nameController.text.trim(),
+            designation: _designationController.text.trim(),
+            employeeId: _employeeIdController.text.trim(),
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            imageBase64: _base64Image,
+            idNumber: _idNumberController.text.trim(),
+            dateOfBirth: parsedDate,
+            address: _addressController.text.trim(),
+            phoneNumber: _phoneController.text.trim(),
+            salary: double.tryParse(_salaryController.text) ?? 0,
+          );
+          
+          if (success) break;
+        } catch (e) {
+          errorMessage = e.toString();
+          retries++;
+          if (retries < 3) {
+            // Wait before retrying with exponential backoff
+            await Future.delayed(Duration(milliseconds: 500 * retries));
+          }
+        }
+      }
+
+      if (success) {
         setState(() {
           _registrationSuccess = true;
         });
       } else {
-        // Handle general errors (the error message is already set in the provider)
-        setState(() {}); // Trigger a rebuild to show the error message
+        // Handle general errors
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Registration failed. Please check your connection and try again.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
       }
     } catch (e) {
       // Handle unexpected errors
       if (mounted) {
+        String errorMsg = e.toString();
+        if (errorMsg.contains('HTML instead of JSON')) {
+          errorMsg = 'Server is temporarily unavailable. Please try again later.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Registration failed: ${e.toString()}'),
+            content: Text('Registration failed: $errorMsg'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
           ),
         );
       }
