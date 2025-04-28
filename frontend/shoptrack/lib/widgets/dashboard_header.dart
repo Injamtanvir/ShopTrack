@@ -230,13 +230,14 @@ class DashboardHeader extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      if (shopId != null) Text(
+                      // Removing the shop ID display
+                      /* if (shopId != null) Text(
                         'ID: $shopId',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.8),
                           fontSize: 12,
                         ),
-                      ),
+                      ), */
                     ],
                   ),
                 ),
@@ -298,42 +299,16 @@ class DashboardHeader extends StatelessWidget {
             ),
           ),
           
-          // Balance
-          if (balance != null) Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Today's Sales",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '৳ ${balance!.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Bottom section with balance/sales info
+          _buildBottomSection(),
         ],
       ),
     );
+  }
+
+  // Bottom section with balance/sales info
+  Widget _buildBottomSection() {
+    // Always return an empty SizedBox to ensure no space is taken up
+    return const SizedBox.shrink();
   }
 } 

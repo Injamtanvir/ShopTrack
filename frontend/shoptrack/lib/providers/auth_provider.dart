@@ -13,7 +13,7 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _user != null;
   bool get isManager => _user?.role == 'manager';
-  bool get isAdmin => _user?.role == 'manager';
+  bool get isAdmin => false; // Admin role is deprecated, use isManager instead
   bool get isOwner => _user?.role == 'owner';
 
   // Initialize provider - check if user is already logged in
@@ -34,7 +34,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Register a shop and admin user
+  // Register a shop and owner user
   Future<String?> registerShop({
     required String name,
     required String address,
@@ -94,53 +94,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Register another admin (for admin)
-  Future<bool> registerAdmin({
-    required String name,
-    required String designation,
-    required String employeeId,
-    required String email,
-    required String password,
-    String? imageBase64,
-    required String idNumber,
-    required DateTime dateOfBirth,
-    required String address,
-    required String phoneNumber,
-    required double salary,
-  }) async {
-    if (!isManager && !isOwner) {
-      _setError('Only managers and owners can register managers');
-      return false;
-    }
-
-    _setLoading(true);
-    _clearError();
-
-    try {
-      await _apiService.registerManager(
-        name: name,
-        designation: designation,
-        employeeId: employeeId,
-        email: email,
-        password: password,
-        imageBase64: imageBase64,
-        idNumber: idNumber,
-        dateOfBirth: dateOfBirth,
-        address: address,
-        phoneNumber: phoneNumber,
-        salary: salary,
-      );
-
-      return true;
-    } catch (e) {
-      _setError(e.toString());
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Register another admin (for admin)
+  // Register a manager (only for owners)
   Future<bool> registerManager({
     required String name,
     required String designation,
@@ -154,8 +108,8 @@ class AuthProvider extends ChangeNotifier {
     required String phoneNumber,
     required double salary,
   }) async {
-    if (!isManager && !isOwner) {
-      _setError('Only managers and owners can register managers');
+    if (!isOwner) {
+      _setError('Only owners can register managers');
       return false;
     }
 
@@ -186,7 +140,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Register a sales person (for admin)
+  // Register a sales person (for managers and owners)
   Future<bool> registerSalesPerson({
     required String name,
     required String designation,

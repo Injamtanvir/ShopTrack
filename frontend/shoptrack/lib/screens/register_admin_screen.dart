@@ -81,30 +81,89 @@ class _RegisterAdminScreenState extends State<RegisterAdminScreen> {
     }
   }
 
-  Future<void> _registerAdmin() async {
-    if (!_formKey.currentState!.validate()) return;
+  // Add the missing validation methods
+  bool _validatePersonalInfo() {
+    return _nameController.text.isNotEmpty &&
+        _designationController.text.isNotEmpty &&
+        _idNumberController.text.isNotEmpty;
+  }
+
+  bool _validateContactInfo() {
+    return _addressController.text.isNotEmpty &&
+        _phoneController.text.isNotEmpty;
+  }
+
+  bool _validateEmploymentInfo() {
+    return _employeeIdController.text.isNotEmpty &&
+        _salaryController.text.isNotEmpty &&
+        double.tryParse(_salaryController.text) != null;
+  }
+
+  bool _validateAccountInfo() {
+    return _emailController.text.isNotEmpty &&
+        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text) &&
+        _passwordController.text.isNotEmpty &&
+        _passwordController.text.length >= 6;
+  }
+
+  void _registerAdmin() async {
+    if (!_formKey.currentState!.validate()) {
+      // Find the first step with validation errors
+      if (!_validatePersonalInfo()) {
+        setState(() => _currentStep = 0);
+      } else if (!_validateContactInfo()) {
+        setState(() => _currentStep = 1);
+      } else if (!_validateEmploymentInfo()) {
+        setState(() => _currentStep = 2);
+      } else if (!_validateAccountInfo()) {
+        setState(() => _currentStep = 3);
+      }
+      return;
+    }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    final success = await authProvider.registerAdmin(
-      name: _nameController.text.trim(),
-      designation: _designationController.text.trim(),
-      employeeId: _employeeIdController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      imageBase64: _base64Image,
-      idNumber: _idNumberController.text.trim(),
-      dateOfBirth: _selectedDate,
-      address: _addressController.text.trim(),
-      phoneNumber: _phoneController.text.trim(),
-      salary: double.tryParse(_salaryController.text) ?? 0,
-    );
+    try {
+      final result = await authProvider.registerManager(
+        name: _nameController.text.trim(),
+        designation: _designationController.text.trim(),
+        employeeId: _employeeIdController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        imageBase64: _base64Image,
+        idNumber: _idNumberController.text.trim(),
+        dateOfBirth: _selectedDate,
+        address: _addressController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        salary: double.tryParse(_salaryController.text) ?? 0,
+      );
 
-    if (success) {
-      setState(() {
-        _registrationSuccess = true;
-      });
+      if (result) {
+        setState(() {
+          _registrationSuccess = true;
+        });
+      } else {
+        // Handle general errors (the error message is already set in the provider)
+        setState(() {}); // Trigger a rebuild to show the error message
+      }
+    } catch (e) {
+      // Handle unexpected errors
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  // Show success dialog
+  void _showSuccessDialog() {
+    setState(() {
+      _registrationSuccess = true;
+    });
   }
 
   Widget _buildPersonalInfoStep() {
@@ -362,7 +421,7 @@ class _RegisterAdminScreenState extends State<RegisterAdminScreen> {
       // Show success screen
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Admin Registration'),
+          title: const Text('Manager Registration'),
           backgroundColor: kManagerRoleColor,
         ),
         body: SafeArea(
@@ -394,7 +453,7 @@ class _RegisterAdminScreenState extends State<RegisterAdminScreen> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'The admin has been registered successfully.',
+                    'The manager has been registered successfully.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16),
                   ),
@@ -411,7 +470,7 @@ class _RegisterAdminScreenState extends State<RegisterAdminScreen> {
 
                   // Add another admin button
                   CustomButton(
-                    text: 'Register Another Admin',
+                    text: 'Register Another Manager',
                     onPressed: () {
                       setState(() {
                         _registrationSuccess = false;
@@ -444,79 +503,110 @@ class _RegisterAdminScreenState extends State<RegisterAdminScreen> {
     // Show registration form
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Register Admin'),
+        title: const Text('Register Manager'),
         backgroundColor: kManagerRoleColor,
       ),
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: Stepper(
-            type: StepperType.vertical,
-            currentStep: _currentStep,
-            onStepContinue: () {
-              if (_currentStep < 3) {
-                setState(() {
-                  _currentStep += 1;
-                });
-              } else {
-                _registerAdmin();
-              }
-            },
-            onStepCancel: () {
-              if (_currentStep > 0) {
-                setState(() {
-                  _currentStep -= 1;
-                });
-              }
-            },
-            controlsBuilder: (context, details) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 20.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: CustomButton(
-                        text: _currentStep == 3 ? 'Register Admin' : 'Continue',
-                        onPressed: details.onStepContinue!,
-                        isLoading: _currentStep == 3 ? authProvider.isLoading : false,
-                        buttonStyle: ElevatedButton.styleFrom(
-                          backgroundColor: kManagerRoleColor,
-                        ),
-                      ),
-                    ),
-                    if (_currentStep > 0) ...[
+          child: Column(
+            children: [
+              // Error message display
+              if (authProvider.errorMessage != null && authProvider.errorMessage!.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: details.onStepCancel,
-                          child: const Text('Back'),
+                        child: Text(
+                          authProvider.errorMessage!,
+                          style: const TextStyle(color: Colors.red),
                         ),
                       ),
                     ],
+                  ),
+                ),
+              
+              Expanded(
+                child: Stepper(
+                  type: StepperType.vertical,
+                  currentStep: _currentStep,
+                  onStepContinue: () {
+                    if (_currentStep < 3) {
+                      setState(() {
+                        _currentStep += 1;
+                      });
+                    } else {
+                      _registerAdmin();
+                    }
+                  },
+                  onStepCancel: () {
+                    if (_currentStep > 0) {
+                      setState(() {
+                        _currentStep -= 1;
+                      });
+                    }
+                  },
+                  controlsBuilder: (context, details) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 20.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: CustomButton(
+                              text: _currentStep == 3 ? 'Register Manager' : 'Continue',
+                              onPressed: details.onStepContinue!,
+                              isLoading: _currentStep == 3 ? authProvider.isLoading : false,
+                              buttonStyle: ElevatedButton.styleFrom(
+                                backgroundColor: kManagerRoleColor,
+                              ),
+                            ),
+                          ),
+                          if (_currentStep > 0) ...[
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: details.onStepCancel,
+                                child: const Text('Back'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                  steps: [
+                    Step(
+                      title: const Text('Personal Information'),
+                      content: _buildPersonalInfoStep(),
+                      isActive: _currentStep >= 0,
+                    ),
+                    Step(
+                      title: const Text('Contact Information'),
+                      content: _buildContactInfoStep(),
+                      isActive: _currentStep >= 1,
+                    ),
+                    Step(
+                      title: const Text('Employment Information'),
+                      content: _buildEmploymentInfoStep(),
+                      isActive: _currentStep >= 2,
+                    ),
+                    Step(
+                      title: const Text('Account Information'),
+                      content: _buildAccountInfoStep(),
+                      isActive: _currentStep >= 3,
+                    ),
                   ],
                 ),
-              );
-            },
-            steps: [
-              Step(
-                title: const Text('Personal Information'),
-                content: _buildPersonalInfoStep(),
-                isActive: _currentStep >= 0,
-              ),
-              Step(
-                title: const Text('Contact Information'),
-                content: _buildContactInfoStep(),
-                isActive: _currentStep >= 1,
-              ),
-              Step(
-                title: const Text('Employment Information'),
-                content: _buildEmploymentInfoStep(),
-                isActive: _currentStep >= 2,
-              ),
-              Step(
-                title: const Text('Account Information'),
-                content: _buildAccountInfoStep(),
-                isActive: _currentStep >= 3,
               ),
             ],
           ),

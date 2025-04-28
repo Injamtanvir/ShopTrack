@@ -6,7 +6,7 @@ import 'providers/auth_provider.dart';
 
 import 'screens/admin_home_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/register_admin_screen.dart';
+import 'screens/register_manager_screen.dart';
 import 'screens/register_sales_person_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/seller_home_screen.dart';
@@ -84,7 +84,7 @@ class MyApp extends StatelessWidget {
           AdminHomeScreen.routeName: (ctx) => const AdminHomeScreen(),
           SellerHomeScreen.routeName: (ctx) => const SellerHomeScreen(),
           RegisterSalesPersonScreen.routeName: (ctx) => const RegisterSalesPersonScreen(),
-          RegisterAdminScreen.routeName: (ctx) => const RegisterAdminScreen(),
+          RegisterManagerScreen.routeName: (ctx) => const RegisterManagerScreen(),
           SellerProductListScreen.routeName: (ctx) => const SellerProductListScreen(),
           AddProductScreen.routeName: (ctx) => const AddProductScreen(),
           ProductListScreen.routeName: (ctx) => const ProductListScreen(),
@@ -139,7 +139,7 @@ class _InitScreenState extends State<InitScreen> {
     if (authProvider.isLoggedIn) {
       if (authProvider.isOwner) {
         return const OwnerHomeScreen();
-      } else if (authProvider.isAdmin) {
+      } else if (authProvider.isManager) {
         return const AdminHomeScreen();
       } else {
         return const SellerHomeScreen();

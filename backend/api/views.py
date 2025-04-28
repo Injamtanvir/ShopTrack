@@ -249,10 +249,10 @@ class SalesPersonRegistrationView(APIView):
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            # Check if user is admin
-            if payload['role'] != 'manager':
+            # Check if user is manager or owner
+            if payload['role'] != 'manager' and payload['role'] != 'owner':
                 return Response(
-                    {"error": "Only managers can register sales persons"},
+                    {"error": "Only managers and owners can register sales persons"},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -557,10 +557,10 @@ class AdminRegistrationView(APIView):
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            # Check if user is admin
-            if payload['role'] != 'manager':
+            # Check if user is admin or owner
+            if payload['role'] != 'manager' and payload['role'] != 'owner':
                 return Response(
-                    {"error": "Only managers can register other managers"},
+                    {"error": "Only managers and owners can register other managers"},
                     status=status.HTTP_403_FORBIDDEN
                 )
 

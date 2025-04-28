@@ -7,7 +7,6 @@ import '../widgets/dashboard_header.dart';
 import '../constants/theme_constants.dart';
 import '../widgets/connectivity_banner.dart';
 import 'login_screen.dart';
-import 'register_admin_screen.dart';
 import 'register_sales_person_screen.dart';
 import 'add_product_screen.dart';
 import 'product_list_screen.dart';
@@ -88,7 +87,7 @@ class AdminHomeScreen extends StatelessWidget {
                   shopName: user.shopName ?? 'Your Shop',
                   balance: 0.0, // You can replace with actual balance if available
                   userName: user.name,
-                  designation: 'ADMIN',
+                  designation: 'MANAGER',
                   shopId: user.shopId,
                   notificationCount: 0,
                 ),
@@ -201,62 +200,6 @@ class AdminHomeScreen extends StatelessWidget {
                                 SizedBox(height: 4),
                                 Text(
                                   'Add a new sales person to your shop',
-                                  style: TextStyle(
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Register Admin button
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pushNamed(context, RegisterAdminScreen.routeName);
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.purple.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.admin_panel_settings,
-                              color: Colors.purple.shade800,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Register Admin',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Add another admin to your shop',
                                   style: TextStyle(
                                     color: Colors.black54,
                                   ),

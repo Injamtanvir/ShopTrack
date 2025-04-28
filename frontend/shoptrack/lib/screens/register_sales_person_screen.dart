@@ -450,73 +450,108 @@ class _RegisterSalesPersonScreenState extends State<RegisterSalesPersonScreen> {
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: Stepper(
-            type: StepperType.vertical,
-            currentStep: _currentStep,
-            onStepContinue: () {
-              if (_currentStep < 3) {
-                setState(() {
-                  _currentStep += 1;
-                });
-              } else {
-                _registerSalesPerson();
-              }
-            },
-            onStepCancel: () {
-              if (_currentStep > 0) {
-                setState(() {
-                  _currentStep -= 1;
-                });
-              }
-            },
-            controlsBuilder: (context, details) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 20.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: CustomButton(
-                        text: _currentStep == 3 ? 'Register Sales Person' : 'Continue',
-                        onPressed: details.onStepContinue!,
-                        isLoading: _currentStep == 3 ? authProvider.isLoading : false,
-                        buttonStyle: ElevatedButton.styleFrom(
-                          backgroundColor: kSellerRoleColor,
-                        ),
+          child: Column(
+            children: [
+              // Error message if any
+              if (authProvider.errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red.shade800,
+                        size: 20,
                       ),
-                    ),
-                    if (_currentStep > 0) ...[
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: details.onStepCancel,
-                          child: const Text('Back'),
+                        child: Text(
+                          authProvider.errorMessage!,
+                          style: TextStyle(color: Colors.red.shade800),
                         ),
                       ),
                     ],
+                  ),
+                ),
+              
+              // Stepper
+              Expanded(
+                child: Stepper(
+                  type: StepperType.vertical,
+                  currentStep: _currentStep,
+                  onStepContinue: () {
+                    if (_currentStep < 3) {
+                      setState(() {
+                        _currentStep += 1;
+                      });
+                    } else {
+                      _registerSalesPerson();
+                    }
+                  },
+                  onStepCancel: () {
+                    if (_currentStep > 0) {
+                      setState(() {
+                        _currentStep -= 1;
+                      });
+                    }
+                  },
+                  controlsBuilder: (context, details) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 20.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: CustomButton(
+                              text: _currentStep == 3 ? 'Register Sales Person' : 'Continue',
+                              onPressed: details.onStepContinue!,
+                              isLoading: _currentStep == 3 ? authProvider.isLoading : false,
+                              buttonStyle: ElevatedButton.styleFrom(
+                                backgroundColor: kSellerRoleColor,
+                              ),
+                            ),
+                          ),
+                          if (_currentStep > 0) ...[
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: details.onStepCancel,
+                                child: const Text('Back'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                  steps: [
+                    Step(
+                      title: const Text('Personal Information'),
+                      content: _buildPersonalInfoStep(),
+                      isActive: _currentStep >= 0,
+                    ),
+                    Step(
+                      title: const Text('Contact Information'),
+                      content: _buildContactInfoStep(),
+                      isActive: _currentStep >= 1,
+                    ),
+                    Step(
+                      title: const Text('Employment Information'),
+                      content: _buildEmploymentInfoStep(),
+                      isActive: _currentStep >= 2,
+                    ),
+                    Step(
+                      title: const Text('Account Information'),
+                      content: _buildAccountInfoStep(),
+                      isActive: _currentStep >= 3,
+                    ),
                   ],
                 ),
-              );
-            },
-            steps: [
-              Step(
-                title: const Text('Personal Information'),
-                content: _buildPersonalInfoStep(),
-                isActive: _currentStep >= 0,
-              ),
-              Step(
-                title: const Text('Contact Information'),
-                content: _buildContactInfoStep(),
-                isActive: _currentStep >= 1,
-              ),
-              Step(
-                title: const Text('Employment Information'),
-                content: _buildEmploymentInfoStep(),
-                isActive: _currentStep >= 2,
-              ),
-              Step(
-                title: const Text('Account Information'),
-                content: _buildAccountInfoStep(),
-                isActive: _currentStep >= 3,
               ),
             ],
           ),
