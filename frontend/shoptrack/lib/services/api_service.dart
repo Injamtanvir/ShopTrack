@@ -161,7 +161,7 @@ class ApiService {
       throw Exception('Authorization token not found');
     }
 
-    // Format the date as YYYY-MM-DD
+    // Format the date as YYYY-MM-DD string instead of DateTime object
     final formattedDate = "${dateOfBirth.year}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}";
 
     print('Registering manager at: ${ApiConstants.registerManager}');
@@ -183,7 +183,7 @@ class ApiService {
           'password': password,
           'image_base64': imageBase64,
           'id_number': idNumber,
-          'date_of_birth': formattedDate,
+          'date_of_birth': formattedDate, // Send as string, not DateTime object
           'address': address,
           'phone_number': phoneNumber,
           'salary': salary,
