@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/dashboard_header.dart';
 import '../constants/theme_constants.dart';
-import '../widgets/connectivity_banner.dart';
+import '../widgets/dashboard_header.dart';
 import '../widgets/custom_bottom_nav.dart';
+import '../widgets/connectivity_banner.dart';
 import 'login_screen.dart';
 import 'register_sales_person_screen.dart';
 import 'add_product_screen.dart';
@@ -51,295 +50,75 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     setState(() {
       _currentNavIndex = index;
     });
+
+    switch (index) {
+      case 0:
+        // Already on home screen
+        break;
+      case 1:
+        Navigator.pushNamed(context, ProductListScreen.routeName);
+        break;
+      case 2:
+        Navigator.pushNamed(context, CreateInvoiceScreen.routeName);
+        break;
+      case 3:
+        _showComingSoonSnackBar('Reports and Analytics');
+        break;
+      case 4:
+        _showMenuOptions();
+        break;
+    }
   }
 
-  Widget _buildStatCard(String title, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: kNewTextColor.withOpacity(0.6),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: kNewTextColor,
-            ),
-          ),
-        ],
+  void _showComingSoonSnackBar(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature will be available in future updates'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  Widget _buildStatsSummary() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            'Today Sales',
-            '\$${_statsData['todaySales']?.toStringAsFixed(2) ?? '0.00'}',
-            kManagerRoleColor,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Stock Value',
-            '\$${_statsData['stockValue']?.toStringAsFixed(2) ?? '0.00'}',
-            kSalesColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickAction(
-      {required String title,
-      required IconData icon,
-      required Color color,
-      required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: kNewTextColor,
-                ),
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.grey,
-              size: 16,
-            ),
-          ],
-        ),
+  void _showMenuOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Quick Actions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: kNewTextColor,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, DailyTrackingScreen.routeName);
-              },
-              child: const Text('Analytics',
-                  style: TextStyle(color: kManagerRoleColor)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildQuickAction(
-          title: 'Add New Product',
-          icon: Icons.add_circle_outline,
-          color: kProductsColor,
-          onTap: () => Navigator.pushNamed(context, AddProductScreen.routeName),
-        ),
-        const SizedBox(height: 12),
-        _buildQuickAction(
-          title: 'Create Invoice',
-          icon: Icons.receipt_long_outlined,
-          color: kInvoiceColor,
-          onTap: () => Navigator.pushNamed(context, CreateInvoiceScreen.routeName),
-        ),
-        const SizedBox(height: 12),
-        _buildQuickAction(
-          title: 'Add Sales Person',
-          icon: Icons.person_add_outlined,
-          color: kSellerRoleColor,
-          onTap: () => Navigator.pushNamed(context, RegisterSalesPersonScreen.routeName),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeatureCard({
-    required String title,
-    required String description,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 28,
-                ),
+              ListTile(
+                leading: const Icon(Icons.settings, color: kNewSecondaryColor),
+                title: const Text('Settings'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showComingSoonSnackBar('Settings');
+                },
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: kNewTextColor,
-                ),
+              ListTile(
+                leading: const Icon(Icons.price_change, color: kNewAccentColor),
+                title: const Text('Price List'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, PriceListScreen.routeName);
+                },
               ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: kNewTextColor.withOpacity(0.6),
-                ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: kNewErrorColor),
+                title: const Text('Logout', style: TextStyle(color: kNewErrorColor)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _logout(context);
+                },
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMainFeatureGrid() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Manage Your Shop',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: kNewTextColor,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFeatureCard(
-                title: 'Product List',
-                description: 'View all products',
-                icon: Icons.inventory_2_outlined,
-                color: kProductsColor,
-                onTap: () => Navigator.pushNamed(context, ProductListScreen.routeName),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildFeatureCard(
-                title: 'Price List',
-                description: 'View and share price list',
-                icon: Icons.list_alt_outlined,
-                color: kPriceColor,
-                onTap: () => Navigator.pushNamed(context, PriceListScreen.routeName),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFeatureCard(
-                title: 'Pending Invoices',
-                description: 'Manage pending orders',
-                icon: Icons.pending_actions_outlined,
-                color: kPendingColor,
-                onTap: () => Navigator.pushNamed(context, AdminPendingInvoicesScreen.routeName),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildFeatureCard(
-                title: 'Invoice History',
-                description: 'View all completed invoices',
-                icon: Icons.history_outlined,
-                color: kHistoryColor,
-                onTap: () => Navigator.pushNamed(context, InvoiceHistoryScreen.routeName),
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -393,6 +172,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 
                 // Main Feature Grid
                 _buildMainFeatureGrid(),
+                
+                const SizedBox(height: 24),
+                
+                // User Management Section (simplified)
+                _buildUserManagementSection(),
               ],
             ),
           ),
@@ -401,6 +185,364 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _currentNavIndex,
         onTap: _handleNavigationTap,
+      ),
+    );
+  }
+
+  Widget _buildStatsSummary() {
+    return Row(
+      children: [
+        _buildStatCard(
+          title: "Today's Sales",
+          value: _statsData['todaySales'] ?? 0.0,
+          icon: Icons.trending_up,
+          color: kNewSuccessColor,
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          title: "Stock Value",
+          value: _statsData['stockValue'] ?? 0.0,
+          icon: Icons.inventory_2,
+          color: kNewPrimaryColor,
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          title: "Pending Orders",
+          value: _statsData['pendingOrders'] ?? 0.0,
+          icon: Icons.pending_actions,
+          color: kNewWarningColor,
+          isCount: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required double value,
+    required IconData icon,
+    required Color color,
+    bool isCount = false,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, color: color, size: 22),
+                Text(
+                  isCount ? value.toInt().toString() : '৳ ${value.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                color: kNewSecondaryTextColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quick Actions',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: kNewTextColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildActionButton(
+                icon: Icons.receipt_long,
+                title: 'Create Invoice',
+                onTap: () => Navigator.pushNamed(context, CreateInvoiceScreen.routeName),
+                color: kNewPrimaryColor,
+              ),
+              _buildActionButton(
+                icon: Icons.add_circle_outline,
+                title: 'Add Product',
+                onTap: () => Navigator.pushNamed(context, AddProductScreen.routeName),
+                color: kNewSecondaryColor,
+              ),
+              _buildActionButton(
+                icon: Icons.pending_actions,
+                title: 'Pending Invoices',
+                onTap: () => Navigator.pushNamed(context, AdminPendingInvoicesScreen.routeName),
+                color: kNewWarningColor,
+              ),
+              _buildActionButton(
+                icon: Icons.history,
+                title: 'Invoice History',
+                onTap: () => Navigator.pushNamed(context, InvoiceHistoryScreen.routeName),
+                color: kNewAccentColor,
+              ),
+              _buildActionButton(
+                icon: Icons.person_add,
+                title: 'Add Seller',
+                onTap: () => Navigator.pushNamed(context, RegisterSalesPersonScreen.routeName),
+                color: kSellerRoleColor,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 110,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: kCardShadow,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: kNewTextColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainFeatureGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Shop Operations',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: kNewTextColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        GridView.count(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          crossAxisCount: 2,
+          childAspectRatio: 1.5,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          children: [
+            _buildFeatureCard(
+              title: 'Products',
+              description: 'Manage your inventory',
+              icon: Icons.inventory_2,
+              onTap: () => Navigator.pushNamed(context, ProductListScreen.routeName),
+              color: kNewPrimaryColor,
+            ),
+            _buildFeatureCard(
+              title: 'Price List',
+              description: 'Manage pricing',
+              icon: Icons.price_change,
+              onTap: () => Navigator.pushNamed(context, PriceListScreen.routeName),
+              color: kNewSecondaryColor,
+            ),
+            _buildFeatureCard(
+              title: 'Daily Reports',
+              description: 'Track daily performance',
+              icon: Icons.analytics,
+              onTap: () => Navigator.pushNamed(context, DailyTrackingScreen.routeName),
+              color: kNewAccentColor,
+            ),
+            _buildFeatureCard(
+              title: 'Add Seller',
+              description: 'Add new sales person',
+              icon: Icons.person_add,
+              onTap: () => Navigator.pushNamed(context, RegisterSalesPersonScreen.routeName),
+              color: kSellerRoleColor,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFeatureCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const Spacer(),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: kNewTextColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 12,
+                color: kNewSecondaryTextColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserManagementSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'User Management',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: kNewTextColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Only show the Add Seller card for managers
+        _buildUserActionCard(
+          title: 'Add Seller',
+          description: 'Register a salesperson for your shop',
+          icon: Icons.person_add,
+          onTap: () => Navigator.pushNamed(context, RegisterSalesPersonScreen.routeName),
+          color: kSellerRoleColor,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserActionCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: kNewTextColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 12,
+                color: kNewSecondaryTextColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

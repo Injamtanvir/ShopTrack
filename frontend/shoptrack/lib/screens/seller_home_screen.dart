@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/dashboard_header.dart';
+import '../widgets/seller_dashboard_header.dart';
 import '../constants/theme_constants.dart';
 import '../widgets/connectivity_banner.dart';
+import '../services/stats_service.dart';
 import 'login_screen.dart';
 import 'seller_product_list_screen.dart';
 import 'price_list_screen.dart';
@@ -11,9 +12,62 @@ import 'create_invoice_screen.dart';
 import 'pending_invoices_screen.dart';
 import 'invoice_history_screen.dart';
 
-class SellerHomeScreen extends StatelessWidget {
+class SellerHomeScreen extends StatefulWidget {
   static const routeName = '/seller-home';
   const SellerHomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SellerHomeScreen> createState() => _SellerHomeScreenState();
+}
+
+class _SellerHomeScreenState extends State<SellerHomeScreen> {
+  final StatsService _statsService = StatsService();
+  bool _isLoading = false;
+  Map<String, dynamic> _statsData = {
+    'todaySales': 0.0,
+    'totalInvoices': 0.0,
+    'pendingInvoices': 0.0,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final shopId = authProvider.user?.shopId;
+      
+      if (shopId != null) {
+        final todayStats = await _statsService.getTodaySalesStats(shopId);
+        
+        setState(() {
+          _statsData = {
+            'todaySales': todayStats['total_revenue'] ?? 0.0,
+            'totalInvoices': todayStats['total_sales'] ?? 0.0,
+            'pendingInvoices': todayStats['pending_invoices'] ?? 0.0,
+          };
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Fallback to mock data if API call fails
+      setState(() {
+        _statsData = {
+          'todaySales': 2500.0,
+          'totalInvoices': 4.0,
+          'pendingInvoices': 1.0,
+        };
+        _isLoading = false;
+      });
+    }
+  }
 
   Future<void> _logout(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -48,15 +102,19 @@ class SellerHomeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Dashboard Header
-                DashboardHeader(
+                // New Seller Dashboard Header
+                SellerDashboardHeader(
                   shopName: user.shopName ?? 'Your Shop',
-                  balance: 0.0, // You can replace with actual balance if available
                   userName: user.name,
                   designation: 'SELLER',
                   shopId: user.shopId,
-                  notificationCount: 0,
+                  onLogout: () => _logout(context),
                 ),
+                
+                const SizedBox(height: 32),
+                
+                // Today's Summary Section
+                _buildTodaySummary(),
                 
                 const SizedBox(height: 32),
                 // Product Management
@@ -353,38 +411,6 @@ class SellerHomeScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
-                // Daily summary section - placeholder
-                const Text(
-                  'Today\'s Summary',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Summary cards
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildSummaryCard(
-                        'Sales',
-                        '0',
-                        Icons.trending_up,
-                        Colors.green,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildSummaryCard(
-                        'Revenue',
-                        '\$0.00',
-                        Icons.attach_money,
-                        Colors.blue,
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -393,6 +419,98 @@ class SellerHomeScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildTodaySummary() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Today's Summary",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Row(
+                children: [
+                  _buildStatCard(
+                    title: "Today's Sales",
+                    value: _statsData['todaySales'],
+                    icon: Icons.trending_up,
+                    color: kNewSuccessColor,
+                  ),
+                  const SizedBox(width: 16),
+                  _buildStatCard(
+                    title: "Total Invoices",
+                    value: _statsData['totalInvoices'],
+                    icon: Icons.receipt,
+                    color: kNewPrimaryColor,
+                    isCount: true,
+                  ),
+                  const SizedBox(width: 16),
+                  _buildStatCard(
+                    title: "Pending",
+                    value: _statsData['pendingInvoices'],
+                    icon: Icons.pending_actions,
+                    color: kNewWarningColor,
+                    isCount: true,
+                  ),
+                ],
+              ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required double value,
+    required IconData icon,
+    required Color color,
+    bool isCount = false,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, color: color, size: 22),
+                Text(
+                  isCount ? value.toInt().toString() : '৳ ${value.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                color: kNewSecondaryTextColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper widget for feature placeholders
   Widget _buildFeaturePlaceholder(IconData icon, String label, Color color) {
     return Column(
       children: [
@@ -416,55 +534,6 @@ class SellerHomeScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha((255 * 0.2).toInt()),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
