@@ -49,9 +49,9 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
         
         setState(() {
           _statsData = {
-            'todaySales': todayStats['total_revenue'] ?? 0.0,
-            'totalInvoices': todayStats['total_sales'] ?? 0.0,
-            'pendingInvoices': todayStats['pending_invoices'] ?? 0.0,
+            'todaySales': (todayStats['total_revenue'] ?? 0).toDouble(),
+            'totalInvoices': (todayStats['total_sales'] ?? 0).toDouble(),
+            'pendingInvoices': (todayStats['pending_invoices'] ?? 0).toDouble(),
           };
           _isLoading = false;
         });
@@ -437,14 +437,14 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                 children: [
                   _buildStatCard(
                     title: "Today's Sales",
-                    value: _statsData['todaySales'],
+                    value: (_statsData['todaySales'] ?? 0).toDouble(),
                     icon: Icons.trending_up,
                     color: kNewSuccessColor,
                   ),
                   const SizedBox(width: 16),
                   _buildStatCard(
                     title: "Total Invoices",
-                    value: _statsData['totalInvoices'],
+                    value: (_statsData['totalInvoices'] ?? 0).toDouble(),
                     icon: Icons.receipt,
                     color: kNewPrimaryColor,
                     isCount: true,
@@ -452,7 +452,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                   const SizedBox(width: 16),
                   _buildStatCard(
                     title: "Pending",
-                    value: _statsData['pendingInvoices'],
+                    value: (_statsData['pendingInvoices'] ?? 0).toDouble(),
                     icon: Icons.pending_actions,
                     color: kNewWarningColor,
                     isCount: true,
