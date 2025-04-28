@@ -124,6 +124,10 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
+      // Format the date as YYYY-MM-DD
+      final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final parsedDate = DateTime.parse(formattedDate);
+      
       final result = await authProvider.registerManager(
         name: _nameController.text.trim(),
         designation: _designationController.text.trim(),
@@ -132,7 +136,7 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
         password: _passwordController.text,
         imageBase64: _base64Image,
         idNumber: _idNumberController.text.trim(),
-        dateOfBirth: _selectedDate,
+        dateOfBirth: parsedDate,
         address: _addressController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
         salary: double.tryParse(_salaryController.text) ?? 0,
@@ -234,7 +238,7 @@ class _RegisterManagerScreenState extends State<RegisterManagerScreen> {
               ),
             ),
             child: Text(
-              DateFormat('dd/MM/yyyy').format(_selectedDate),
+              DateFormat('yyyy-MM-dd').format(_selectedDate),
             ),
           ),
         ),
