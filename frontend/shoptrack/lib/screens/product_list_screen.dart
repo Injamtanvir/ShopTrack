@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 // import 'package:flutter/services.dart' show TextInputType;
 import '../models/product.dart';
 import '../services/api_service.dart';
+import '../services/product_service.dart';
 import '../widgets/custom_button.dart';
 import '../utils/error_handler.dart';
 import '../providers/connectivity_provider.dart';
 import 'package:provider/provider.dart';
+import 'batch_management_screen.dart';
+import 'profit_report_screen.dart';
 
 class ProductListScreen extends StatefulWidget {
   static const routeName = '/product-list';
@@ -17,9 +20,11 @@ class ProductListScreen extends StatefulWidget {
 
 class _ProductListScreenState extends State<ProductListScreen> {
   final ApiService _apiService = ApiService();
+  final ProductService _productService = ProductService();
   List<Product> _products = [];
   bool _isLoading = true;
   String? _errorMessage;
+  String? _shopId;
 
   @override
   void initState() {
@@ -36,8 +41,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
     });
 
     try {
-      final productsJson = await _apiService.getProducts();
+      final productsJson = await _productService.getProducts();
       if (!mounted) return;
+      
+      // Store shop_id if it's in the first product
+      if (productsJson.isNotEmpty && productsJson[0].containsKey('shop_id')) {
+        _shopId = productsJson[0]['shop_id'];
+      }
 
       setState(() {
         _products = productsJson.map<Product>((json) => Product.fromJson(json)).toList();
@@ -120,6 +130,33 @@ class _ProductListScreenState extends State<ProductListScreen> {
     );
   }
 
+  // New method to manage batches
+  void _manageBatches(Product product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BatchManagementScreen(product: product),
+      ),
+    ).then((_) => _loadProducts()); // Reload products when returning
+  }
+  
+  // New method to view profit report
+  void _viewProfitReport() {
+    if (_shopId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Shop ID not available')),
+      );
+      return;
+    }
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfitReportScreen(shopId: _shopId!),
+      ),
+    );
+  }
+
   // New method to delete a product
   Future<void> _deleteProduct(Product product) async {
     // Show confirmation dialog
@@ -188,6 +225,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
         backgroundColor: Colors.indigo,
         actions: [
           IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: _viewProfitReport,
+            tooltip: 'Profit Report',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadProducts,
             tooltip: 'Refresh',
@@ -198,95 +240,129 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
           ? Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Error: $_errorMessage',
-                style: const TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Error: $_errorMessage',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomButton(
+                    text: 'Retry',
+                    onPressed: _loadProducts,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              CustomButton(
-                text: 'Retry',
-                onPressed: _loadProducts,
-              ),
-            ],
-          ),
-        ),
-      )
+            )
           : _products.isEmpty
-          ? const Center(
-        child: Text('No products found. Add some products!'),
-      )
-          : ListView.builder(
-        itemCount: _products.length,
-        itemBuilder: (context, index) {
-          final product = _products[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            child: ListTile(
-              title: Text(
-                product.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
+              ? const Center(child: Text('No products found'))
+              : ListView.builder(
+                  itemCount: _products.length,
+                  itemBuilder: (ctx, i) {
+                    final product = _products[i];
+                    final isLowStock = product.availableQuantity < 10;
+                    
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    product.name,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  'Price: \$${product.sellingPrice.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Total: ${product.quantity}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  'On Hold: ${product.quantityOnHold}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                                Text(
+                                  'Available: ${product.availableQuantity}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: isLowStock ? Colors.red : Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                // Update Price Button
+                                ElevatedButton.icon(
+                                  onPressed: () => _updatePrice(product),
+                                  icon: const Icon(Icons.price_change),
+                                  label: const Text('Update Price'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.indigo,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                                
+                                // Manage Batches Button
+                                ElevatedButton.icon(
+                                  onPressed: () => _manageBatches(product),
+                                  icon: const Icon(Icons.inventory),
+                                  label: const Text('Manage Batches'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.teal,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                                
+                                // Delete Button
+                                IconButton(
+                                  onPressed: () => _deleteProduct(product),
+                                  icon: const Icon(Icons.delete),
+                                  color: Colors.red,
+                                  tooltip: 'Delete Product',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Quantity: ${product.quantity}'),
-                  Text(
-                    'Selling Price: \$${product.sellingPrice.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    'Buying Price: \$${product.buyingPrice.toStringAsFixed(2)}',
-                  ),
-                ],
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Edit button
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => _updatePrice(product),
-                    tooltip: 'Update Price',
-                  ),
-                  // Delete button - new
-                  IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => _deleteProduct(product),
-                    tooltip: 'Delete Product',
-                    color: Colors.red,
-                  ),
-                ],
-              ),
-              isThreeLine: true,
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.indigo,
-        onPressed: () async {
-          final result = await Navigator.pushNamed(context, '/add-product');
-          if (result == true) {
-            _loadProducts();
-          }
-        },
-        tooltip: 'Add Product',
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }

@@ -42,4 +42,9 @@ class ApiConstants {
   
   // Upload endpoint
   static String get uploadImage => '$baseUrl/upload-image/';
+  
+  // New batch management endpoints
+  static const String batches = '$baseUrl/batches/';
+  static const String priceHistory = '$baseUrl/price-history';
+  static const String profitReport = '$baseUrl/profit-report';
 }

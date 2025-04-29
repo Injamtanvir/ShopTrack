@@ -22,6 +22,7 @@ shops_collection = db["shops"]
 users_collection = db["users"]
 products_collection = db["products"]
 invoices_collection = db["invoices"]
+sales_collection = db["sales"]
 
 def generate_shop_id():
     """Generate a unique 8-digit shop ID"""
@@ -115,6 +116,33 @@ class SaveInvoiceView(APIView):
             "updated_at": datetime.now()
         }
 
+        # NEW CODE: If invoice status is pending, mark product quantities as on_hold
+        if request.data['status'] == 'pending':
+            # Check if quantities are available
+            for item in request.data['items']:
+                product_id = item['product_id']
+                quantity = item['quantity']
+                
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
+                if not product:
+                    return Response(
+                        {"error": f"Product {product_id} not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                
+                # Check if there's enough quantity available (total - on_hold)
+                available_quantity = product.get('quantity', 0) - product.get('quantity_on_hold', 0)
+                if available_quantity < quantity:
+                    return Response(
+                        {"error": f"Not enough quantity for product {product['name']}. Available: {available_quantity}, Requested: {quantity}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Mark quantity as on_hold
+                products_collection.update_one(
+                    {"_id": ObjectId(product_id)},
+                    {"$inc": {"quantity_on_hold": quantity}}
+                )
 
         # Insert the invoice
         result = invoices_collection.insert_one(invoice_data)
@@ -189,14 +217,21 @@ class GenerateInvoiceView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
-                # Update the product quantity
+                # Update the product quantity and on_hold quantity
                 new_quantity = product['quantity'] - quantity
+                # If product has on_hold field, reduce it by the quantity
+                update_fields = {
+                    "quantity": new_quantity,
+                    "updated_at": datetime.now()
+                }
+                
+                # Also reduce the on_hold quantity
+                if 'quantity_on_hold' in product:
+                    update_fields["quantity_on_hold"] = product['quantity_on_hold'] - quantity
+                
                 result = products_collection.update_one(
                     {"_id": ObjectId(product_id)},
-                    {"$set": {
-                        "quantity": new_quantity,
-                        "updated_at": datetime.now()
-                    }}
+                    {"$set": update_fields}
                 )
                 
                 # Verify update was successful
@@ -205,6 +240,18 @@ class GenerateInvoiceView(APIView):
                         {"error": f"Failed to update quantity for product {product['name']}"},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
+                
+                # Create a sale record for this item for profit tracking
+                sale_data = {
+                    "invoice_id": invoice_id,
+                    "product_id": product_id,
+                    "quantity": quantity,
+                    "cost_price": product.get('buying_price', 0),
+                    "sale_price": item['price'],
+                    "profit": (item['price'] - product.get('buying_price', 0)) * quantity,
+                    "sale_date": datetime.now()
+                }
+                sales_collection.insert_one(sale_data)
 
             # Update the invoice status to completed
             result = invoices_collection.update_one(
