@@ -108,7 +108,7 @@ class InvoiceService {
     }
   }
 
-  // Delete a pending invoice (admin only)
+  // Delete a pending invoice
   Future<void> deletePendingInvoice(String invoiceId) async {
     final token = await _storage.read(key: 'token') ?? '';
     if (token.isEmpty) {
@@ -133,7 +133,15 @@ class InvoiceService {
         if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
           throw Exception('Server returned HTML instead of JSON. Check URL configuration.');
         }
-        throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to delete invoice');
+        
+        var errorJson = jsonDecode(response.body);
+        if (errorJson['error'] != null && errorJson['error'].toString().contains('Only managers can delete invoices')) {
+          // This is the case where the backend hasn't been updated yet
+          print('Backend permission issue - owner trying to delete invoice');
+          // For now, we'll pass along the error and let the UI handle it
+        }
+        
+        throw Exception(errorJson['error'] ?? 'Failed to delete invoice');
       }
     } catch (e) {
       print('Error deleting invoice: $e');
