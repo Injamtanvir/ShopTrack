@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
@@ -8,6 +9,7 @@ import '../widgets/custom_button.dart';
 import '../utils/sharing_utils.dart';
 import '../utils/error_handler.dart';
 import '../providers/connectivity_provider.dart';
+import '../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 
 class PriceListScreen extends StatefulWidget {
@@ -57,6 +59,9 @@ class _PriceListScreenState extends State<PriceListScreen> {
         _priceListData = priceList;
         _isLoading = false;
       });
+      
+      // Debug the data after loading
+      _debugProductData();
     } catch (e) {
       setState(() {
         _errorMessage = ErrorHandler.getErrorMessage(e);
@@ -154,15 +159,68 @@ class _PriceListScreenState extends State<PriceListScreen> {
   // Format price safely
   String _formatPrice(dynamic price) {
     try {
+      if (price == null) {
+        return '৳0.00';
+      }
       if (price is int) {
         return '৳${price.toDouble().toStringAsFixed(2)}';
       } else if (price is double) {
         return '৳${price.toStringAsFixed(2)}';
       } else {
-        return '৳${double.parse(price.toString()).toStringAsFixed(2)}';
+        // Try to convert string or other types to double
+        final parsedPrice = double.tryParse(price.toString());
+        if (parsedPrice != null) {
+          return '৳${parsedPrice.toStringAsFixed(2)}';
+        } else {
+          return '৳0.00';
+        }
       }
     } catch (e) {
       return '৳0.00';
+    }
+  }
+
+  // Print debug information about products to help diagnose the issue
+  void _debugProductData() {
+    if (_priceListData == null) {
+      print('_priceListData is null');
+      return;
+    } 
+    
+    if ((_priceListData!['products'] as List).isEmpty) {
+      print('No products available for debugging');
+      return;
+    }
+    
+    // Print entire priceListData structure for the first product
+    print('===== PRICE LIST DATA STRUCTURE =====');
+    try {
+      final products = _priceListData!['products'] as List;
+      print('Total products: ${products.length}');
+      
+      if (products.isNotEmpty) {
+        print('First product data structure:');
+        final firstProduct = products[0];
+        firstProduct.forEach((key, value) {
+          print('  $key: $value (${value?.runtimeType})');
+        });
+      }
+      
+      for (var i = 0; i < min(5, products.length); i++) {
+        final product = products[i];
+        print('\nProduct ${i+1}: ${product['name']}');
+        print('  Keys available: ${product.keys.join(', ')}');
+        print('  selling_price: ${product['selling_price']} (${product['selling_price']?.runtimeType})');
+        
+        // Check if buying_price exists
+        if (product.containsKey('buying_price')) {
+          print('  buying_price: ${product['buying_price']} (${product['buying_price']?.runtimeType})');
+        } else {
+          print('  buying_price key is missing in the product data');
+        }
+      }
+    } catch (e) {
+      print('Error in _debugProductData: $e');
     }
   }
 
@@ -437,6 +495,9 @@ class _PriceListScreenState extends State<PriceListScreen> {
                         itemBuilder: (context, index) {
                           final product = _filteredProducts[index];
                           final bool inStock = product['quantity'] > 0;
+                          
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          final bool canSeeBuyingPrice = authProvider.isOwner || authProvider.isManager;
 
                           return Card(
                             elevation: 2,
@@ -461,21 +522,25 @@ class _PriceListScreenState extends State<PriceListScreen> {
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
-                                        'Selling Price: ৳${_formatPrice(product['selling_price'])}',
+                                        'Selling Price: ${_formatPrice(product['selling_price'])}',
                                         style: const TextStyle(
                                           fontSize: 16,
                                           color: Colors.green,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Buying Price: ৳${_formatPrice(product['buying_price'])}',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.orange,
+                                      // Only show buying price if user is manager or owner
+                                      if (canSeeBuyingPrice && product.containsKey('buying_price'))
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            'Buying Price: ${_formatPrice(product['buying_price'])}',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.orange,
+                                            ),
+                                          ),
                                         ),
-                                      ),
                                       const Spacer(),
                                       Text(
                                         inStock
