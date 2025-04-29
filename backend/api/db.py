@@ -98,6 +98,18 @@ class SaveInvoiceView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # Process items to ensure they have all required fields
+            processed_items = []
+            for item in data['items']:
+                processed_item = {
+                    "product_id": item['product_id'],
+                    "product_name": item.get('product_name', ''),
+                    "quantity": int(item['quantity']),
+                    "unit_price": float(item.get('unit_price', item.get('selling_price', 0))),
+                    "total": float(item.get('total', 0))
+                }
+                processed_items.append(processed_item)
+
             # Create invoice document
             invoice_data = {
                 "shop_id": shop_id,
@@ -105,7 +117,7 @@ class SaveInvoiceView(APIView):
                 "customer_name": data['customer_name'],
                 "customer_address": data.get('customer_address', ''),
                 "customer_phone": data.get('customer_phone', ''),
-                "items": data['items'],
+                "items": processed_items,
                 "total_amount": float(data['total_amount']),
                 "discount_amount": float(data.get('discount_amount', 0)),
                 "final_amount": float(data['final_amount']),
@@ -116,9 +128,9 @@ class SaveInvoiceView(APIView):
             }
 
             # Update product quantities and on_hold values
-            for item in data['items']:
+            for item in processed_items:
                 product_id = item['product_id']
-                quantity = int(item['quantity'])
+                quantity = item['quantity']
                 
                 # Check if product exists and has sufficient quantity
                 product = products_collection.find_one({
@@ -204,7 +216,8 @@ class GenerateInvoiceView(APIView):
             # Update product quantities - with additional error handling
             for item in invoice['items']:
                 product_id = item['product_id']
-                quantity = item['quantity']
+                quantity = int(item['quantity'])
+                unit_price = float(item.get('unit_price', 0))  # Get unit_price from item
 
                 # Get the product with proper error handling
                 try:
@@ -221,57 +234,45 @@ class GenerateInvoiceView(APIView):
                         status=status.HTTP_404_NOT_FOUND
                     )
 
-                # Check if there's enough quantity
-                if product['quantity'] < quantity:
-                    return Response(
-                        {"error": f"Not enough quantity for product {product['name']}. Available: {product['quantity']}, Requested: {quantity}"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                # Update the product quantity and on_hold quantity
-                new_quantity = product['quantity'] - quantity
-                # If product has on_hold field, reduce it by the quantity
-                update_fields = {
-                    "quantity": new_quantity,
-                    "updated_at": datetime.now()
-                }
-                
-                # Also reduce the on_hold quantity
-                if 'quantity_on_hold' in product:
-                    update_fields["quantity_on_hold"] = product['quantity_on_hold'] - quantity
-                
-                result = products_collection.update_one(
-                    {"_id": ObjectId(product_id)},
-                    {"$set": update_fields}
-                )
-                
-                # Verify update was successful
-                if result.modified_count == 0:
-                    return Response(
-                        {"error": f"Failed to update quantity for product {product['name']}"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
-                
+                # Calculate total for this item
+                total = unit_price * quantity
+
                 # Create a sale record for this item for profit tracking
                 sale_data = {
-                    "invoice_id": invoice_id,
-                    "product_id": product_id,
+                    "shop_id": shop_id,
+                    "invoice_id": str(invoice_id),
+                    "product_id": str(product_id),
                     "quantity": quantity,
-                    "cost_price": product.get('buying_price', 0),
-                    "sale_price": item['price'],
-                    "profit": (item['price'] - product.get('buying_price', 0)) * quantity,
-                    "sale_date": datetime.now()
+                    "cost_price": float(product.get('buying_price', 0)),
+                    "sale_price": unit_price,
+                    "total_amount": total,
+                    "profit": (unit_price - float(product.get('buying_price', 0))) * quantity,
+                    "sale_date": datetime.now(),
+                    "created_by": user_email
                 }
                 sales_collection.insert_one(sale_data)
+
+                # Update the product quantity and on_hold quantity
+                products_collection.update_one(
+                    {"_id": ObjectId(product_id)},
+                    {
+                        "$inc": {
+                            "quantity_on_hold": -quantity
+                        }
+                    }
+                )
 
             # Update the invoice status to completed
             result = invoices_collection.update_one(
                 {"_id": ObjectId(invoice_id)},
-                {"$set": {
-                    "status": "completed",
-                    "updated_at": datetime.now(),
-                    "completed_by": user_email
-                }}
+                {
+                    "$set": {
+                        "status": "completed",
+                        "completed_by": user_email,
+                        "completed_at": datetime.now(),
+                        "updated_at": datetime.now()
+                    }
+                }
             )
 
             if result.modified_count == 0:
@@ -282,7 +283,7 @@ class GenerateInvoiceView(APIView):
 
             return Response({
                 "message": "Invoice generated successfully",
-                "invoice_id": invoice_id
+                "invoice_id": str(invoice_id)
             })
 
         except Exception as e:
