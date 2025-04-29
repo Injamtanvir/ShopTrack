@@ -30,4 +30,16 @@ class ApiConstants {
   static const String deleteUser = '$baseUrl/delete-user/';
   static const String getUserInfo = '$baseUrl/users/'; // Base endpoint for user operations
   static const String getShopInfo = '$baseUrl/shops/'; // Base endpoint for shop operations
+
+  // Shop endpoints
+  static String get shops => '$baseUrl/shops';
+  static String shopById(String shopId) => '$baseUrl/shops/$shopId';
+  
+  // User endpoints
+  static String get users => '$baseUrl/users';
+  static String userById(String userId) => '$baseUrl/users/$userId';
+  static String userInfo(String userId) => '$baseUrl/users/$userId/info/';
+  
+  // Upload endpoint
+  static String get uploadImage => '$baseUrl/upload-image/';
 }

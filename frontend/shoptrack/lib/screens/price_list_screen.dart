@@ -55,19 +55,19 @@ class _PriceListScreenState extends State<PriceListScreen> {
 
     try {
       final priceList = await _apiService.getProductPriceList();
-      setState(() {
+        setState(() {
         _priceListData = priceList;
-        _isLoading = false;
-      });
+          _isLoading = false;
+        });
       
       // Debug the data after loading
       _debugProductData();
     } catch (e) {
-      setState(() {
+        setState(() {
         _errorMessage = ErrorHandler.getErrorMessage(e);
-        _isLoading = false;
-      });
-    }
+          _isLoading = false;
+        });
+      }
   }
 
   Future<void> _sharePriceList() async {
@@ -535,12 +535,12 @@ class _PriceListScreenState extends State<PriceListScreen> {
                                           padding: const EdgeInsets.only(top: 4),
                                           child: Text(
                                             'Buying Price: ${_formatPrice(product['buying_price'])}',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              color: Colors.orange,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.orange,
                                             ),
-                                          ),
                                         ),
+                                      ),
                                       const Spacer(),
                                       Text(
                                         inStock

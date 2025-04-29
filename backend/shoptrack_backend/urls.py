@@ -9,6 +9,6 @@ urlpatterns = [
     # path('test/', test_api, name='test_api'),
 ]
 
-# Serve uploaded files in development
+# Add media files serving in development
 if settings.DEBUG:
-    urlpatterns += static('/uploads/', document_root=settings.BASE_DIR / 'uploads')
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -11,6 +11,7 @@ import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../providers/connectivity_provider.dart';
 import '../utils/error_handler.dart';
+import '../services/shop_info_service.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   static const routeName = '/create-invoice';
@@ -226,6 +227,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         shopName: user.shopName ?? 'Unknown Shop',
         shopAddress: '', // This would need to be fetched from somewhere
         shopLicense: '', // This would need to be fetched from somewhere
+        shopVatLicense: '', // This would need to be fetched from somewhere
         customerName: _customerNameController.text,
         customerAddress: _customerAddressController.text,
         customerPhone: _customerPhoneController.text,
@@ -285,19 +287,30 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.user!;
 
+      // Fetch shop information including license
+      final shopInfoService = ShopInfoService();
+      Map<String, dynamic> shopInfo = {};
+      try {
+        shopInfo = await shopInfoService.getShopAdditionalInfo(user.shopId);
+      } catch (e) {
+        print('Error fetching shop info: $e');
+        // Continue with empty shop info if there's an error
+      }
+
       final invoice = Invoice(
         invoiceNumber: _invoiceNumber,
         shopId: user.shopId,
         shopName: user.shopName ?? 'Unknown Shop',
-        shopAddress: '', // This would need to be fetched from somewhere
-        shopLicense: '', // This would need to be fetched from somewhere
+        shopAddress: user.address ?? '', // Use address from user if available
+        shopLicense: shopInfo['shopLicense'] ?? '', // Use license from shop info
+        shopVatLicense: shopInfo['shopVatLicense'] ?? '', // Use VAT license from shop info
         customerName: _customerNameController.text,
         customerAddress: _customerAddressController.text,
         customerPhone: _customerPhoneController.text,
         date: DateTime.now(),
         items: _invoiceItems,
         status: 'pending', // Save as pending first
-        createdBy: user.email,
+        createdBy: user.email, // User email
         providedSubtotalAmount: _subtotal,
         providedDiscountAmount: _discountAmount,
         providedTotalAmount: _totalWithDiscount,

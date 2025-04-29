@@ -220,7 +220,21 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     // Get initial shop data
     final shopInfoService = ShopInfoService();
     try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+      );
+      
       final shopInfo = await shopInfoService.getShopAdditionalInfo(shopId);
+      
+      // Dismiss loading indicator
+      if(mounted) Navigator.of(context).pop();
       
       if (mounted) {
         showDialog(
@@ -229,14 +243,15 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             shopId: shopId,
             initialData: shopInfo,
             onSaved: (Map<String, dynamic> updatedData) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Shop information saved successfully')),
-              );
+              // Success message is now handled in the form
             },
           ),
         );
       }
     } catch (e) {
+      // Dismiss loading indicator if it's still shown
+      if(mounted) Navigator.of(context).pop();
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading shop information: ${e.toString()}')),
@@ -260,7 +275,21 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     // Get initial user data
     final shopInfoService = ShopInfoService();
     try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+      );
+      
       final userInfo = await shopInfoService.getUserAdditionalInfo(user.id);
+      
+      // Dismiss loading indicator
+      if(mounted) Navigator.of(context).pop();
       
       // Add role information to the initial data
       final initialData = {...userInfo, 'role': 'OWNER'};
@@ -272,14 +301,15 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             userId: user.id,
             initialData: initialData,
             onSaved: (Map<String, dynamic> updatedData) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User information saved successfully')),
-              );
+              // Success message is now handled in the form
             },
           ),
         );
       }
     } catch (e) {
+      // Dismiss loading indicator if it's still shown
+      if(mounted) Navigator.of(context).pop();
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading user information: ${e.toString()}')),

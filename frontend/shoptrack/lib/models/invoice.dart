@@ -50,6 +50,7 @@ class Invoice {
   final String shopName;
   final String shopAddress;
   final String shopLicense;
+  final String shopVatLicense;
   final String customerName;
   final String customerAddress;
   final String customerPhone;
@@ -69,6 +70,7 @@ class Invoice {
     required this.shopName,
     required this.shopAddress,
     required this.shopLicense,
+    this.shopVatLicense = '',
     required this.customerName,
     required this.customerAddress,
     this.customerPhone = '',
@@ -103,6 +105,7 @@ class Invoice {
       'shop_name': shopName,
       'shop_address': shopAddress,
       'shop_license': shopLicense,
+      'shop_vat_license': shopVatLicense,
       'customer_name': customerName,
       'customer_address': customerAddress,
       'customer_phone': customerPhone,
@@ -142,6 +145,7 @@ class Invoice {
       shopName: json['shop_name'],
       shopAddress: json['shop_address'],
       shopLicense: json['shop_license'],
+      shopVatLicense: json['shop_vat_license'] ?? '',
       customerName: json['customer_name'],
       customerAddress: json['customer_address'],
       customerPhone: json['customer_phone'] ?? '',

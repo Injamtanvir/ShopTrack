@@ -16,6 +16,10 @@ import json
 import random
 import string
 import re
+import bcrypt
+from bson.errors import InvalidId
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 
 from datetime import datetime, timedelta
 
@@ -1018,15 +1022,11 @@ class UserInfoView(APIView):
         # Combine default info with additional info
         result = user_info.get("additional_info", {})
         
-        # Add core user fields
-        if "employee_id" in user_info:
-            result["userId"] = user_info["employee_id"]
-        if "email" in user_info:
-            result["email"] = user_info["email"]
-        if "name" in user_info:
-            result["name"] = user_info["name"]
-        if "role" in user_info:
-            result["designation"] = user_info["role"].upper()
+        # Add fields from the user document
+        result["email"] = user_info.get("email", "")
+        result["name"] = user_info.get("name", "")
+        result["role"] = user_info.get("role", "")
+        result["userId"] = user_info.get("employee_id", "")
         
         return Response(result)
     
@@ -1046,18 +1046,36 @@ class UserInfoView(APIView):
             return Response({"error": "Invalid token"}, 
                            status=status.HTTP_401_UNAUTHORIZED)
         
-        # Only allow access to own info or if admin/owner
+        # Only allow updating own info or if owner
         requesting_user = users_collection.find_one({"_id": ObjectId(payload["user_id"])})
+        
         if not requesting_user:
             return Response({"error": "User not found"}, 
                            status=status.HTTP_404_NOT_FOUND)
             
-        if requesting_user['role'] not in ['owner', 'manager'] and str(requesting_user['_id']) != user_id:
+        # Check if the requesting user is the owner and is updating their own info
+        is_owner_updating_self = requesting_user['role'] == 'owner' and str(requesting_user['_id']) == user_id
+            
+        # Only allow owner to update their own info or managers to update any user info
+        if not (is_owner_updating_self or requesting_user['role'] == 'manager'):
             return Response({"error": "You don't have permission to update this user's information"}, 
                            status=status.HTTP_403_FORBIDDEN)
         
+        # Get user to update
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return Response({"error": "User not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        
         # Get data from request
         data = request.data
+        
+        # Allow owners to update their own info regardless if it's already set
+        # For regular users, check if info is already set
+        user_has_info = "additional_info" in user and user["additional_info"] and "id_number" in user["additional_info"]
+        if user_has_info and not is_owner_updating_self:
+            return Response({"error": "User information can only be set once"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
         
         # Update user additional info
         result = users_collection.update_one(
@@ -1142,14 +1160,34 @@ class ShopInfoView(APIView):
             return Response({"error": "You don't have permission to update this shop's information"}, 
                            status=status.HTTP_403_FORBIDDEN)
         
-        # Only owner or manager can update shop info
+        # Get the user
         user = users_collection.find_one({"_id": ObjectId(payload["user_id"])})
+        
+        # Check if the requesting user is the owner
+        is_owner = user and user['role'] == 'owner'
+        
+        # Only owner or manager can update shop info
         if not user or user['role'] not in ['owner', 'manager']:
             return Response({"error": "Only shop owners and managers can update shop information"}, 
                            status=status.HTTP_403_FORBIDDEN)
         
+        # Get shop to update
+        shop = shops_collection.find_one({"shop_id": shop_id})
+        if not shop:
+            return Response({"error": "Shop not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        
         # Get data from request
         data = request.data
+        
+        # Check if shop info is already set
+        shop_has_info = "additional_info" in shop and shop["additional_info"] and "shopCategory" in shop["additional_info"]
+        
+        # Allow owners to update shop info regardless if it's already set
+        # For managers, check if info is already set
+        if shop_has_info and not is_owner:
+            return Response({"error": "Shop information can only be set once"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
         
         # Update shop additional info
         result = shops_collection.update_one(
@@ -1163,3 +1201,57 @@ class ShopInfoView(APIView):
         
         return Response({"message": "Shop information updated successfully"}, 
                        status=status.HTTP_200_OK)
+
+class ImageUploadView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    
+    def post(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return Response({"error": "Authorization token is required"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return Response({"error": "Token has expired"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return Response({"error": "Invalid token"}, 
+                           status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Check if an image file is included in the request
+        if 'image' not in request.FILES:
+            return Response({"error": "No image file found in request"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        image_file = request.FILES['image']
+        
+        # Check file extension and type
+        valid_extensions = ['jpg', 'jpeg', 'png', 'gif']
+        ext = image_file.name.split('.')[-1].lower()
+        
+        if ext not in valid_extensions:
+            return Response({"error": "Invalid file extension. Allowed extensions: jpg, jpeg, png, gif"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create unique filename
+        filename = f"{uuid.uuid4()}.{ext}"
+        
+        # Ensure the media directory exists
+        media_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'media', 'uploads')
+        os.makedirs(media_dir, exist_ok=True)
+        
+        # Save the file
+        file_path = os.path.join(media_dir, filename)
+        with open(file_path, 'wb+') as destination:
+            for chunk in image_file.chunks():
+                destination.write(chunk)
+        
+        # Generate URL for the image (get base URL from request or settings)
+        base_url = request.build_absolute_uri('/').rstrip('/')
+        image_url = f"{base_url}/media/uploads/{filename}"
+        
+        # Return the URL
+        return Response({"imageUrl": image_url}, status=status.HTTP_200_OK)

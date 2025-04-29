@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../constants/theme_constants.dart';
 import '../services/shop_info_service.dart';
 
@@ -25,6 +29,8 @@ class _UserInfoFormState extends State<UserInfoForm> {
   final _shopInfoService = ShopInfoService();
   bool _isLoading = false;
   DateTime? _selectedDate;
+  XFile? _selectedImage;
+  String? _imageUrl;
   
   late final TextEditingController _userIdController;
   late final TextEditingController _designationController;
@@ -60,6 +66,7 @@ class _UserInfoFormState extends State<UserInfoForm> {
     _imageUrlController = TextEditingController(
       text: widget.initialData['image_url'] ?? ''
     );
+    _imageUrl = widget.initialData['image_url'];
     _idNumberController = TextEditingController(
       text: widget.initialData['id_number'] ?? ''
     );
@@ -107,6 +114,20 @@ class _UserInfoFormState extends State<UserInfoForm> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      setState(() {
+        _selectedImage = image;
+        // Clear the image URL since we're uploading a new image
+        _imageUrlController.text = '';
+        _imageUrl = null;
+      });
+    }
+  }
+
   Future<void> _saveUserInfo() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -130,6 +151,11 @@ class _UserInfoFormState extends State<UserInfoForm> {
           'salary': salary,
         };
 
+        // If a new image was selected, add it to the userInfo
+        if (_selectedImage != null) {
+          userInfo['imageFile'] = _selectedImage;
+        }
+
         final success = await _shopInfoService.saveUserAdditionalInfo(
           widget.userId,
           userInfo,
@@ -138,6 +164,9 @@ class _UserInfoFormState extends State<UserInfoForm> {
         if (success && mounted) {
           widget.onSaved(userInfo);
           Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User information saved successfully')),
+          );
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to save user information')),
@@ -145,8 +174,19 @@ class _UserInfoFormState extends State<UserInfoForm> {
         }
       } catch (e) {
         if (mounted) {
+          String errorMessage = e.toString();
+          if (errorMessage.contains('can only be set once')) {
+            // Show a more user-friendly message for the "once only" case
+            bool isOwner = widget.initialData['role'] == 'OWNER';
+            if (isOwner) {
+              errorMessage = 'You can only update your information once. Please contact support if you need to make changes.';
+            } else {
+              errorMessage = 'User information can only be set once per user.';
+            }
+          }
+          
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString()}')),
+            SnackBar(content: Text('Error: $errorMessage')),
           );
         }
       } finally {
@@ -189,6 +229,29 @@ class _UserInfoFormState extends State<UserInfoForm> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                
+                // Image picker
+                Center(
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.grey[200],
+                        backgroundImage: _getImageProvider(),
+                        child: _hasNoImage() 
+                          ? const Icon(Icons.person, size: 50, color: Colors.grey) 
+                          : null,
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: _pickImage,
+                        icon: const Icon(Icons.photo_camera),
+                        label: const Text('Select Image'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 
                 // User ID Field
                 TextFormField(
@@ -312,18 +375,19 @@ class _UserInfoFormState extends State<UserInfoForm> {
                 ),
                 const SizedBox(height: 16),
                 
-                // Image URL Field
-                TextFormField(
-                  controller: _imageUrlController,
-                  decoration: InputDecoration(
-                    labelText: 'Profile Image URL',
-                    hintText: 'Enter URL to your profile image',
-                    prefixIcon: const Icon(Icons.image),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                // Image URL Field (hidden if image is selected)
+                if (_selectedImage == null)
+                  TextFormField(
+                    controller: _imageUrlController,
+                    decoration: InputDecoration(
+                      labelText: 'Profile Image URL',
+                      hintText: 'Enter URL to your profile image',
+                      prefixIcon: const Icon(Icons.image),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 24),
                 
                 // Buttons
@@ -361,5 +425,22 @@ class _UserInfoFormState extends State<UserInfoForm> {
         ),
       ),
     );
+  }
+  
+  bool _hasNoImage() {
+    return _selectedImage == null && (_imageUrl == null || _imageUrl!.isEmpty);
+  }
+  
+  ImageProvider? _getImageProvider() {
+    if (_selectedImage != null) {
+      if (kIsWeb) {
+        return NetworkImage(_selectedImage!.path);
+      } else {
+        return FileImage(File(_selectedImage!.path));
+      }
+    } else if (_imageUrl != null && _imageUrl!.isNotEmpty) {
+      return NetworkImage(_imageUrl!);
+    }
+    return null;
   }
 } 
