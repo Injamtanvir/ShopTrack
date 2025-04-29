@@ -23,6 +23,14 @@ users_collection = db["users"]
 products_collection = db["products"]
 invoices_collection = db["invoices"]
 sales_collection = db["sales"]
+batches_collection = db["batches"]
+price_history_collection = db["price_history"]
+
+# Create indexes
+batches_collection.create_index([("product_id", 1)])
+batches_collection.create_index([("shop_id", 1)])
+batches_collection.create_index([("purchase_date", -1)])
+batches_collection.create_index([("created_at", -1)])
 
 def generate_shop_id():
     """Generate a unique 8-digit shop ID"""

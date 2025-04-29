@@ -1308,164 +1308,26 @@ batches_collection.create_index([("purchaseDate", ASCENDING)])
 
 # New classes for batch management
 class BatchView(APIView):
-    def post(self, request):
-        # Verify JWT token from headers
+    def post(self, request, product_id):
+        # Verify JWT token
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             shop_id = payload['shop_id']
             user_email = payload['email']
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            return Response(
-                {"error": "Invalid or expired token"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        data = request.data
-        try:
-            # Get the product
-            product = products_collection.find_one({"_id": ObjectId(data['product_id'])})
-            if not product:
-                return Response(
-                    {"error": "Product not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
             
-            # Check if the product belongs to this shop
-            if product['shop_id'] != shop_id:
+            # Check if user is manager or owner
+            if payload['role'] not in ['manager', 'owner']:
                 return Response(
-                    {"error": "Unauthorized access"},
+                    {"error": "Only managers and owners can add batches"},
                     status=status.HTTP_403_FORBIDDEN
                 )
-            
-            # Create a new batch
-            batch_data = {
-                "productId": data['product_id'],
-                "purchaseDate": datetime.strptime(data['purchase_date'], '%Y-%m-%d') if isinstance(data['purchase_date'], str) else data['purchase_date'],
-                "quantityPurchased": data['quantity'],
-                "remaining": data['quantity'],
-                "costPrice": data['cost_price'],
-                "shop_id": shop_id,
-                "created_by": user_email,
-                "created_at": datetime.now()
-            }
-            
-            result = batches_collection.insert_one(batch_data)
-            
-            # Update total product quantity
-            products_collection.update_one(
-                {"_id": ObjectId(data['product_id'])},
-                {"$inc": {"quantity": data['quantity']}}
-            )
-            
-            # If selling price changed, log it in price history
-            if 'new_selling_price' in data and data['new_selling_price'] != product.get('selling_price'):
-                price_history_data = {
-                    "productId": data['product_id'],
-                    "oldPrice": product.get('selling_price', 0),
-                    "newPrice": data['new_selling_price'],
-                    "changeDate": datetime.now(),
-                    "shop_id": shop_id,
-                    "changed_by": user_email
-                }
-                price_history_collection.insert_one(price_history_data)
-                
-                # Update product selling price
-                products_collection.update_one(
-                    {"_id": ObjectId(data['product_id'])},
-                    {"$set": {"selling_price": data['new_selling_price']}}
-                )
-            
-            return Response({
-                "message": "Batch added successfully",
-                "batch_id": str(result.inserted_id)
-            }, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    def get(self, request, product_id=None):
-        # Verify JWT token from headers
-        token = request.headers.get('Authorization', '').replace('Bearer ', '')
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            shop_id = payload['shop_id']
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return Response(
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_401_UNAUTHORIZED
-            )
-        
-        try:
-            if product_id:
-                # Get batches for a specific product
-                product = products_collection.find_one({"_id": ObjectId(product_id)})
-                if not product:
-                    return Response(
-                        {"error": "Product not found"},
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-                
-                # Check if the product belongs to this shop
-                if product['shop_id'] != shop_id:
-                    return Response(
-                        {"error": "Unauthorized access"},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-                
-                batches = list(batches_collection.find(
-                    {"productId": product_id},
-                    {"_id": 1, "purchaseDate": 1, "quantityPurchased": 1, "remaining": 1, "costPrice": 1}
-                ).sort("purchaseDate", ASCENDING))
-                
-                # Convert ObjectId to string and format dates
-                for batch in batches:
-                    batch['_id'] = str(batch['_id'])
-                    if isinstance(batch['purchaseDate'], datetime):
-                        batch['purchaseDate'] = batch['purchaseDate'].strftime('%Y-%m-%d')
-                
-                return Response(batches)
-            else:
-                # Get all batches for this shop's products
-                shop_products = list(products_collection.find({"shop_id": shop_id}, {"_id": 1}))
-                product_ids = [str(product['_id']) for product in shop_products]
-                
-                batches = list(batches_collection.find(
-                    {"productId": {"$in": product_ids}},
-                    {"_id": 1, "productId": 1, "purchaseDate": 1, "quantityPurchased": 1, "remaining": 1, "costPrice": 1}
-                ).sort("purchaseDate", ASCENDING))
-                
-                # Convert ObjectId to string and format dates
-                for batch in batches:
-                    batch['_id'] = str(batch['_id'])
-                    batch['productId'] = str(batch['productId'])
-                    if isinstance(batch['purchaseDate'], datetime):
-                        batch['purchaseDate'] = batch['purchaseDate'].strftime('%Y-%m-%d')
-                
-                return Response(batches)
-        
-        except Exception as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-class PriceHistoryView(APIView):
-    def get(self, request, product_id):
-        # Verify JWT token from headers
-        token = request.headers.get('Authorization', '').replace('Bearer ', '')
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            shop_id = payload['shop_id']
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            return Response(
-                {"error": "Invalid or expired token"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        
         try:
             # Get the product
             product = products_collection.find_one({"_id": ObjectId(product_id)})
@@ -1474,28 +1336,128 @@ class PriceHistoryView(APIView):
                     {"error": "Product not found"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-            
-            # Check if the product belongs to this shop
+
+            # Check if product belongs to this shop
             if product['shop_id'] != shop_id:
                 return Response(
                     {"error": "Unauthorized access"},
                     status=status.HTTP_403_FORBIDDEN
                 )
-            
-            # Get price history for this product
-            history = list(price_history_collection.find(
-                {"productId": product_id},
-                {"_id": 1, "oldPrice": 1, "newPrice": 1, "changeDate": 1, "changed_by": 1}
-            ).sort("changeDate", DESCENDING))
-            
-            # Convert ObjectId to string and format dates
-            for item in history:
-                item['_id'] = str(item['_id'])
-                if isinstance(item['changeDate'], datetime):
-                    item['changeDate'] = item['changeDate'].strftime('%Y-%m-%d %H:%M:%S')
-            
-            return Response(history)
-        
+
+            data = request.data
+            quantity = int(data['quantity'])
+            cost_price = float(data['cost_price'])
+            purchase_date = datetime.strptime(data['purchase_date'], '%Y-%m-%d')
+
+            # Create batch document
+            batch_data = {
+                "product_id": product_id,
+                "shop_id": shop_id,
+                "quantity": quantity,
+                "remaining": quantity,
+                "cost_price": cost_price,
+                "purchase_date": purchase_date,
+                "created_by": user_email,
+                "created_at": datetime.now()
+            }
+
+            # Insert batch
+            batches_collection.insert_one(batch_data)
+
+            # Update product quantity
+            products_collection.update_one(
+                {"_id": ObjectId(product_id)},
+                {
+                    "$inc": {"quantity": quantity},
+                    "$set": {
+                        "updated_at": datetime.now(),
+                        "buying_price": cost_price  # Update latest buying price
+                    }
+                }
+            )
+
+            # If new selling price is provided, update it and log in price history
+            if 'new_selling_price' in data and data['new_selling_price']:
+                new_selling_price = float(data['new_selling_price'])
+                old_selling_price = product.get('selling_price', 0)
+
+                if new_selling_price != old_selling_price:
+                    # Update product selling price
+                    products_collection.update_one(
+                        {"_id": ObjectId(product_id)},
+                        {"$set": {"selling_price": new_selling_price}}
+                    )
+
+                    # Log price change
+                    price_history_collection.insert_one({
+                        "product_id": product_id,
+                        "old_price": old_selling_price,
+                        "new_price": new_selling_price,
+                        "changed_by": user_email,
+                        "change_date": datetime.now(),
+                        "shop_id": shop_id
+                    })
+
+            return Response({
+                "message": "Batch added successfully"
+            })
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class BatchHistoryView(APIView):
+    def get(self, request, product_id):
+        # Verify JWT token
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Get the product
+            product = products_collection.find_one({"_id": ObjectId(product_id)})
+            if not product:
+                return Response(
+                    {"error": "Product not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Check if product belongs to this shop
+            if product['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Get all batches for this product
+            batches = list(batches_collection.find(
+                {"product_id": product_id}
+            ).sort("purchase_date", -1))  # Sort by purchase date, newest first
+
+            # Format the response
+            formatted_batches = []
+            for batch in batches:
+                formatted_batch = {
+                    "id": str(batch["_id"]),
+                    "quantity": batch["quantity"],
+                    "remaining": batch["remaining"],
+                    "cost_price": batch["cost_price"],
+                    "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
+                    "created_by": batch["created_by"],
+                    "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                }
+                formatted_batches.append(formatted_batch)
+
+            return Response(formatted_batches)
+
         except Exception as e:
             return Response(
                 {"error": str(e)},

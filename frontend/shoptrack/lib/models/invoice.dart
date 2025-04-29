@@ -17,10 +17,10 @@ class InvoiceItem {
   Map<String, dynamic> toJson() {
     return {
       'product_id': productId,
-      'name': productName,
+      'product_name': productName,
       'quantity': quantity,
       'unit_price': unitPrice,
-      'total_price': totalPrice,
+      'total': totalPrice,
     };
   }
 
@@ -111,9 +111,9 @@ class Invoice {
       'customer_phone': customerPhone,
       'date': date.toIso8601String(),
       'items': items.map((item) => item.toJson()).toList(),
-      'subtotal_amount': subtotalAmount,
+      'total_amount': subtotalAmount,
       'discount_amount': discountAmount,
-      'total_amount': totalAmount,
+      'final_amount': totalAmount,
       'status': status,
       'created_by': createdBy,
       'created_at': DateTime.now().toIso8601String(),
