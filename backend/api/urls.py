@@ -38,11 +38,10 @@ urlpatterns = [
     path('shops/<str:shop_id>/', views.ShopInfoView.as_view(), name='shop-info'),
     path('upload-image/', views.ImageUploadView.as_view(), name='upload-image'),
     
-    # New batch management endpoints
+    # Batch management endpoints
     path('batches/', views.BatchView.as_view(), name='batches'),
     path('batches/<str:product_id>/', views.BatchView.as_view(), name='product-batches'),
     path('price-history/<str:product_id>/', views.PriceHistoryView.as_view(), name='price-history'),
     path('profit-report/<str:shop_id>/', views.ProfitReportView.as_view(), name='profit-report'),
-    path('batches/<str:product_id>/', views.BatchView.as_view(), name='batches'),
     path('batch-history/<str:product_id>/', views.BatchHistoryView.as_view(), name='batch-history'),
 ]

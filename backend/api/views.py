@@ -1748,3 +1748,57 @@ class GenerateInvoiceView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class PriceHistoryView(APIView):
+    def get(self, request, product_id):
+        # Verify JWT token
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Get the product
+            product = products_collection.find_one({"_id": ObjectId(product_id)})
+            if not product:
+                return Response(
+                    {"error": "Product not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Check if product belongs to this shop
+            if product['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Get price history for this product
+            price_history = list(price_history_collection.find(
+                {"product_id": product_id}
+            ).sort("change_date", -1))  # Sort by date, newest first
+
+            # Format the response
+            formatted_history = []
+            for entry in price_history:
+                formatted_entry = {
+                    "id": str(entry["_id"]),
+                    "old_price": entry["old_price"],
+                    "new_price": entry["new_price"],
+                    "changed_by": entry["changed_by"],
+                    "change_date": entry["change_date"].strftime("%Y-%m-%d %H:%M:%S")
+                }
+                formatted_history.append(formatted_entry)
+
+            return Response(formatted_history)
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
