@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'package:flutter_connectivity/flutter_connectivity.dart';
-import 'package:log_plus/log_plus.dart';  // Add this import for LogLevel
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 class ConnectivityService {
-  late FlutterConnectivity _connectivity;
+  final InternetConnectionChecker _connectionChecker = InternetConnectionChecker();
   final StreamController<bool> _connectionStatusController = StreamController<bool>.broadcast();
+  Timer? _checkTimer;
 
   Stream<bool> get connectionStatus => _connectionStatusController.stream;
 
@@ -12,31 +12,18 @@ class ConnectivityService {
   bool _isConnected = true;
 
   ConnectivityService() {
-    // Initialize with your backend endpoint
-    _connectivity = FlutterConnectivity(endpoint: 'https://api.shoptrack.com');
-
-    // Configure the connectivity monitoring
-    _connectivity.configure(
-      allowedFailedRequests: 2, // Number of failed requests before reporting connection loss
-      checkInterval: const Duration(seconds: 5), // Check every 5 seconds
-      logLevel: LogLevel.error, // Minimal logging
-    );
-
-    // Set latency thresholds (in milliseconds)
-    _connectivity.setLatencyThresholds(
-      disconnected: 10000, // 10 seconds
-      slow: 5000,         // 5 seconds
-      moderate: 2000,     // 2 seconds
-      fast: 500,          // 0.5 seconds
-    );
+    // Configure check interval (equivalent to previous checkInterval)
+    _checkTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      checkConnectivity();
+    });
 
     _init();
   }
 
   void _init() {
     // Listen to connectivity changes
-    _connectivity.listenToLatencyChanges((ConnectivityStatus status, int latency) {
-      final bool isConnected = status != ConnectivityStatus.disconnected;
+    _connectionChecker.onStatusChange.listen((InternetConnectionStatus status) {
+      final bool isConnected = status == InternetConnectionStatus.connected;
 
       // Only notify listeners if the connection status has changed
       if (isConnected != _isConnected) {
@@ -44,6 +31,17 @@ class ConnectivityService {
         _updateConnectionStatus(isConnected);
       }
     });
+    
+    // Initial check
+    checkConnectivity();
+  }
+
+  Future<void> checkConnectivity() async {
+    final bool isConnected = await _connectionChecker.hasConnection;
+    if (isConnected != _isConnected) {
+      _isConnected = isConnected;
+      _updateConnectionStatus(isConnected);
+    }
   }
 
   void _updateConnectionStatus(bool isConnected) {
@@ -55,15 +53,19 @@ class ConnectivityService {
   }
 
   void pause() {
-    _connectivity.pause();
+    _checkTimer?.cancel();
   }
 
   void resume() {
-    _connectivity.resume();
+    if (_checkTimer == null || !_checkTimer!.isActive) {
+      _checkTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        checkConnectivity();
+      });
+    }
   }
 
   void dispose() {
-    _connectivity.dispose();
+    _checkTimer?.cancel();
     _connectionStatusController.close();
   }
 }

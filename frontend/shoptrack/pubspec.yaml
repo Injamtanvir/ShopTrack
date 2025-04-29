@@ -18,12 +18,12 @@ dependencies:
   pdf: ^3.7.1
   path_provider: ^2.1.1
   share_plus: ^7.0.0
-  # connectivity_plus: ^5.0.1
-  flutter_connectivity: ^0.0.3
+  internet_connection_checker: ^1.0.0+1
   universal_html: ^2.2.4
   path_provider_platform_interface: ^2.1.0
   image_picker: ^1.0.4
   icons_flutter: ^0.0.5
+  log_plus: ^0.0.6
 
 
 dev_dependencies:

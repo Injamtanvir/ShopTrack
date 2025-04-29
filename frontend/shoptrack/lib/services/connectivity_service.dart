@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 enum NetworkStatus { online, offline }
 
@@ -15,11 +15,14 @@ class ConnectivityService {
   NetworkStatus _currentStatus = NetworkStatus.online;
   NetworkStatus get currentStatus => _currentStatus;
 
+  // Instance of connection checker
+  final InternetConnectionChecker _connectionChecker = InternetConnectionChecker();
+
   // Constructor with optional initial check
   ConnectivityService({bool checkImmediately = true}) {
     // Initialize listener for connectivity changes
-    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
-      _updateConnectionStatus(result);
+    _connectionChecker.onStatusChange.listen((InternetConnectionStatus status) {
+      _updateConnectionStatus(status);
     });
 
     if (checkImmediately) {
@@ -29,16 +32,18 @@ class ConnectivityService {
 
   // Check connectivity immediately
   Future<NetworkStatus> checkConnectivity() async {
-    final ConnectivityResult result = await Connectivity().checkConnectivity();
-    _updateConnectionStatus(result);
+    final bool isConnected = await _connectionChecker.hasConnection;
+    _updateConnectionStatus(
+      isConnected ? InternetConnectionStatus.connected : InternetConnectionStatus.disconnected
+    );
     return _currentStatus;
   }
 
   // Update the connection status based on connectivity result
-  void _updateConnectionStatus(ConnectivityResult result) {
+  void _updateConnectionStatus(InternetConnectionStatus status) {
     NetworkStatus previousStatus = _currentStatus;
     
-    if (result == ConnectivityResult.none) {
+    if (status == InternetConnectionStatus.disconnected) {
       _currentStatus = NetworkStatus.offline;
     } else {
       _currentStatus = NetworkStatus.online;

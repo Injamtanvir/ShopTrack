@@ -174,14 +174,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_connectivity:
-    dependency: "direct main"
-    description:
-      name: flutter_connectivity
-      sha256: "0b853042d929facbb2d530be70518d85ee56f00ea5fd13f8cd19b985d3004dea"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.3"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -360,6 +352,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.1+1"
+  internet_connection_checker:
+    dependency: "direct main"
+    description:
+      name: internet_connection_checker
+      sha256: "1c683e63e89c9ac66a40748b1b20889fd9804980da732bf2b58d6d5456c8e876"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0+1"
   intl:
     dependency: "direct main"
     description:
@@ -409,7 +409,7 @@ packages:
     source: hosted
     version: "2.1.1"
   log_plus:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: log_plus
       sha256: "92a399a3c5780b8c3b0080e2eb4edf16c5d880bee72966a2f1075d39fdd54cb4"
