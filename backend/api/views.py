@@ -20,6 +20,7 @@ import bcrypt
 from bson.errors import InvalidId
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
+from pymongo import ASCENDING, DESCENDING
 
 from datetime import datetime, timedelta
 
@@ -37,7 +38,9 @@ from .db import (
     PendingInvoicesView,
     InvoiceHistoryView,
     InvoiceDetailView,
-    SearchProductsView
+    SearchProductsView,
+    db,
+    sales_collection
 )
 
 
@@ -1296,12 +1299,11 @@ class ImageUploadView(APIView):
         # Return the URL
         return Response({"imageUrl": image_url}, status=status.HTTP_200_OK)
 
-# Add at the top with other database connections
-from pymongo import DESCENDING, ASCENDING, IndexModel
+# Database collections
 batches_collection = db["batches"]
 price_history_collection = db["price_history"]
 
-# Make sure we have the necessary indexes
+# Create necessary indexes
 batches_collection.create_index([("productId", ASCENDING)])
 batches_collection.create_index([("purchaseDate", ASCENDING)])
 
