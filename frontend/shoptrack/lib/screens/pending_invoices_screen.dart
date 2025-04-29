@@ -8,6 +8,7 @@ import '../utils/invoice_utils.dart';
 import '../utils/sharing_utils.dart';
 import '../widgets/custom_button.dart';
 import '../providers/connectivity_provider.dart';
+import '../utils/error_handler.dart';
 
 class PendingInvoicesScreen extends StatefulWidget {
   static const routeName = '/pending-invoices';
@@ -48,7 +49,7 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = ErrorHandler.getErrorMessage(e);
         _isLoading = false;
       });
     }
@@ -84,9 +85,7 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
 
       _loadPendingInvoices(); // Refresh the list
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ErrorHandler.showErrorSnackBar(context, e);
     } finally {
       setState(() {
         _isProcessing = false;
@@ -99,11 +98,9 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
     // Check network connectivity
     final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
     if (!connectivityProvider.isOnline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot delete invoice. No internet connection available.'),
-          backgroundColor: Colors.red,
-        ),
+      ErrorHandler.showErrorSnackBar(
+        context, 
+        'No internet connection. Please connect your device to a network.'
       );
       return;
     }
@@ -132,9 +129,7 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
         }
       }
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ErrorHandler.showErrorSnackBar(context, e);
     } finally {
       setState(() {
         _isProcessing = false;

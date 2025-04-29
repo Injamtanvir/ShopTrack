@@ -6,6 +6,9 @@ import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_button.dart';
 import '../utils/sharing_utils.dart';
+import '../utils/error_handler.dart';
+import '../providers/connectivity_provider.dart';
+import 'package:provider/provider.dart';
 
 class PriceListScreen extends StatefulWidget {
   static const routeName = '/price-list';
@@ -42,27 +45,24 @@ class _PriceListScreenState extends State<PriceListScreen> {
     super.dispose();
   }
 
-  void _loadPriceList() {
+  Future<void> _loadPriceList() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    _apiService.getProductPriceList().then((data) {
-      if (mounted) {
-        setState(() {
-          _priceListData = data;
-          _isLoading = false;
-        });
-      }
-    }).catchError((error) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = error.toString();
-          _isLoading = false;
-        });
-      }
-    });
+    try {
+      final priceList = await _apiService.getProductPriceList();
+      setState(() {
+        _priceListData = priceList;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = ErrorHandler.getErrorMessage(e);
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _sharePriceList() async {

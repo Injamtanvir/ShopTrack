@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_button.dart';
+import '../utils/error_handler.dart';
+import '../providers/connectivity_provider.dart';
+import 'package:provider/provider.dart';
 
 class ProductListScreen extends StatefulWidget {
   static const routeName = '/product-list';
@@ -44,13 +47,23 @@ class _ProductListScreenState extends State<ProductListScreen> {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = ErrorHandler.getErrorMessage(e);
         _isLoading = false;
       });
     }
   }
 
   Future<void> _updatePrice(Product product) async {
+    // Check network connectivity
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      ErrorHandler.showErrorSnackBar(
+        context, 
+        'No internet connection. Please connect your device to a network.'
+      );
+      return;
+    }
+
     final TextEditingController controller = TextEditingController(
       text: product.sellingPrice.toString(),
     );
@@ -96,9 +109,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     _loadProducts(); // Reload the list
                   } catch (e) {
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: ${e.toString()}')),
-                    );
+                    ErrorHandler.showErrorSnackBar(context, e);
                   }
                 }
               },
@@ -165,9 +176,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ErrorHandler.showErrorSnackBar(context, e);
     }
   }
 

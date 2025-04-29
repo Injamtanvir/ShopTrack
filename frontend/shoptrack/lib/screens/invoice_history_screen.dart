@@ -7,6 +7,8 @@ import '../services/invoice_service.dart';
 import '../utils/invoice_utils.dart';
 import '../utils/sharing_utils.dart';
 import '../widgets/custom_button.dart';
+import '../utils/error_handler.dart';
+import '../providers/connectivity_provider.dart';
 
 class InvoiceHistoryScreen extends StatefulWidget {
   static const routeName = '/invoice-history';
@@ -54,7 +56,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = ErrorHandler.getErrorMessage(e);
         _isLoading = false;
       });
     }

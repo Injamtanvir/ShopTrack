@@ -8,6 +8,8 @@ import '../services/stats_service.dart';
 import '../utils/invoice_utils.dart';
 import '../utils/sharing_utils.dart';
 import '../widgets/custom_button.dart';
+import '../utils/error_handler.dart';
+import '../providers/connectivity_provider.dart';
 
 class DailyTrackingScreen extends StatefulWidget {
   static const routeName = '/daily-tracking';
@@ -54,7 +56,7 @@ class _DailyTrackingScreenState extends State<DailyTrackingScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = ErrorHandler.getErrorMessage(e);
         _isLoading = false;
       });
     }

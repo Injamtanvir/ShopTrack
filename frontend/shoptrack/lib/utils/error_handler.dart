@@ -1,7 +1,30 @@
 import 'package:flutter/material.dart';
 
 class ErrorHandler {
-  static void showErrorDialog(BuildContext context, String errorMessage) {
+  // Handle network errors and other exceptions
+  static String getErrorMessage(dynamic error) {
+    String errorMessage = error.toString();
+    
+    // Check for common network connectivity errors
+    if (errorMessage.contains('SocketException') || 
+        errorMessage.contains('Failed host lookup') ||
+        errorMessage.contains('No address associated with hostname') ||
+        errorMessage.contains('Network is unreachable') ||
+        errorMessage.contains('Connection refused') ||
+        errorMessage.contains('Connection timed out') ||
+        errorMessage.contains('Connection closed') ||
+        errorMessage.contains('No internet')) {
+      return 'No internet connection. Please connect your device to a network.';
+    }
+    
+    // Return the original error for other types of errors
+    return errorMessage;
+  }
+
+  // Show a standardized error dialog
+  static void showErrorDialog(BuildContext context, dynamic error) {
+    final errorMessage = getErrorMessage(error);
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -9,7 +32,7 @@ class ErrorHandler {
         content: Text(errorMessage),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).pop(),
             child: const Text('OK'),
           ),
         ],
@@ -17,25 +40,23 @@ class ErrorHandler {
     );
   }
 
-  static void showSnackBar(BuildContext context, String message, {bool isError = true}) {
+  // Show a standardized error snackbar
+  static void showErrorSnackBar(BuildContext context, dynamic error) {
+    final errorMessage = getErrorMessage(error);
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
-        duration: const Duration(seconds: 3),
+        content: Text(errorMessage),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
       ),
     );
-  }
-
-  static String getReadableError(dynamic error) {
-    String errorMessage = error.toString();
-
-    if (errorMessage.contains('MissingPluginException')) {
-      return 'This function is not available on this platform.';
-    } else if (errorMessage.contains('<!DOCTYPE')) {
-      return 'Server communication error. Please try again later.';
-    }
-
-    return errorMessage;
   }
 }

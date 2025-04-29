@@ -10,6 +10,7 @@ import '../utils/sharing_utils.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../providers/connectivity_provider.dart';
+import '../utils/error_handler.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   static const routeName = '/create-invoice';
@@ -63,21 +64,21 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   Future<void> _initInvoice() async {
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final shopId = authProvider.user!.shopId;
 
-      // Get next invoice number from the server
-      _invoiceNumber = await _invoiceService.getNextInvoiceNumber(shopId);
-
+      final invoiceNumber = await _invoiceService.getNextInvoiceNumber(shopId);
       setState(() {
+        _invoiceNumber = invoiceNumber;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = ErrorHandler.getErrorMessage(e);
         _isLoading = false;
       });
     }
@@ -204,11 +205,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     // Check network connectivity
     final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
     if (!connectivityProvider.isOnline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot save invoice. No internet connection available.'),
-          backgroundColor: Colors.red,
-        ),
+      ErrorHandler.showErrorSnackBar(
+        context, 
+        'No internet connection. Please connect your device to a network.'
       );
       return;
     }
@@ -248,9 +247,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _resetForm();
       _initInvoice(); // Get new invoice number
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ErrorHandler.showErrorSnackBar(context, e);
     } finally {
       setState(() {
         _isProcessing = false;
@@ -273,11 +270,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     // Check network connectivity
     final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
     if (!connectivityProvider.isOnline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot generate invoice. No internet connection available.'),
-          backgroundColor: Colors.red,
-        ),
+      ErrorHandler.showErrorSnackBar(
+        context, 
+        'No internet connection. Please connect your device to a network.'
       );
       return;
     }
@@ -352,9 +347,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ErrorHandler.showErrorSnackBar(context, e);
     } finally {
       setState(() {
         _isProcessing = false;
