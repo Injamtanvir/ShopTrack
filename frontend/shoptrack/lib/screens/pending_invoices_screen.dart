@@ -7,6 +7,7 @@ import '../services/invoice_service.dart';
 import '../utils/invoice_utils.dart';
 import '../utils/sharing_utils.dart';
 import '../widgets/custom_button.dart';
+import '../providers/connectivity_provider.dart';
 
 class PendingInvoicesScreen extends StatefulWidget {
   static const routeName = '/pending-invoices';
@@ -93,7 +94,73 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
     }
   }
 
-  // New method to view invoice details in a popup
+  // Method to delete pending invoice
+  Future<void> _deleteInvoice(String invoiceId) async {
+    // Check network connectivity
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot delete invoice. No internet connection available.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      await _invoiceService.deletePendingInvoice(invoiceId);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invoice deleted successfully')),
+      );
+
+      _loadPendingInvoices(); // Refresh the list
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
+  // Confirmation dialog for deletion
+  Future<void> _confirmDeleteInvoice(Invoice invoice) async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Invoice?'),
+        content: Text(
+            'Are you sure you want to delete Invoice #${invoice.invoiceNumber}?\n\nThis action cannot be undone.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _deleteInvoice(invoice.id!);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // View invoice details in a popup
   void _viewInvoiceDetails(Invoice invoice) {
     showDialog(
       context: context,
@@ -333,7 +400,7 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
                       ),
                       Row(
                         children: [
-                          // View button - NEW FEATURE
+                          // View button
                           ElevatedButton(
                             onPressed: () => _viewInvoiceDetails(invoice),
                             style: ElevatedButton.styleFrom(
@@ -341,6 +408,18 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                             ),
                             child: const Text('View'),
+                          ),
+                          const SizedBox(width: 8),
+                          // Delete button
+                          ElevatedButton(
+                            onPressed: _isProcessing
+                                ? null
+                                : () => _confirmDeleteInvoice(invoice),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            child: const Text('Delete'),
                           ),
                           const SizedBox(width: 8),
                           // Generate button

@@ -350,10 +350,10 @@ class DeleteInvoiceView(APIView):
             user_email = payload['email']
             role = payload.get('role', '')
             
-            # Only admins can delete invoices
-            if role != 'manager':
+            # Allow both managers and owners to delete invoices
+            if role != 'manager' and role != 'owner':
                 return Response(
-                    {"error": "Only managers can delete invoices"},
+                    {"error": "Only managers and owners can delete invoices"},
                     status=status.HTTP_403_FORBIDDEN
                 )
                 

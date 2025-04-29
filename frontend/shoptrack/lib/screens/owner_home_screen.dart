@@ -13,7 +13,7 @@ import 'add_product_screen.dart';
 import 'product_list_screen.dart';
 import 'price_list_screen.dart';
 import 'create_invoice_screen.dart';
-import 'admin_pending_invoice_screen.dart';
+import 'pending_invoices_screen.dart';
 import 'invoice_history_screen.dart';
 import 'daily_tracking_screen.dart';
 import 'shop_users_screen.dart';
@@ -75,7 +75,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         if (mounted) {
           setState(() {
             _statsData['todaySales'] = (todayStats['total_revenue'] ?? 0).toDouble();
-            _statsData['pendingAmount'] = (todayStats['pending_amount'] ?? 0).toDouble();
+            _statsData['pendingAmount'] = 0.0;
             _statsData['pendingInvoices'] = (todayStats['pending_invoices'] ?? 0).toDouble();
             _isLoading = false;
           });
@@ -86,7 +86,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       if (mounted) {
         setState(() {
           _statsData['todaySales'] = 5420.00;
-          _statsData['pendingAmount'] = 12050.00;
+          _statsData['pendingAmount'] = 0.0;
           _statsData['pendingInvoices'] = 3;
           _isLoading = false;
         });
@@ -278,7 +278,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           icon: Icons.pending_actions,
           color: kNewWarningColor,
           isCount: true,
-          onTap: () => Navigator.pushNamed(context, AdminPendingInvoicesScreen.routeName),
+          onTap: () => Navigator.pushNamed(context, PendingInvoicesScreen.routeName),
         ),
       ],
     );
@@ -368,7 +368,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               _buildActionButton(
                 icon: Icons.pending_actions,
                 title: 'Pending Invoices',
-                onTap: () => Navigator.pushNamed(context, AdminPendingInvoicesScreen.routeName),
+                onTap: () => Navigator.pushNamed(context, PendingInvoicesScreen.routeName),
                 color: kNewWarningColor,
               ),
               _buildActionButton(
