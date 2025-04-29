@@ -19,7 +19,7 @@ class InvoiceHistoryScreen extends StatefulWidget {
 }
 
 class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
-  final _invoiceService = InvoiceService();
+  final InvoiceService _invoiceService = InvoiceService();
   List<Invoice> _invoices = [];
   bool _isLoading = true;
   bool _isSearching = false;
@@ -39,6 +39,8 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   }
 
   Future<void> _loadInvoices() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -47,14 +49,17 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final shopId = authProvider.user!.shopId;
-
+      
       final invoices = await _invoiceService.getInvoiceHistory(shopId);
+      if (!mounted) return;
 
       setState(() {
         _invoices = invoices;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _errorMessage = ErrorHandler.getErrorMessage(e);
         _isLoading = false;

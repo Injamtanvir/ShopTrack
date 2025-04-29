@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_button.dart';
+import '../utils/error_handler.dart';
 
 class SellerProductListScreen extends StatefulWidget {
   static const routeName = '/seller-product-list';
@@ -44,7 +45,7 @@ class _SellerProductListScreenState extends State<SellerProductListScreen> {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = ErrorHandler.getErrorMessage(e);
         _isLoading = false;
       });
     }

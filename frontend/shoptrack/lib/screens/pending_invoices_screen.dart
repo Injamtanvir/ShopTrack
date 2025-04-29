@@ -32,6 +32,8 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
   }
 
   Future<void> _loadPendingInvoices() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -48,6 +50,8 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _errorMessage = ErrorHandler.getErrorMessage(e);
         _isLoading = false;

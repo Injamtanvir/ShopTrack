@@ -25,7 +25,6 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
   final StatsService _statsService = StatsService();
   bool _isLoading = false;
   Map<String, dynamic> _statsData = {
-    'todaySales': 0.0,
     'totalInvoices': 0.0,
     'pendingInvoices': 0.0,
   };
@@ -66,7 +65,6 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
         if (mounted) {
           setState(() {
             _statsData = {
-              'todaySales': (todayStats['total_revenue'] ?? 0).toDouble(),
               'totalInvoices': (todayStats['total_sales'] ?? 0).toDouble(),
               'pendingInvoices': (todayStats['pending_invoices'] ?? 0).toDouble(),
             };
@@ -79,7 +77,6 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
       if (mounted) {
         setState(() {
           _statsData = {
-            'todaySales': 2500.0,
             'totalInvoices': 4.0,
             'pendingInvoices': 1.0,
           };
@@ -456,18 +453,14 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
             : Row(
                 children: [
                   _buildStatCard(
-                    title: "Today's Sales",
-                    value: (_statsData['todaySales'] ?? 0).toDouble(),
-                    icon: Icons.trending_up,
-                    color: kNewSuccessColor,
-                  ),
-                  const SizedBox(width: 16),
-                  _buildStatCard(
                     title: "Total Invoices",
                     value: (_statsData['totalInvoices'] ?? 0).toDouble(),
                     icon: Icons.receipt,
                     color: kNewPrimaryColor,
                     isCount: true,
+                    onTap: () {
+                      Navigator.pushNamed(context, InvoiceHistoryScreen.routeName);
+                    },
                   ),
                   const SizedBox(width: 16),
                   _buildStatCard(
@@ -476,6 +469,9 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                     icon: Icons.pending_actions,
                     color: kNewWarningColor,
                     isCount: true,
+                    onTap: () {
+                      Navigator.pushNamed(context, PendingInvoicesScreen.routeName);
+                    },
                   ),
                 ],
               ),
@@ -489,42 +485,47 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
     required IconData icon,
     required Color color,
     bool isCount = false,
+    VoidCallback? onTap,
   }) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: kCardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 22),
-                Text(
-                  isCount ? value.toInt().toString() : '৳ ${value.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: kCardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Icon(icon, color: color, size: 22),
+                  Text(
+                    isCount ? value.toInt().toString() : '৳ ${value.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 13,
-                color: kNewSecondaryTextColor,
-                fontWeight: FontWeight.w500,
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: kNewSecondaryTextColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
