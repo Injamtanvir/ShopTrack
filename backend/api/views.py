@@ -358,7 +358,7 @@ class DeleteInvoiceView(APIView):
             role = payload.get('role', '')
             
             # Allow both managers and owners to delete invoices
-            if role != 'manager' and role != 'owner':
+            if role not in ['manager', 'owner']:
                 return Response(
                     {"error": "Only managers and owners can delete invoices"},
                     status=status.HTTP_403_FORBIDDEN
@@ -394,21 +394,20 @@ class DeleteInvoiceView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # NEW CODE: Restore product quantities for each item in the invoice
+            # Restore product quantities for each item in the invoice
             for item in invoice['items']:
                 product_id = item['product_id']
-                quantity = item['quantity']
+                quantity = int(item['quantity'])
                 
-                # Restore the product quantity
+                # Restore the product quantity and reduce on_hold
                 products_collection.update_one(
                     {"_id": ObjectId(product_id)},
-                    {"$inc": {"quantity": quantity}}
-                )
-                
-                # If we have on_hold field, decrement it
-                products_collection.update_one(
-                    {"_id": ObjectId(product_id)},
-                    {"$inc": {"quantity_on_hold": -quantity}}
+                    {
+                        "$inc": {
+                            "quantity": quantity,
+                            "quantity_on_hold": -quantity
+                        }
+                    }
                 )
                 
             # Delete the invoice
@@ -740,7 +739,7 @@ class ProductView(APIView):
                         "updated_at": datetime.now()
                     }}
                 )
-                
+
                 # Also add a new batch record
                 batch_data = {
                     "productId": str(existing_product['_id']),
@@ -773,7 +772,7 @@ class ProductView(APIView):
                 }
 
                 result = products_collection.insert_one(product_data)
-                
+
                 # Also add a new batch record
                 batch_data = {
                     "productId": str(result.inserted_id),
@@ -811,7 +810,7 @@ class ProductView(APIView):
         # Convert ObjectId to string for JSON serialization
         for product in products:
             product['_id'] = str(product['_id'])
-            
+
             # Calculate available quantity (total - on_hold)
             if 'quantity_on_hold' in product:
                 product['available_quantity'] = product['quantity'] - product['quantity_on_hold']
@@ -1600,6 +1599,188 @@ class ProfitReportView(APIView):
             
             return Response(response_data)
         
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class SaveInvoiceView(APIView):
+    def post(self, request):
+        try:
+            # Verify JWT token
+            token = request.headers.get('Authorization', '').replace('Bearer ', '')
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+
+            data = request.data
+            
+            # Check if invoice with this number already exists
+            existing_invoice = invoices_collection.find_one({
+                "shop_id": shop_id,
+                "invoice_number": data['invoice_number']
+            })
+            
+            if existing_invoice:
+                return Response(
+                    {"error": "Invoice with this number already exists"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Create invoice document
+            invoice_data = {
+                "shop_id": shop_id,
+                "invoice_number": data['invoice_number'],
+                "customer_name": data['customer_name'],
+                "customer_address": data.get('customer_address', ''),
+                "customer_phone": data.get('customer_phone', ''),
+                "items": data['items'],
+                "total_amount": float(data['total_amount']),
+                "discount_amount": float(data.get('discount_amount', 0)),
+                "final_amount": float(data['final_amount']),
+                "status": "pending",
+                "created_by": user_email,
+                "created_at": datetime.now(),
+                "updated_at": datetime.now()
+            }
+
+            # Update product quantities and on_hold values
+            for item in data['items']:
+                product_id = item['product_id']
+                quantity = item['quantity']
+                
+                # Decrease available quantity and increase on_hold
+                result = products_collection.update_one(
+                    {
+                        "_id": ObjectId(product_id),
+                        "quantity": {"$gte": quantity}  # Ensure sufficient quantity
+                    },
+                    {
+                        "$inc": {
+                            "quantity": -quantity,
+                            "quantity_on_hold": quantity
+                        }
+                    }
+                )
+                
+                if result.modified_count == 0:
+                    # Rollback previous product updates if any
+                    for prev_item in data['items'][:data['items'].index(item)]:
+                        products_collection.update_one(
+                            {"_id": ObjectId(prev_item['product_id'])},
+                            {
+                                "$inc": {
+                                    "quantity": prev_item['quantity'],
+                                    "quantity_on_hold": -prev_item['quantity']
+                                }
+                            }
+                        )
+                    return Response(
+                        {"error": f"Insufficient quantity for product ID: {product_id}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # Save the invoice
+            result = invoices_collection.insert_one(invoice_data)
+
+            return Response({
+                "message": "Invoice saved successfully",
+                "invoice_id": str(result.inserted_id)
+            })
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class GenerateInvoiceView(APIView):
+    def post(self, request, invoice_id):
+        try:
+            # Verify JWT token
+            token = request.headers.get('Authorization', '').replace('Bearer ', '')
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+
+            # Get the pending invoice
+            invoice = invoices_collection.find_one({"_id": ObjectId(invoice_id)})
+            if not invoice:
+                return Response(
+                    {"error": "Invoice not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Check if invoice belongs to this shop
+            if invoice['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Check if invoice is already completed
+            if invoice['status'] == 'completed':
+                return Response(
+                    {"error": "Invoice is already completed"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Update invoice status to completed
+            invoices_collection.update_one(
+                {"_id": ObjectId(invoice_id)},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "completed_by": user_email,
+                        "completed_at": datetime.now(),
+                        "updated_at": datetime.now()
+                    }
+                }
+            )
+
+            # Record sales and update product quantities
+            for item in invoice['items']:
+                product_id = item['product_id']
+                quantity = int(item['quantity'])
+                unit_price = float(item.get('unit_price', item.get('selling_price', 0)))
+                total = float(item.get('total', quantity * unit_price))
+
+                # Get product details for cost calculation
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
+                if not product:
+                    continue
+
+                # Calculate profit
+                cost_price = float(product.get('buying_price', 0))
+                profit = (unit_price - cost_price) * quantity
+
+                # Record the sale
+                sale_data = {
+                    "shop_id": shop_id,
+                    "invoice_id": str(invoice_id),
+                    "product_id": product_id,
+                    "quantity": quantity,
+                    "sale_price": unit_price,
+                    "cost_price": cost_price,
+                    "total_amount": total,
+                    "profit": profit,
+                    "sale_date": datetime.now(),
+                    "created_by": user_email
+                }
+                sales_collection.insert_one(sale_data)
+
+                # Update product quantity (remove from on_hold)
+                products_collection.update_one(
+                    {"_id": ObjectId(product_id)},
+                    {"$inc": {"quantity_on_hold": -quantity}}
+                )
+
+            return Response({
+                "message": "Invoice generated successfully",
+                "invoice_id": str(invoice_id)
+            })
+
         except Exception as e:
             return Response(
                 {"error": str(e)},

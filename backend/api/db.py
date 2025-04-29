@@ -77,80 +77,91 @@ class NextInvoiceNumberView(APIView):
 # Save invoice (as pending)
 class SaveInvoiceView(APIView):
     def post(self, request):
-        # Verify JWT token from headers
-        token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
+            # Verify JWT token
+            token = request.headers.get('Authorization', '').replace('Bearer ', '')
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             shop_id = payload['shop_id']
             user_email = payload['email']
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            return Response(
-                {"error": "Invalid or expired token"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
 
-        # Check if the shop ID in the request matches the shop ID in the token
-        if request.data['shop_id'] != shop_id:
-            return Response(
-                {"error": "Unauthorized access"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            data = request.data
+            
+            # Check if invoice with this number already exists
+            existing_invoice = invoices_collection.find_one({
+                "shop_id": shop_id,
+                "invoice_number": data['invoice_number']
+            })
+            
+            if existing_invoice:
+                return Response(
+                    {"error": "Invoice with this number already exists"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        invoice_data = {
-            "invoice_number": request.data['invoice_number'],
-            "shop_id": shop_id,
-            "shop_name": request.data['shop_name'],
-            "shop_address": request.data['shop_address'],
-            "shop_license": request.data['shop_license'],
-            "customer_name": request.data['customer_name'],
-            "customer_address": request.data['customer_address'],
-            "customer_phone": request.data.get('customer_phone', ''),  # Add customer phone with default empty string
-            "date": request.data['date'],
-            "items": request.data['items'],
-            "subtotal_amount": request.data['subtotal_amount'],
-            "discount_amount": request.data['discount_amount'],
-            "total_amount": request.data['total_amount'],
-            "status": request.data['status'],  # 'pending' or 'completed'
-            "created_by": user_email,
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
-        }
+            # Create invoice document
+            invoice_data = {
+                "shop_id": shop_id,
+                "invoice_number": data['invoice_number'],
+                "customer_name": data['customer_name'],
+                "customer_address": data.get('customer_address', ''),
+                "customer_phone": data.get('customer_phone', ''),
+                "items": data['items'],
+                "total_amount": float(data['total_amount']),
+                "discount_amount": float(data.get('discount_amount', 0)),
+                "final_amount": float(data['final_amount']),
+                "status": "pending",
+                "created_by": user_email,
+                "created_at": datetime.now(),
+                "updated_at": datetime.now()
+            }
 
-        # NEW CODE: If invoice status is pending, mark product quantities as on_hold
-        if request.data['status'] == 'pending':
-            # Check if quantities are available
-            for item in request.data['items']:
+            # Update product quantities and on_hold values
+            for item in data['items']:
                 product_id = item['product_id']
-                quantity = item['quantity']
+                quantity = int(item['quantity'])
                 
-                product = products_collection.find_one({"_id": ObjectId(product_id)})
+                # Check if product exists and has sufficient quantity
+                product = products_collection.find_one({
+                    "_id": ObjectId(product_id),
+                    "quantity": {"$gte": quantity}
+                })
+                
                 if not product:
                     return Response(
-                        {"error": f"Product {product_id} not found"},
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-                
-                # Check if there's enough quantity available (total - on_hold)
-                available_quantity = product.get('quantity', 0) - product.get('quantity_on_hold', 0)
-                if available_quantity < quantity:
-                    return Response(
-                        {"error": f"Not enough quantity for product {product['name']}. Available: {available_quantity}, Requested: {quantity}"},
+                        {"error": f"Insufficient quantity for product ID: {product_id}"},
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
-                # Mark quantity as on_hold
-                products_collection.update_one(
+                # Update product quantity
+                result = products_collection.update_one(
                     {"_id": ObjectId(product_id)},
-                    {"$inc": {"quantity_on_hold": quantity}}
+                    {
+                        "$inc": {
+                            "quantity": -quantity,
+                            "quantity_on_hold": quantity
+                        }
+                    }
                 )
+                
+                if result.modified_count == 0:
+                    return Response(
+                        {"error": f"Failed to update quantity for product ID: {product_id}"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
-        # Insert the invoice
-        result = invoices_collection.insert_one(invoice_data)
+            # Save the invoice
+            result = invoices_collection.insert_one(invoice_data)
 
-        return Response({
-            "message": "Invoice saved successfully",
-            "invoice_id": str(result.inserted_id)
-        }, status=status.HTTP_201_CREATED)
+            return Response({
+                "message": "Invoice saved successfully",
+                "invoice_id": str(result.inserted_id)
+            })
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # Generate invoice (update product quantities and change status)
 class GenerateInvoiceView(APIView):

@@ -27,7 +27,7 @@ class ShopInfoService {
       );
 
       print('Shop info response status: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data;
@@ -60,7 +60,7 @@ class ShopInfoService {
     if (token.isEmpty) {
       throw Exception('Authorization token not found');
     }
-    
+
     // Check if an image file needs to be uploaded
     if (shopInfo.containsKey('imageFile') && shopInfo['imageFile'] != null) {
       final imageFile = shopInfo['imageFile'] as XFile;
@@ -129,7 +129,7 @@ class ShopInfoService {
       );
 
       print('User info response status: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data;

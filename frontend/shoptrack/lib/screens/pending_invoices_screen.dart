@@ -428,25 +428,24 @@ class _PendingInvoicesScreenState extends State<PendingInvoicesScreen> {
                       Row(
                         children: [
                           // View button
-                          ElevatedButton(
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.visibility),
+                            label: const Text('View'),
                             onPressed: () => _viewInvoiceDetails(invoice),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                             ),
-                            child: const Text('View'),
                           ),
                           const SizedBox(width: 8),
-                          // Delete button
-                          ElevatedButton(
+                          // Delete button with icon
+                          IconButton(
+                            icon: const Icon(Icons.delete),
                             onPressed: _isProcessing
                                 ? null
                                 : () => _confirmDeleteInvoice(invoice),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                            ),
-                            child: const Text('Delete'),
+                            color: Colors.red,
+                            tooltip: 'Delete Invoice',
                           ),
                           const SizedBox(width: 8),
                           // Generate button
