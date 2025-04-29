@@ -5,7 +5,10 @@ import '../constants/theme_constants.dart';
 import '../widgets/dashboard_header.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../widgets/connectivity_banner.dart';
+import '../widgets/shop_info_form.dart';
+import '../widgets/user_info_form.dart';
 import '../services/stats_service.dart';
+import '../services/shop_info_service.dart';
 import 'login_screen.dart';
 import 'register_manager_screen.dart';
 import 'register_sales_person_screen.dart';
@@ -172,6 +175,22 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.store, color: Colors.blue),
+                title: const Text('Shop Information'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showShopInfoForm();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person, color: Colors.teal),
+                title: const Text('User Information'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showUserInfoForm();
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.logout, color: kNewErrorColor),
                 title: const Text('Logout', style: TextStyle(color: kNewErrorColor)),
                 onTap: () {
@@ -184,6 +203,89 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         );
       },
     );
+  }
+
+  // Function to show the Shop Info Form dialog
+  Future<void> _showShopInfoForm() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final shopId = authProvider.user?.shopId ?? '';
+    
+    if (shopId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Shop ID not found')),
+      );
+      return;
+    }
+    
+    // Get initial shop data
+    final shopInfoService = ShopInfoService();
+    try {
+      final shopInfo = await shopInfoService.getShopAdditionalInfo(shopId);
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => ShopInfoForm(
+            shopId: shopId,
+            initialData: shopInfo,
+            onSaved: (Map<String, dynamic> updatedData) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Shop information saved successfully')),
+              );
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading shop information: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  // Function to show the User Info Form dialog
+  Future<void> _showUserInfoForm() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user;
+    
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User information not found')),
+      );
+      return;
+    }
+    
+    // Get initial user data
+    final shopInfoService = ShopInfoService();
+    try {
+      final userInfo = await shopInfoService.getUserAdditionalInfo(user.id);
+      
+      // Add role information to the initial data
+      final initialData = {...userInfo, 'role': 'OWNER'};
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => UserInfoForm(
+            userId: user.id,
+            initialData: initialData,
+            onSaved: (Map<String, dynamic> updatedData) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('User information saved successfully')),
+              );
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading user information: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   @override
