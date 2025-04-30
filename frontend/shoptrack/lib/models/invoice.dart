@@ -44,7 +44,7 @@ class InvoiceItem {
 }
 
 class Invoice {
-  final String? id; // MongoDB will generate this
+  final String id;
   final String invoiceNumber;
   final String shopId;
   final String shopName;
@@ -56,47 +56,118 @@ class Invoice {
   final String customerPhone;
   final DateTime date;
   final List<InvoiceItem> items;
-  final double subtotalAmount;
-  final double discountAmount;
-  final double totalAmount;
-  final String status; // "pending" or "completed"
-  final String createdBy; // User email who created this
+  final String status;
+  final String createdBy;
+  final DateTime createdAt;
+  final String? completedBy;
+  final DateTime? completedAt;
+  final double providedSubtotalAmount;
+  final double providedDiscountAmount;
+  final double providedTotalAmount;
 
-  // Constructor with calculated fields handled properly for null safety
   Invoice({
-    this.id,
+    required this.id,
     required this.invoiceNumber,
     required this.shopId,
     required this.shopName,
     required this.shopAddress,
     required this.shopLicense,
-    this.shopVatLicense = '',
+    required this.shopVatLicense,
     required this.customerName,
     required this.customerAddress,
-    this.customerPhone = '',
+    required this.customerPhone,
     required this.date,
     required this.items,
     required this.status,
     required this.createdBy,
-    double? providedTotalAmount,
-    double? providedSubtotalAmount,
-    double? providedDiscountAmount,
-  }) :
-  // Calculate subtotal safely
-        subtotalAmount = providedSubtotalAmount != null
-            ? providedSubtotalAmount
-            : items.fold(0.0, (sum, item) => sum + item.totalPrice),
+    required this.createdAt,
+    this.completedBy,
+    this.completedAt,
+    required this.providedSubtotalAmount,
+    required this.providedDiscountAmount,
+    required this.providedTotalAmount,
+  });
 
-  // Set discount amount
-        discountAmount = providedDiscountAmount ?? 0.0,
+  factory Invoice.fromJson(Map<String, dynamic> json) {
+    try {
+      // Create a safe getter for JSON fields
+      T getField<T>(String key, T defaultValue) {
+        final value = json[key];
+        if (value == null) return defaultValue;
+        if (value is T) return value;
+        return defaultValue;
+      }
 
-  // Calculate total amount safely
-        totalAmount = providedTotalAmount != null
-            ? providedTotalAmount
-            : (providedSubtotalAmount != null
-            ? providedSubtotalAmount
-            : items.fold(0.0, (sum, item) => sum + item.totalPrice)) -
-            (providedDiscountAmount ?? 0.0);
+      // Parse date fields safely
+      DateTime parseDate(String key, DateTime defaultValue) {
+        final value = json[key];
+        if (value == null) return defaultValue;
+        
+        try {
+          if (value is String) {
+            return DateTime.parse(value);
+          } else if (value is Map) {
+            // Handle MongoDB ISODate format if it comes as an object
+            final timestamp = value['\$date'];
+            if (timestamp != null) {
+              return DateTime.fromMillisecondsSinceEpoch(timestamp);
+            }
+          }
+        } catch (e) {
+          print('Error parsing date $key: $e');
+        }
+        
+        return defaultValue;
+      }
+
+      // Parse items list safely
+      List<InvoiceItem> parseItems() {
+        final items = json['items'];
+        if (items == null || items is! List) return [];
+        
+        return items.map((item) {
+          try {
+            return InvoiceItem.fromJson(item);
+          } catch (e) {
+            print('Error parsing invoice item: $e');
+            return InvoiceItem(
+              productId: '',
+              productName: 'Error item',
+              quantity: 0,
+              unitPrice: 0,
+            );
+          }
+        }).toList();
+      }
+
+      return Invoice(
+        id: getField('_id', ''),
+        invoiceNumber: getField('invoice_number', ''),
+        shopId: getField('shop_id', ''),
+        shopName: getField('shop_name', ''),
+        shopAddress: getField('shop_address', ''),
+        shopLicense: getField('shop_license', ''),
+        shopVatLicense: getField('shop_vat_license', ''),
+        customerName: getField('customer_name', ''),
+        customerAddress: getField('customer_address', ''),
+        customerPhone: getField('customer_phone', ''),
+        date: parseDate('date', DateTime.now()),
+        items: parseItems(),
+        status: getField('status', 'pending'),
+        createdBy: getField('created_by', ''),
+        createdAt: parseDate('created_at', DateTime.now()),
+        completedBy: getField('completed_by', null),
+        completedAt: json['completed_at'] != null ? parseDate('completed_at', DateTime.now()) : null,
+        providedSubtotalAmount: (json['total_amount'] ?? 0).toDouble(),
+        providedDiscountAmount: (json['discount_amount'] ?? 0).toDouble(),
+        providedTotalAmount: (json['final_amount'] ?? 0).toDouble(),
+      );
+    } catch (e) {
+      print('Error parsing invoice: $e');
+      print('Problematic JSON: $json');
+      rethrow;
+    }
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -111,53 +182,17 @@ class Invoice {
       'customer_phone': customerPhone,
       'date': date.toIso8601String(),
       'items': items.map((item) => item.toJson()).toList(),
-      'total_amount': subtotalAmount,
-      'discount_amount': discountAmount,
-      'final_amount': totalAmount,
       'status': status,
       'created_by': createdBy,
-      'created_at': DateTime.now().toIso8601String(),
+      'total_amount': providedSubtotalAmount,
+      'discount_amount': providedDiscountAmount,
+      'final_amount': providedTotalAmount,
     };
   }
 
-  factory Invoice.fromJson(Map<String, dynamic> json) {
-    // Parse items with proper error handling
-    List<InvoiceItem> parseItems(List<dynamic> itemsJson) {
-      return itemsJson.map((item) => InvoiceItem.fromJson(item)).toList();
-    }
-
-    // Safely convert amount values to double
-    double parseAmount(dynamic amount) {
-      if (amount is int) {
-        return amount.toDouble();
-      } else if (amount is double) {
-        return amount;
-      } else if (amount is String) {
-        return double.parse(amount);
-      }
-      return 0.0;
-    }
-
-    return Invoice(
-      id: json['_id'],
-      invoiceNumber: json['invoice_number'],
-      shopId: json['shop_id'],
-      shopName: json['shop_name'],
-      shopAddress: json['shop_address'],
-      shopLicense: json['shop_license'],
-      shopVatLicense: json['shop_vat_license'] ?? '',
-      customerName: json['customer_name'],
-      customerAddress: json['customer_address'],
-      customerPhone: json['customer_phone'] ?? '',
-      date: DateTime.parse(json['date']),
-      items: parseItems(json['items'] as List),
-      status: json['status'],
-      createdBy: json['created_by'],
-      providedSubtotalAmount: json.containsKey('subtotal_amount') ? parseAmount(json['subtotal_amount']) : null,
-      providedDiscountAmount: json.containsKey('discount_amount') ? parseAmount(json['discount_amount']) : null,
-      providedTotalAmount: json.containsKey('total_amount') ? parseAmount(json['total_amount']) : null,
-    );
-  }
+  double get subtotal => items.fold(0, (sum, item) => sum + item.totalPrice);
+  double get discountAmount => providedDiscountAmount;
+  double get totalWithDiscount => subtotal - discountAmount;
 
   String getFormattedDate() {
     return DateFormat('MMMM dd, yyyy').format(date);

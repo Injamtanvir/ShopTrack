@@ -1316,6 +1316,17 @@ batches_collection.create_index([("purchaseDate", ASCENDING)])
 
 # New classes for batch management
 class BatchView(APIView):
+    def get(self, request, product_id=None):
+        # This is to handle the double slash issue in URL
+        if product_id is None:
+            return Response(
+                {"error": "Product ID is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Rest of the code will be handled by BatchHistoryView
+        return BatchHistoryView().get(request, product_id)
+        
     def post(self, request, product_id):
         # Verify JWT token
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
@@ -1432,7 +1443,13 @@ class BatchHistoryView(APIView):
             
         try:
             # Get the product
-            product = products_collection.find_one({"_id": ObjectId(product_id)})
+            try:
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
+            except InvalidId:
+                return Response(
+                    {"error": "Invalid product ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             if not product:
                 return Response(
@@ -1452,25 +1469,34 @@ class BatchHistoryView(APIView):
                 {"product_id": product_id}
             ).sort("purchase_date", -1))  # Sort by purchase date, newest first
 
+            if not batches:
+                # Return empty list instead of 404 to avoid errors in frontend
+                return Response([])
+
             # Format the response with correct field names to match frontend model
             formatted_batches = []
             for batch in batches:
-                formatted_batch = {
-                    "_id": str(batch["_id"]),
-                    "product_id": batch["product_id"],
-                    "quantity_purchased": batch["quantity"],
-                    "remaining": batch["remaining"],
-                    "cost_price": batch["cost_price"],
-                    "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
-                    "shop_id": batch.get("shop_id", shop_id),
-                    "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S"),
-                    "selling_price": product.get("selling_price", 0)
-                }
-                formatted_batches.append(formatted_batch)
+                try:
+                    formatted_batch = {
+                        "_id": str(batch["_id"]),
+                        "product_id": batch["product_id"],
+                        "quantity_purchased": batch["quantity"],
+                        "remaining": batch["remaining"],
+                        "cost_price": batch["cost_price"],
+                        "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
+                        "shop_id": batch.get("shop_id", shop_id),
+                        "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S"),
+                        "selling_price": product.get("selling_price", 0)
+                    }
+                    formatted_batches.append(formatted_batch)
+                except Exception as e:
+                    print(f"Error formatting batch {batch.get('_id')}: {e}")
+                    # Skip this batch and continue
 
             return Response(formatted_batches)
 
         except Exception as e:
+            print(f"Error in BatchHistoryView: {e}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1590,17 +1616,34 @@ class SaveInvoiceView(APIView):
 
             data = request.data
             
-            # Check if invoice with this number already exists
+            # Check if invoice with this number already exists - case insensitive check
+            invoice_number = data.get('invoice_number', '').strip()
+            if not invoice_number:
+                return Response(
+                    {"error": "Invoice number is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Use regex for case-insensitive search
             existing_invoice = invoices_collection.find_one({
                 "shop_id": shop_id,
-                "invoice_number": data['invoice_number']
+                "invoice_number": {"$regex": f"^{re.escape(invoice_number)}$", "$options": "i"}
             })
             
             if existing_invoice:
-                return Response(
-                    {"error": "Invoice with this number already exists"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                # Generate a unique invoice number by appending a suffix
+                next_num = 1
+                base_invoice_number = invoice_number
+                while existing_invoice:
+                    invoice_number = f"{base_invoice_number}-{next_num}"
+                    existing_invoice = invoices_collection.find_one({
+                        "shop_id": shop_id,
+                        "invoice_number": {"$regex": f"^{re.escape(invoice_number)}$", "$options": "i"}
+                    })
+                    next_num += 1
+                
+                # Update the invoice number in the data
+                data['invoice_number'] = invoice_number
 
             # Ensure required fields exist
             required_fields = ['invoice_number', 'customer_name', 'items', 'total_amount']
@@ -1626,7 +1669,7 @@ class SaveInvoiceView(APIView):
             # Create invoice document
             invoice_data = {
                 "shop_id": shop_id,
-                "invoice_number": data['invoice_number'],
+                "invoice_number": invoice_number,
                 "customer_name": data['customer_name'],
                 "customer_address": data.get('customer_address', ''),
                 "customer_phone": data.get('customer_phone', ''),
@@ -1681,7 +1724,8 @@ class SaveInvoiceView(APIView):
 
             return Response({
                 "message": "Invoice saved successfully",
-                "invoice_id": str(result.inserted_id)
+                "invoice_id": str(result.inserted_id),
+                "invoice_number": invoice_number
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -1765,10 +1809,14 @@ class GenerateInvoiceView(APIView):
                 }
                 sales_collection.insert_one(sale_data)
 
+                # Get current on_hold quantity to avoid negative values
+                on_hold = product.get('quantity_on_hold', 0)
+                on_hold_update = min(quantity, on_hold)  # Ensure we don't reduce below zero
+                
                 # Update product quantity (remove from on_hold)
                 products_collection.update_one(
                     {"_id": ObjectId(product_id)},
-                    {"$inc": {"quantity_on_hold": -quantity}}
+                    {"$inc": {"quantity_on_hold": -on_hold_update}}
                 )
 
             return Response({

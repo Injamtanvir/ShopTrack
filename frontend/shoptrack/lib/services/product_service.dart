@@ -98,8 +98,13 @@ class ProductService {
     }
 
     try {
+      // Fix the URL formatting by ensuring no double slashes
+      final url = ApiConstants.batches.endsWith('/') 
+          ? '${ApiConstants.batches}$productId' 
+          : '${ApiConstants.batches}/$productId';
+          
       final response = await http.get(
-        Uri.parse('${ApiConstants.batches}/$productId'),
+        Uri.parse(url),
         headers: {'Authorization': 'Bearer $token'},
       );
 
