@@ -276,6 +276,15 @@ class ApiService {
     await _storage.delete(key: 'user');
   }
 
+  // Get token from storage
+  Future<String> getToken() async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+    return token;
+  }
+
   // Add/update product
   Future<Map<String, dynamic>> addProduct({
     required String name,

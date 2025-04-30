@@ -12,6 +12,9 @@ import '../widgets/custom_text_field.dart';
 import '../providers/connectivity_provider.dart';
 import '../utils/error_handler.dart';
 import '../services/shop_info_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../constants/api_constants.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   static const routeName = '/create-invoice';
@@ -325,7 +328,35 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       // First try to save the invoice
       Map<String, dynamic> saveResult;
       try {
-        saveResult = await _invoiceService.savePendingInvoice(invoice);
+        // For direct generation, we want to use the regular invoice endpoint
+        // that will properly handle inventory
+        
+        // Convert invoice to JSON for direct generation - don't modify quantities
+        // since this is direct generation not a pending save
+        Map<String, dynamic> invoiceData = invoice.toJson();
+        
+        // Add a flag to indicate this should be processed immediately
+        invoiceData['generate_immediately'] = true;
+        
+        final token = await authProvider.getToken(); // Get token securely
+        
+        final response = await http.post(
+          Uri.parse(ApiConstants.saveInvoice),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(invoiceData),
+        );
+        
+        if (response.statusCode != 200 && response.statusCode != 201) {
+          if (response.body.contains('already exists')) {
+            throw Exception('Invoice number already exists');
+          }
+          throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to save invoice'); 
+        }
+        
+        saveResult = jsonDecode(response.body);
       } catch (error) {
         // If invoice with this number already exists, we need a new number
         if (error.toString().contains('already exists')) {

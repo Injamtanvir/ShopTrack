@@ -217,6 +217,11 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Get authentication token
+  Future<String> getToken() async {
+    return await _apiService.getToken();
+  }
+
   // Get all users for the shop
   Future<List<dynamic>> getShopUsers() async {
     _setLoading(true);

@@ -49,13 +49,61 @@ class InvoiceService {
     try {
       print('Saving invoice to: ${ApiConstants.saveInvoice}');
 
+      // Create a modified version of the invoice for API submission
+      // that will compensate for the backend's double-counting of inventory
+      Map<String, dynamic> invoiceData = invoice.toJson();
+      
+      // Adjust the quantities to half of the original to compensate for doubling
+      if (invoiceData['items'] != null && invoiceData['items'] is List) {
+        List<dynamic> adjustedItems = [];
+        double adjustedSubtotal = 0.0;
+        
+        for (var item in invoiceData['items']) {
+          // Create a copy of the item with adjusted quantity
+          Map<String, dynamic> adjustedItem = Map.from(item);
+          
+          // If the backend doubles quantities on hold, we need to send half
+          // to ensure the right quantity is reserved
+          int originalQuantity = item['quantity'];
+          double unitPrice = item['unit_price'];
+          
+          // For odd quantities, round down to ensure we don't exceed
+          // what the user actually requested
+          adjustedItem['quantity'] = originalQuantity ~/ 2;
+          
+          // Make sure we never send a zero quantity even if 
+          // the original was 1
+          if (adjustedItem['quantity'] < 1 && originalQuantity > 0) {
+            adjustedItem['quantity'] = 1;
+          }
+          
+          // Recalculate the total based on the new quantity
+          adjustedItem['total'] = adjustedItem['quantity'] * unitPrice;
+          adjustedSubtotal += adjustedItem['total'];
+          
+          adjustedItems.add(adjustedItem);
+        }
+        
+        // Update the items list
+        invoiceData['items'] = adjustedItems;
+        
+        // Adjust the invoice totals based on the new items
+        invoiceData['total_amount'] = adjustedSubtotal;
+        
+        // Keep the same discount amount
+        double discountAmount = invoiceData['discount_amount'] ?? 0.0;
+        
+        // Recalculate the final amount
+        invoiceData['final_amount'] = adjustedSubtotal - discountAmount;
+      }
+
       final response = await http.post(
         Uri.parse(ApiConstants.saveInvoice),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode(invoice.toJson()),
+        body: jsonEncode(invoiceData),
       );
 
       print('Response status: ${response.statusCode}');

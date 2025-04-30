@@ -17,6 +17,7 @@ class ApiConstants {
   static const String productPriceList = '$baseUrl/product-price-list/';
   static const String getNextInvoiceNumber = '$baseUrl/next-invoice-number/';
   static const String saveInvoice = '$baseUrl/invoices/';
+  static const String savePendingInvoice = '$baseUrl/pending-invoices/save/';
   static const String generateInvoice = '$baseUrl/generate-invoice/';
   static const String getPendingInvoices = '$baseUrl/pending-invoices/';
   static const String getInvoiceHistory = '$baseUrl/invoice-history/';
