@@ -264,7 +264,7 @@ class _AdminPendingInvoicesScreenState extends State<AdminPendingInvoicesScreen>
                     children: [
                       const Text('Total: ', style: TextStyle(fontWeight: FontWeight.bold)),
                       Text(
-                        '\$${invoice.totalAmount.toStringAsFixed(2)}',
+                        '\$${invoice.providedTotalAmount.toStringAsFixed(2)}',
                         style: const TextStyle(
                           color: Colors.green,
                           fontWeight: FontWeight.bold,
@@ -427,7 +427,7 @@ class _AdminPendingInvoicesScreenState extends State<AdminPendingInvoicesScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Total: \$${invoice.totalAmount.toStringAsFixed(2)}',
+                        'Total: \$${invoice.providedTotalAmount.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

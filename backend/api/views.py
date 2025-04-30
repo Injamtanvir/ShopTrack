@@ -1440,11 +1440,11 @@ class BatchHistoryView(APIView):
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-            
+
         try:
             # Get the product
             try:
-                product = products_collection.find_one({"_id": ObjectId(product_id)})
+            product = products_collection.find_one({"_id": ObjectId(product_id)})
             except InvalidId:
                 return Response(
                     {"error": "Invalid product ID format"},
@@ -1477,18 +1477,18 @@ class BatchHistoryView(APIView):
             formatted_batches = []
             for batch in batches:
                 try:
-                    formatted_batch = {
+                formatted_batch = {
                         "_id": str(batch["_id"]),
                         "product_id": batch["product_id"],
                         "quantity_purchased": batch["quantity"],
-                        "remaining": batch["remaining"],
-                        "cost_price": batch["cost_price"],
-                        "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
+                    "remaining": batch["remaining"],
+                    "cost_price": batch["cost_price"],
+                    "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
                         "shop_id": batch.get("shop_id", shop_id),
                         "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S"),
                         "selling_price": product.get("selling_price", 0)
-                    }
-                    formatted_batches.append(formatted_batch)
+                }
+                formatted_batches.append(formatted_batch)
                 except Exception as e:
                     print(f"Error formatting batch {batch.get('_id')}: {e}")
                     # Skip this batch and continue
@@ -1649,10 +1649,10 @@ class SaveInvoiceView(APIView):
             required_fields = ['invoice_number', 'customer_name', 'items', 'total_amount']
             for field in required_fields:
                 if field not in data:
-                    return Response(
+                return Response(
                         {"error": f"Missing required field: {field}"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             # Safely get the final_amount with a default based on total_amount
             total_amount = float(data['total_amount'])
@@ -1812,7 +1812,7 @@ class GenerateInvoiceView(APIView):
                 # Get current on_hold quantity to avoid negative values
                 on_hold = product.get('quantity_on_hold', 0)
                 on_hold_update = min(quantity, on_hold)  # Ensure we don't reduce below zero
-                
+
                 # Update product quantity (remove from on_hold)
                 products_collection.update_one(
                     {"_id": ObjectId(product_id)},

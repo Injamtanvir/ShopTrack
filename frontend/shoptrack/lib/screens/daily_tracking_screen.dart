@@ -334,7 +334,7 @@ class _DailyTrackingScreenState extends State<DailyTrackingScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Total: ${currencyFormat.format(invoice.totalAmount)}',
+                            'Total: ${currencyFormat.format(invoice.providedTotalAmount)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.green,

@@ -222,6 +222,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       final user = authProvider.user!;
 
       final invoice = Invoice(
+        id: '', // Empty string for new invoice
         invoiceNumber: _invoiceNumber,
         shopId: user.shopId,
         shopName: user.shopName ?? 'Unknown Shop',
@@ -235,6 +236,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         items: _invoiceItems,
         status: 'pending',
         createdBy: user.email,
+        createdAt: DateTime.now(), // Current timestamp
         providedSubtotalAmount: _subtotal,
         providedDiscountAmount: _discountAmount,
         providedTotalAmount: _totalWithDiscount,
@@ -298,6 +300,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       }
 
       final invoice = Invoice(
+        id: '', // Empty string for new invoice
         invoiceNumber: _invoiceNumber,
         shopId: user.shopId,
         shopName: user.shopName ?? 'Unknown Shop',
@@ -311,6 +314,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         items: _invoiceItems,
         status: 'pending', // Save as pending first
         createdBy: user.email, // User email
+        createdAt: DateTime.now(), // Current timestamp
         providedSubtotalAmount: _subtotal,
         providedDiscountAmount: _discountAmount,
         providedTotalAmount: _totalWithDiscount,

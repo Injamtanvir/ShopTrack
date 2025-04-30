@@ -149,7 +149,7 @@ class InvoiceUtils {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text('Subtotal:', style: normalStyle),
-                            pw.Text('Tk ${invoice.subtotalAmount.toStringAsFixed(2)}', style: normalStyle),
+                            pw.Text('Tk ${invoice.providedTotalAmount.toStringAsFixed(2)}', style: normalStyle),
                           ],
                         ),
                         
@@ -179,7 +179,7 @@ class InvoiceUtils {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text('Total:', style: boldStyle),
-                            pw.Text('Tk ${invoice.totalAmount.toStringAsFixed(2)}', style: boldStyle),
+                            pw.Text('Tk ${invoice.providedTotalAmount.toStringAsFixed(2)}', style: boldStyle),
                           ],
                         ),
                       ],

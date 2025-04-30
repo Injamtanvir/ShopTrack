@@ -213,7 +213,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Total: \$${invoice.totalAmount.toStringAsFixed(2)}',
+                        'Total: \$${invoice.providedTotalAmount.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,

@@ -25,21 +25,51 @@ class InvoiceItem {
   }
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
-    // Ensure proper type conversion
-    final int quantity = json['quantity'] is int
-        ? json['quantity']
-        : int.parse(json['quantity'].toString());
+    try {
+      // Parse quantity safely
+      int quantity = 0;
+      if (json['quantity'] != null) {
+        if (json['quantity'] is int) {
+          quantity = json['quantity'];
+        } else if (json['quantity'] is String) {
+          quantity = int.tryParse(json['quantity']) ?? 0;
+        } else {
+          quantity = int.tryParse(json['quantity'].toString()) ?? 0;
+        }
+      }
 
-    final double unitPrice = json['unit_price'] is double
-        ? json['unit_price']
-        : double.parse(json['unit_price'].toString());
+      // Parse unit price safely
+      double unitPrice = 0.0;
+      final rawPrice = json['unit_price'] ?? json['selling_price'];
+      if (rawPrice != null) {
+        if (rawPrice is double) {
+          unitPrice = rawPrice;
+        } else if (rawPrice is int) {
+          unitPrice = rawPrice.toDouble();
+        } else if (rawPrice is String) {
+          unitPrice = double.tryParse(rawPrice) ?? 0.0;
+        } else {
+          unitPrice = double.tryParse(rawPrice.toString()) ?? 0.0;
+        }
+      }
 
     return InvoiceItem(
-      productId: json['product_id'],
-      productName: json['name'],
+        productId: json['product_id'] ?? '',
+        productName: json['product_name'] ?? json['name'] ?? 'Unknown Product',
       quantity: quantity,
       unitPrice: unitPrice,
     );
+    } catch (e) {
+      print('Error parsing InvoiceItem: $e');
+      print('Problematic JSON: $json');
+      // Return a default item to avoid null errors
+      return InvoiceItem(
+        productId: '',
+        productName: 'Error parsing item',
+        quantity: 0,
+        unitPrice: 0,
+      );
+    }
   }
 }
 
