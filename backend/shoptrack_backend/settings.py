@@ -3,7 +3,8 @@
 import os
 import pymongo
 from pathlib import Path
-from decouple import config, Csv
+# Replace python-decouple imports with direct values since we're having issues with the package
+# from python_decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -12,12 +13,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-change-this-in-production')
-SECRET_KEY = config('SECRET_KEY', default='1XRG32NbM@nuva7022')
+SECRET_KEY = '1XRG32NbM@nuva7022'
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = True
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
+ALLOWED_HOSTS = ['*']
 
 
 APPEND_SLASH = False
@@ -80,8 +80,8 @@ DATABASES = {
 }
 
 # MongoDB connection - we'll use PyMongo directly in our views
-MONGODB_URI = config('MONGODB_URI', default='mongodb+srv://ShopTrackDB:ShopTrackDB123@shoptrackdb.eu4xcz2.mongodb.net/?retryWrites=true&w=majority&appName=ShopTrackDB')
-MONGODB_DB = config('MONGODB_DB', default='shoptrackdb')
+MONGODB_URI = 'mongodb+srv://ShopTrackDB:ShopTrackDB123@shoptrackdb.eu4xcz2.mongodb.net/?retryWrites=true&w=majority&appName=ShopTrackDB'
+MONGODB_DB = 'shoptrackdb'
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

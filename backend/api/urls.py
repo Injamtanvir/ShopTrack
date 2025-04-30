@@ -31,9 +31,15 @@ urlpatterns = [
     # Batch management endpoints - ensure both URL patterns are handled
     path('batches/', views.BatchView.as_view(), name='batches'),
     path('batches/<str:product_id>/', views.BatchView.as_view(), name='product-batches'),
+    path('products/<str:product_id>/batches/', views.BatchView.as_view(), name='product-batches-alt'),
     
     # Price history endpoint
     path('price-history/<str:product_id>/', views.PriceHistoryView.as_view(), name='price-history'),
+    path('price-history/', views.PriceHistoryView.as_view(), name='create-price-history'),
+    
+    # Offline sync endpoints
+    path('sync/batches/', views.OfflineBatchSyncView.as_view(), name='sync-batches'),
+    path('sync/price-changes/', views.OfflinePriceChangesSyncView.as_view(), name='sync-price-changes'),
     
     # Stats endpoints
     path('today-stats/<str:shop_id>/', views.TodayStatsView.as_view(), name='today-stats'),

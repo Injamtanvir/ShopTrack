@@ -1334,6 +1334,7 @@ class BatchView(APIView):
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             shop_id = payload['shop_id']
             user_email = payload['email']
+            user_id = payload.get('user_id', 'unknown')
             
             # Check if user is manager or owner
             if payload['role'] not in ['manager', 'owner']:
@@ -1349,7 +1350,14 @@ class BatchView(APIView):
 
         try:
             # Get the product
-            product = products_collection.find_one({"_id": ObjectId(product_id)})
+            try:
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
+            except InvalidId:
+                return Response(
+                    {"error": "Invalid product ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
             if not product:
                 return Response(
                     {"error": "Product not found"},
@@ -1363,25 +1371,38 @@ class BatchView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
+            # Parse and validate the request data
             data = request.data
-            quantity = int(data['quantity'])
-            cost_price = float(data['cost_price'])
-            purchase_date = datetime.strptime(data['purchase_date'], '%Y-%m-%d')
+            try:
+                quantity = int(data['quantity'])
+                cost_price = float(data['cost_price'])
+                purchase_date = datetime.strptime(data['purchase_date'], '%Y-%m-%d')
+            except (ValueError, KeyError) as e:
+                return Response(
+                    {"error": f"Invalid data format: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # Create batch document
+            # Create batch document with all fields needed by frontend
             batch_data = {
                 "product_id": product_id,
+                "product_name": product.get('name', 'Unknown Product'),
                 "shop_id": shop_id,
                 "quantity": quantity,
+                "quantity_purchased": quantity,  # For compatibility with frontend
                 "remaining": quantity,
                 "cost_price": cost_price,
                 "purchase_date": purchase_date,
-                "created_by": user_email,
-                "created_at": datetime.now()
+                "added_by": user_email,
+                "added_by_id": user_id,
+                "added_at": datetime.now(),
+                "created_at": datetime.now(),
+                "is_initial_batch": data.get('is_initial_batch', False)
             }
 
             # Insert batch
-            batches_collection.insert_one(batch_data)
+            result = batches_collection.insert_one(batch_data)
+            batch_id = str(result.inserted_id)
 
             # Update product quantity
             products_collection.update_one(
@@ -1397,31 +1418,39 @@ class BatchView(APIView):
 
             # If new selling price is provided, update it and log in price history
             if 'new_selling_price' in data and data['new_selling_price']:
-                new_selling_price = float(data['new_selling_price'])
-                old_selling_price = product.get('selling_price', 0)
+                try:
+                    new_selling_price = float(data['new_selling_price'])
+                    old_selling_price = product.get('selling_price', 0)
 
-                if new_selling_price != old_selling_price:
-                    # Update product selling price
-                    products_collection.update_one(
-                        {"_id": ObjectId(product_id)},
-                        {"$set": {"selling_price": new_selling_price}}
-                    )
+                    if new_selling_price != old_selling_price:
+                        # Update product selling price
+                        products_collection.update_one(
+                            {"_id": ObjectId(product_id)},
+                            {"$set": {"selling_price": new_selling_price}}
+                        )
 
-                    # Log price change
-                    price_history_collection.insert_one({
-                        "product_id": product_id,
-                        "old_price": old_selling_price,
-                        "new_price": new_selling_price,
-                        "changed_by": user_email,
-                        "change_date": datetime.now(),
-                        "shop_id": shop_id
-                    })
+                        # Log price change
+                        price_history_collection.insert_one({
+                            "product_id": product_id,
+                            "old_price": old_selling_price,
+                            "new_price": new_selling_price,
+                            "changed_by": user_email,
+                            "changed_by_id": user_id,
+                            "change_date": datetime.now(),
+                            "shop_id": shop_id
+                        })
+                except ValueError:
+                    # If there's an error parsing the new selling price, just continue
+                    # without updating it
+                    pass
 
             return Response({
-                "message": "Batch added successfully"
+                "message": "Batch added successfully",
+                "batch_id": batch_id
             })
 
         except Exception as e:
+            print(f"Error adding batch: {e}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1444,7 +1473,7 @@ class BatchHistoryView(APIView):
         try:
             # Get the product
             try:
-            product = products_collection.find_one({"_id": ObjectId(product_id)})
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
             except InvalidId:
                 return Response(
                     {"error": "Invalid product ID format"},
@@ -1477,18 +1506,23 @@ class BatchHistoryView(APIView):
             formatted_batches = []
             for batch in batches:
                 try:
-                formatted_batch = {
+                    # Ensure all fields are present for frontend compatibility
+                    formatted_batch = {
                         "_id": str(batch["_id"]),
                         "product_id": batch["product_id"],
-                        "quantity_purchased": batch["quantity"],
-                    "remaining": batch["remaining"],
-                    "cost_price": batch["cost_price"],
-                    "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
+                        "product_name": batch.get("product_name", product.get('name', 'Unknown Product')),
+                        "quantity_purchased": batch.get("quantity_purchased", batch.get("quantity", 0)),
+                        "remaining": batch.get("remaining", 0),
+                        "cost_price": batch.get("cost_price", 0),
+                        "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
                         "shop_id": batch.get("shop_id", shop_id),
-                        "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S"),
-                        "selling_price": product.get("selling_price", 0)
-                }
-                formatted_batches.append(formatted_batch)
+                        "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S") if "created_at" in batch else datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "selling_price": product.get("selling_price", 0),
+                        "added_by": batch.get("added_by", "System"),
+                        "added_at": batch.get("added_at", batch.get("created_at", datetime.now())).strftime("%Y-%m-%d %H:%M:%S") if isinstance(batch.get("added_at", batch.get("created_at", datetime.now())), datetime) else batch.get("added_at", batch.get("created_at", datetime.now())),
+                        "is_initial_batch": batch.get("is_initial_batch", False)
+                    }
+                    formatted_batches.append(formatted_batch)
                 except Exception as e:
                     print(f"Error formatting batch {batch.get('_id')}: {e}")
                     # Skip this batch and continue
@@ -1831,7 +1865,14 @@ class GenerateInvoiceView(APIView):
             )
 
 class PriceHistoryView(APIView):
-    def get(self, request, product_id):
+    def get(self, request, product_id=None):
+        # If no product_id, return bad request
+        if product_id is None:
+            return Response(
+                {"error": "Product ID is required for GET requests"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
         # Verify JWT token
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
@@ -1845,7 +1886,14 @@ class PriceHistoryView(APIView):
 
         try:
             # Get the product
-            product = products_collection.find_one({"_id": ObjectId(product_id)})
+            try:
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
+            except InvalidId:
+                return Response(
+                    {"error": "Invalid product ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
             if not product:
                 return Response(
                     {"error": "Product not found"},
@@ -1872,13 +1920,437 @@ class PriceHistoryView(APIView):
                     "old_price": entry["old_price"],
                     "new_price": entry["new_price"],
                     "changed_by": entry["changed_by"],
-                    "change_date": entry["change_date"].strftime("%Y-%m-%d %H:%M:%S")
+                    "change_date": entry["change_date"].strftime("%Y-%m-%d %H:%M:%S") if isinstance(entry["change_date"], datetime) else entry["change_date"]
                 }
                 formatted_history.append(formatted_entry)
 
             return Response(formatted_history)
 
         except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    def post(self, request):
+        # Verify JWT token
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+            user_id = payload.get('user_id', 'unknown')
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            data = request.data
+            
+            # Validate required fields
+            required_fields = ['product_id', 'old_price', 'new_price']
+            for field in required_fields:
+                if field not in data:
+                    return Response(
+                        {"error": f"Missing required field: {field}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Parse fields
+            try:
+                product_id = data['product_id']
+                old_price = float(data['old_price'])
+                new_price = float(data['new_price'])
+            except (ValueError, KeyError, TypeError):
+                return Response(
+                    {"error": "Invalid price format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Verify product exists and belongs to this shop
+            try:
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
+                if not product:
+                    return Response(
+                        {"error": "Product not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                    
+                if product['shop_id'] != shop_id:
+                    return Response(
+                        {"error": "Unauthorized access to this product"},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            except InvalidId:
+                return Response(
+                    {"error": "Invalid product ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Parse change date
+            changed_at = datetime.now()
+            if 'changed_at' in data:
+                try:
+                    changed_at = datetime.fromisoformat(data['changed_at'].replace('Z', '+00:00'))
+                except (ValueError, TypeError):
+                    # Keep default changed_at time
+                    pass
+                    
+            # Add shop_id if missing
+            if 'shop_id' not in data:
+                data['shop_id'] = shop_id
+                
+            # Add user info if missing
+            if 'changed_by' not in data:
+                data['changed_by'] = user_email
+                
+            if 'changed_by_id' not in data:
+                data['changed_by_id'] = user_id
+            
+            # Create price history document
+            price_history_entry = {
+                "product_id": product_id,
+                "old_price": old_price,
+                "new_price": new_price,
+                "changed_by": data.get('changed_by', user_email),
+                "changed_by_id": data.get('changed_by_id', user_id),
+                "change_date": changed_at,
+                "shop_id": data.get('shop_id', shop_id)
+            }
+            
+            # Insert into price history
+            result = price_history_collection.insert_one(price_history_entry)
+            
+            # Update product price only if it's not already at the new price
+            if product.get('selling_price') != new_price:
+                products_collection.update_one(
+                    {"_id": ObjectId(product_id)},
+                    {"$set": {"selling_price": new_price}}
+                )
+                
+            return Response({
+                "message": "Price history recorded successfully",
+                "id": str(result.inserted_id)
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            print(f"Error recording price history: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+# New classes for offline sync
+class OfflineBatchSyncView(APIView):
+    def post(self, request):
+        # Verify JWT token
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+            user_id = payload.get('user_id', 'unknown')
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Get batches data from request
+            batches = request.data.get('batches', [])
+            if not batches or not isinstance(batches, list):
+                return Response(
+                    {"error": "No valid batches data provided"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            results = {
+                "success": [],
+                "failed": []
+            }
+            
+            # Process each batch
+            for batch_data in batches:
+                try:
+                    # Validate batch data
+                    if not batch_data.get('product_id'):
+                        results['failed'].append({
+                            "data": batch_data,
+                            "error": "Missing product_id"
+                        })
+                        continue
+                        
+                    product_id = batch_data['product_id']
+                    
+                    # Check if product exists and belongs to this shop
+                    try:
+                        product = products_collection.find_one({"_id": ObjectId(product_id)})
+                        if not product:
+                            results['failed'].append({
+                                "data": batch_data,
+                                "error": "Product not found"
+                            })
+                            continue
+                            
+                        if product['shop_id'] != shop_id:
+                            results['failed'].append({
+                                "data": batch_data,
+                                "error": "Unauthorized access to this product"
+                            })
+                            continue
+                    except InvalidId:
+                        results['failed'].append({
+                            "data": batch_data,
+                            "error": "Invalid product ID format"
+                        })
+                        continue
+                        
+                    # Parse and validate the quantity and cost price
+                    try:
+                        quantity = int(batch_data['quantity'])
+                        cost_price = float(batch_data['cost_price'])
+                    except (ValueError, KeyError, TypeError):
+                        results['failed'].append({
+                            "data": batch_data,
+                            "error": "Invalid quantity or cost_price format"
+                        })
+                        continue
+                        
+                    # Parse purchase date
+                    try:
+                        if 'purchase_date' in batch_data:
+                            purchase_date = datetime.strptime(batch_data['purchase_date'], '%Y-%m-%d')
+                        else:
+                            purchase_date = datetime.now()
+                    except ValueError:
+                        purchase_date = datetime.now()
+                        
+                    # Add shop_id if missing
+                    if 'shop_id' not in batch_data:
+                        batch_data['shop_id'] = shop_id
+                        
+                    # Add creation info if missing
+                    if 'added_by' not in batch_data:
+                        batch_data['added_by'] = user_email
+                        
+                    if 'added_by_id' not in batch_data:
+                        batch_data['added_by_id'] = user_id
+                        
+                    if 'added_at' not in batch_data:
+                        batch_data['added_at'] = datetime.now()
+                        
+                    if 'created_at' not in batch_data:
+                        batch_data['created_at'] = datetime.now()
+                    
+                    # Add product name if missing
+                    if 'product_name' not in batch_data:
+                        batch_data['product_name'] = product.get('name', 'Unknown Product')
+                    
+                    # Add remaining quantity if missing
+                    if 'remaining' not in batch_data:
+                        batch_data['remaining'] = quantity
+                        
+                    # Insert batch into database
+                    result = batches_collection.insert_one(batch_data)
+                    
+                    # Update product quantity
+                    products_collection.update_one(
+                        {"_id": ObjectId(product_id)},
+                        {
+                            "$inc": {"quantity": quantity},
+                            "$set": {
+                                "updated_at": datetime.now()
+                            }
+                        }
+                    )
+                    
+                    # If new selling price is provided, update it and log in price history
+                    if 'new_selling_price' in batch_data and batch_data['new_selling_price']:
+                        try:
+                            new_selling_price = float(batch_data['new_selling_price'])
+                            old_selling_price = product.get('selling_price', 0)
+                            
+                            if new_selling_price != old_selling_price:
+                                # Update product selling price
+                                products_collection.update_one(
+                                    {"_id": ObjectId(product_id)},
+                                    {"$set": {"selling_price": new_selling_price}}
+                                )
+                                
+                                # Log price change
+                                price_history_collection.insert_one({
+                                    "product_id": product_id,
+                                    "old_price": old_selling_price,
+                                    "new_price": new_selling_price,
+                                    "changed_by": user_email,
+                                    "changed_by_id": user_id,
+                                    "change_date": datetime.now(),
+                                    "shop_id": shop_id
+                                })
+                        except ValueError:
+                            # If there's an error with the selling price, just continue 
+                            # with the batch addition
+                            pass
+                    
+                    # Add to success list
+                    results['success'].append({
+                        "data": batch_data,
+                        "id": str(result.inserted_id)
+                    })
+                    
+                except Exception as e:
+                    print(f"Error processing batch: {e}")
+                    results['failed'].append({
+                        "data": batch_data,
+                        "error": str(e)
+                    })
+            
+            return Response(results)
+            
+        except Exception as e:
+            print(f"Error in offline batch sync: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class OfflinePriceChangesSyncView(APIView):
+    def post(self, request):
+        # Verify JWT token
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+            user_id = payload.get('user_id', 'unknown')
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Get price changes data from request
+            price_changes = request.data.get('price_changes', [])
+            if not price_changes or not isinstance(price_changes, list):
+                return Response(
+                    {"error": "No valid price changes data provided"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            results = {
+                "success": [],
+                "failed": []
+            }
+            
+            # Process each price change
+            for price_data in price_changes:
+                try:
+                    # Validate price change data
+                    if not price_data.get('product_id'):
+                        results['failed'].append({
+                            "data": price_data,
+                            "error": "Missing product_id"
+                        })
+                        continue
+                        
+                    product_id = price_data['product_id']
+                    
+                    # Parse price values
+                    try:
+                        old_price = float(price_data['old_price'])
+                        new_price = float(price_data['new_price'])
+                    except (ValueError, KeyError, TypeError):
+                        results['failed'].append({
+                            "data": price_data,
+                            "error": "Invalid price format"
+                        })
+                        continue
+                    
+                    # Check if product exists and belongs to this shop
+                    try:
+                        product = products_collection.find_one({"_id": ObjectId(product_id)})
+                        if not product:
+                            results['failed'].append({
+                                "data": price_data,
+                                "error": "Product not found"
+                            })
+                            continue
+                            
+                        if product['shop_id'] != shop_id:
+                            results['failed'].append({
+                                "data": price_data,
+                                "error": "Unauthorized access to this product"
+                            })
+                            continue
+                    except InvalidId:
+                        results['failed'].append({
+                            "data": price_data,
+                            "error": "Invalid product ID format"
+                        })
+                        continue
+                        
+                    # Parse change date
+                    changed_at = datetime.now()
+                    if 'changed_at' in price_data:
+                        try:
+                            changed_at = datetime.fromisoformat(price_data['changed_at'].replace('Z', '+00:00'))
+                        except (ValueError, TypeError):
+                            # Keep default changed_at time
+                            pass
+                            
+                    # Add shop_id if missing
+                    if 'shop_id' not in price_data:
+                        price_data['shop_id'] = shop_id
+                        
+                    # Add user info if missing
+                    if 'changed_by' not in price_data:
+                        price_data['changed_by'] = user_email
+                        
+                    if 'changed_by_id' not in price_data:
+                        price_data['changed_by_id'] = user_id
+                    
+                    # Create price history document
+                    price_history_entry = {
+                        "product_id": product_id,
+                        "old_price": old_price,
+                        "new_price": new_price,
+                        "changed_by": price_data.get('changed_by', user_email),
+                        "changed_by_id": price_data.get('changed_by_id', user_id),
+                        "change_date": changed_at,
+                        "shop_id": price_data.get('shop_id', shop_id)
+                    }
+                    
+                    # Insert into price history
+                    result = price_history_collection.insert_one(price_history_entry)
+                    
+                    # Update product price only if it's not already at the new price
+                    if product.get('selling_price') != new_price:
+                        products_collection.update_one(
+                            {"_id": ObjectId(product_id)},
+                            {"$set": {"selling_price": new_price}}
+                        )
+                    
+                    # Add to success list
+                    results['success'].append({
+                        "data": price_data,
+                        "id": str(result.inserted_id)
+                    })
+                    
+                except Exception as e:
+                    print(f"Error processing price change: {e}")
+                    results['failed'].append({
+                        "data": price_data,
+                        "error": str(e)
+                    })
+            
+            return Response(results)
+            
+        except Exception as e:
+            print(f"Error in offline price changes sync: {e}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

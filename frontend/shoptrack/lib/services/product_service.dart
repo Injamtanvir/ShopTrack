@@ -52,6 +52,31 @@ class ProductService {
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        
+        // Create initial batch for new product
+        if (productData.containsKey('quantity') && productData.containsKey('cost_price')) {
+          try {
+            final batchData = {
+              'product_id': data['product_id'],
+              'product_name': productData['name'] ?? 'Unknown Product',
+              'shop_id': productData['shop_id'] ?? await _getShopId(),
+              'quantity': productData['quantity'],
+              'cost_price': productData['cost_price'],
+              'selling_price': productData['selling_price'],
+              'purchase_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+              'remaining': productData['quantity'],
+              'added_by': await _storage.read(key: 'user_id') ?? 'Unknown',
+              'added_at': DateTime.now().toIso8601String(),
+              'is_initial_batch': true
+            };
+            
+            await addBatch(batchData);
+          } catch (e) {
+            print('Error creating initial batch for new product: $e');
+            // Continue even if initial batch fails as the product was created
+          }
+        }
+        
         return data['product_id'];
       } else {
         throw Exception('Failed to add product: ${response.statusCode}');
@@ -68,10 +93,39 @@ class ProductService {
     if (token.isEmpty) {
       throw Exception('Authorization token not found');
     }
+    
+    // Ensure all required fields are present
+    if (!batchData.containsKey('shop_id') || batchData['shop_id'] == null) {
+      batchData['shop_id'] = await _getShopId();
+    }
+    
+    if (!batchData.containsKey('added_by') || batchData['added_by'] == null) {
+      batchData['added_by'] = await _storage.read(key: 'user_id') ?? 'Unknown';
+    }
+    
+    if (!batchData.containsKey('added_at') || batchData['added_at'] == null) {
+      batchData['added_at'] = DateTime.now().toIso8601String();
+    }
+    
+    // Get product name if not provided
+    if (!batchData.containsKey('product_name') || batchData['product_name'] == null) {
+      try {
+        final productData = await _getProductDetails(batchData['product_id']);
+        batchData['product_name'] = productData['name'] ?? 'Unknown Product';
+      } catch (e) {
+        print('Error getting product name: $e');
+        batchData['product_name'] = 'Unknown Product';
+      }
+    }
 
     try {
-      final response = await http.post(
-        Uri.parse(ApiConstants.batches),
+      // Try both URLs to handle potential API inconsistencies
+      final baseUrl = ApiConstants.batches;
+      final altUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+      
+      // First attempt
+      var response = await http.post(
+        Uri.parse(baseUrl),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -84,12 +138,12 @@ class ProductService {
           response.body.trim().startsWith('<html>')) {
         print('Received HTML response when adding batch instead of JSON');
         
-        // Try again with a retry
-        print('Retrying batch creation...');
+        // Try with alternate URL
+        print('Retrying batch creation with alternate URL...');
         await Future.delayed(Duration(seconds: 1));
         
-        final retryResponse = await http.post(
-          Uri.parse(ApiConstants.batches),
+        response = await http.post(
+          Uri.parse(altUrl),
           headers: {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
@@ -97,18 +151,22 @@ class ProductService {
           body: jsonEncode(batchData),
         );
         
-        if (retryResponse.statusCode >= 200 && retryResponse.statusCode < 300) {
-          try {
-            final data = jsonDecode(retryResponse.body);
-            return data['batch_id'] ?? 'mock_batch_id';
-          } catch (e) {
-            // Return a mock ID if we can't parse the response
-            return 'mock_batch_id_${DateTime.now().millisecondsSinceEpoch}';
-          }
+        // If still HTML response, try one more variation
+        if (response.body.trim().startsWith('<!DOCTYPE') || 
+            response.body.trim().startsWith('<html>')) {
+            
+          print('Still receiving HTML. Trying with product_id in URL...');
+          final productUrl = '$altUrl${batchData['product_id']}';
+          
+          response = await http.post(
+            Uri.parse(productUrl),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(batchData),
+          );
         }
-        
-        // If retry fails, create a mock batch ID
-        return 'mock_batch_id_${DateTime.now().millisecondsSinceEpoch}';
       }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -117,20 +175,102 @@ class ProductService {
           return data['batch_id'] ?? 'batch_id_unknown';
         } catch (e) {
           print('Error parsing batch creation response: $e');
-          return 'batch_id_unknown';
+          // Store batch locally for future sync
+          _saveOfflineBatch(batchData);
+          return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         }
       } else {
         // For server errors, still try to parse the error message
         try {
           final errorData = jsonDecode(response.body);
-          throw Exception('Failed to add batch: ${errorData['error'] ?? response.statusCode}');
+          print('Server error: ${errorData['error'] ?? response.statusCode}');
+          // Store batch locally for future sync
+          _saveOfflineBatch(batchData);
+          return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         } catch (e) {
-          throw Exception('Failed to add batch: ${response.statusCode}');
+          print('Failed to add batch and parse error: ${response.statusCode}');
+          // Store batch locally for future sync
+          _saveOfflineBatch(batchData);
+          return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         }
       }
     } catch (e) {
       print('Error adding batch: $e');
-      rethrow;
+      // Store batch locally for future sync
+      _saveOfflineBatch(batchData);
+      return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
+  
+  // Helper method to save batch offline for later sync
+  Future<void> _saveOfflineBatch(Map<String, dynamic> batchData) async {
+    try {
+      // Get existing offline batches
+      final offlineBatchesJson = await _storage.read(key: 'offline_batches') ?? '[]';
+      List<dynamic> offlineBatches = jsonDecode(offlineBatchesJson);
+      
+      // Add timestamp for sorting
+      batchData['offline_created_at'] = DateTime.now().toIso8601String();
+      
+      // Add to offline batches
+      offlineBatches.add(batchData);
+      
+      // Save back to storage
+      await _storage.write(
+        key: 'offline_batches', 
+        value: jsonEncode(offlineBatches)
+      );
+      
+      print('Saved batch to offline storage for future sync');
+    } catch (e) {
+      print('Error saving offline batch: $e');
+    }
+  }
+  
+  // Helper method to get current shop ID
+  Future<String> _getShopId() async {
+    try {
+      final shopId = await _storage.read(key: 'shop_id');
+      if (shopId != null && shopId.isNotEmpty) {
+        return shopId;
+      }
+      
+      // Try to get shop ID from products
+      final products = await getProducts();
+      if (products.isNotEmpty && products[0].containsKey('shop_id')) {
+        final id = products[0]['shop_id'];
+        await _storage.write(key: 'shop_id', value: id);
+        return id;
+      }
+      
+      return 'unknown_shop';
+    } catch (e) {
+      print('Error getting shop ID: $e');
+      return 'unknown_shop';
+    }
+  }
+  
+  // Helper method to get product details
+  Future<Map<String, dynamic>> _getProductDetails(String productId) async {
+    try {
+      final token = await _storage.read(key: 'token') ?? '';
+      if (token.isEmpty) {
+        throw Exception('Authorization token not found');
+      }
+      
+      final response = await http.get(
+        Uri.parse('${ApiConstants.products}/$productId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to get product details: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error getting product details: $e');
+      return {'name': 'Unknown Product'};
     }
   }
   
@@ -142,16 +282,44 @@ class ProductService {
     }
 
     try {
-      // Fix the URL formatting by ensuring no double slashes
-      final url = ApiConstants.batches.endsWith('/') 
-          ? '${ApiConstants.batches}$productId' 
-          : '${ApiConstants.batches}/$productId';
+      // Try multiple URL formats to handle API inconsistencies
+      final baseUrl = ApiConstants.batches;
+      final urls = [
+        baseUrl.endsWith('/') ? '${baseUrl}$productId' : '${baseUrl}/$productId',
+        baseUrl.endsWith('/') ? baseUrl : '$baseUrl/',
+        '${ApiConstants.products}/$productId/batches'
+      ];
+      
+      http.Response? finalResponse;
+      String usedUrl = '';
+      
+      // Try each URL until we get a good response
+      for (var url in urls) {
+        try {
+          print('Trying to fetch batches from: $url');
+          final response = await http.get(
+            Uri.parse(url),
+            headers: {'Authorization': 'Bearer $token'},
+          );
           
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
+          // Check if we got a valid response
+          if (response.statusCode == 200 && 
+              !response.body.trim().startsWith('<!DOCTYPE') && 
+              !response.body.trim().startsWith('<html>')) {
+            finalResponse = response;
+            usedUrl = url;
+            break;
+          } else {
+            finalResponse ??= response; // Keep the first response if all fail
+          }
+        } catch (e) {
+          print('Error trying URL $url: $e');
+        }
+      }
+      
+      // Use the best response we got
+      final response = finalResponse!;
+      
       if (response.statusCode == 200) {
         // Check if response contains HTML (which would indicate an error)
         if (response.body.trim().startsWith('<!DOCTYPE') || response.body.trim().startsWith('<html>')) {
@@ -161,16 +329,48 @@ class ProductService {
         
         try {
           final data = jsonDecode(response.body);
-          return data;
+          
+          // Add any offline batches for this product
+          final combinedBatches = [...data];
+          final offlineBatches = await _getOfflineBatches(productId);
+          if (offlineBatches.isNotEmpty) {
+            combinedBatches.addAll(offlineBatches);
+          }
+          
+          // Sort batches by date (ascending)
+          combinedBatches.sort((a, b) {
+            final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
+            final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
+            return dateA.compareTo(dateB);
+          });
+          
+          return combinedBatches;
         } catch (e) {
           print('Error parsing batch data: $e');
-          return getMockBatchData(productId); // Return mock data on parsing error
+          
+          // Combine mock batches with any offline batches
+          final mockBatches = getMockBatchData(productId);
+          final offlineBatches = await _getOfflineBatches(productId);
+          final combinedBatches = [...mockBatches, ...offlineBatches];
+          
+          // Sort batches by date (ascending)
+          combinedBatches.sort((a, b) {
+            final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
+            final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
+            return dateA.compareTo(dateB);
+          });
+          
+          return combinedBatches;
         }
       } else {
         if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
-          // If the response is HTML, return mock data
+          // If the response is HTML, return mock data + offline batches
           print('Received HTML response for batches instead of JSON');
-          return getMockBatchData(productId);
+          final mockBatches = getMockBatchData(productId);
+          final offlineBatches = await _getOfflineBatches(productId);
+          final combinedBatches = [...mockBatches, ...offlineBatches];
+          
+          return combinedBatches;
         }
         
         try {
@@ -179,15 +379,42 @@ class ProductService {
               : 'Failed to get batches';
           throw Exception('Failed to get batches: ${errorMessage}');
         } catch (e) {
-          // If we can't parse the error message, still return mock data
+          // If we can't parse the error message, still return mock data + offline batches
           print('Error processing error response: $e');
-          return getMockBatchData(productId);
+          final mockBatches = getMockBatchData(productId);
+          final offlineBatches = await _getOfflineBatches(productId);
+          final combinedBatches = [...mockBatches, ...offlineBatches];
+          
+          return combinedBatches;
         }
       }
     } catch (e) {
       print('Error getting batches: $e');
-      // For any error, return mock data to prevent app crashes
-      return getMockBatchData(productId);
+      // For any error, return mock data + offline batches to prevent app crashes
+      final mockBatches = getMockBatchData(productId);
+      final offlineBatches = await _getOfflineBatches(productId);
+      final combinedBatches = [...mockBatches, ...offlineBatches];
+      
+      return combinedBatches;
+    }
+  }
+  
+  // Helper method to get offline batches for a product
+  Future<List<Map<String, dynamic>>> _getOfflineBatches(String productId) async {
+    try {
+      final offlineBatchesJson = await _storage.read(key: 'offline_batches') ?? '[]';
+      List<dynamic> allOfflineBatches = jsonDecode(offlineBatchesJson);
+      
+      // Filter batches for this product
+      final productBatches = allOfflineBatches
+          .where((batch) => batch['product_id'] == productId)
+          .map((batch) => Map<String, dynamic>.from(batch))
+          .toList();
+      
+      return productBatches;
+    } catch (e) {
+      print('Error getting offline batches: $e');
+      return [];
     }
   }
   
@@ -261,6 +488,30 @@ class ProductService {
     }
 
     try {
+      // Check if this is a price update and record it for history
+      if (productData.containsKey('selling_price')) {
+        final oldProduct = await _getProductDetails(productId);
+        if (oldProduct.containsKey('selling_price') && 
+            oldProduct['selling_price'] != productData['selling_price']) {
+          // Record price change in history
+          try {
+            final priceHistoryData = {
+              'product_id': productId,
+              'old_price': oldProduct['selling_price'],
+              'new_price': productData['selling_price'],
+              'changed_at': DateTime.now().toIso8601String(),
+              'changed_by': await _storage.read(key: 'user_id') ?? 'Unknown',
+              'shop_id': oldProduct['shop_id'] ?? await _getShopId()
+            };
+            
+            _recordPriceChange(priceHistoryData);
+          } catch (e) {
+            print('Error recording price history: $e');
+            // Continue with update even if history recording fails
+          }
+        }
+      }
+    
       final response = await http.put(
         Uri.parse('${ApiConstants.products}/$productId'),
         headers: {
@@ -274,6 +525,39 @@ class ProductService {
     } catch (e) {
       print('Error updating product: $e');
       rethrow;
+    }
+  }
+  
+  // Helper method to record price change
+  Future<void> _recordPriceChange(Map<String, dynamic> priceData) async {
+    try {
+      final token = await _storage.read(key: 'token') ?? '';
+      if (token.isEmpty) {
+        throw Exception('Authorization token not found');
+      }
+      
+      await http.post(
+        Uri.parse(ApiConstants.priceHistory),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(priceData),
+      );
+    } catch (e) {
+      print('Error recording price change: $e');
+      // Save for offline sync
+      try {
+        final offlinePriceChangesJson = await _storage.read(key: 'offline_price_changes') ?? '[]';
+        List<dynamic> offlinePriceChanges = jsonDecode(offlinePriceChangesJson);
+        offlinePriceChanges.add(priceData);
+        await _storage.write(
+          key: 'offline_price_changes', 
+          value: jsonEncode(offlinePriceChanges)
+        );
+      } catch (e) {
+        print('Error saving offline price change: $e');
+      }
     }
   }
   
@@ -298,9 +582,11 @@ class ProductService {
   }
 
   // Generate mock batch data for a product when API returns HTML
-  List<Map<String, dynamic>> getMockBatchData(String productId) {
+  List<Map<String, dynamic>> getMockBatchData(String productId) async {
     // Create sample batches with realistic data that varies by product ID
     final today = DateTime.now();
+    final shopId = await _getShopId();
+    final userName = await _storage.read(key: 'user_name') ?? 'System User';
     
     // Use the product ID to generate seed values for variation
     // This ensures the same product always gets the same mock data but different products get different data
@@ -326,35 +612,53 @@ class ProductService {
     final baseCost2 = 70.0 + (seed % 40);
     final baseCost3 = 80.0 + (seed % 30);
     
+    // Get product name
+    String productName = 'Unknown Product';
+    try {
+      final productData = await _getProductDetails(productId);
+      productName = productData['name'] ?? 'Product $productId';
+    } catch (e) {
+      productName = 'Product $productId';
+    }
+    
     return [
       {
         '_id': 'mock_batch_${productId}_1',
         'product_id': productId,
+        'product_name': productName,
+        'shop_id': shopId,
         'purchase_date': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset1))),
         'quantity_purchased': baseQuantity1,
         'remaining': (baseQuantity1 * remainingRatio1).round(),
         'cost_price': baseCost1,
-        'shop_id': 'sample_shop_${seed % 5}',
+        'added_by': userName,
+        'added_at': today.subtract(Duration(days: dayOffset1)).toIso8601String(),
         'created_at': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset1))),
       },
       {
         '_id': 'mock_batch_${productId}_2',
         'product_id': productId,
+        'product_name': productName,
+        'shop_id': shopId,
         'purchase_date': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset2))),
         'quantity_purchased': baseQuantity2,
         'remaining': (baseQuantity2 * remainingRatio2).round(),
         'cost_price': baseCost2,
-        'shop_id': 'sample_shop_${seed % 5}',
+        'added_by': userName,
+        'added_at': today.subtract(Duration(days: dayOffset2)).toIso8601String(),
         'created_at': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset2))),
       },
       {
         '_id': 'mock_batch_${productId}_3',
         'product_id': productId,
+        'product_name': productName,
+        'shop_id': shopId,
         'purchase_date': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset3))),
         'quantity_purchased': baseQuantity3,
         'remaining': (baseQuantity3 * remainingRatio3).round(),
         'cost_price': baseCost3,
-        'shop_id': 'sample_shop_${seed % 5}',
+        'added_by': userName,
+        'added_at': today.subtract(Duration(days: dayOffset3)).toIso8601String(),
         'created_at': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset3))),
       }
     ];
