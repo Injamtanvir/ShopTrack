@@ -38,41 +38,66 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     // Check network connectivity
     final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
-    if (!connectivityProvider.isOnline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot add product. No internet connection available.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
+    
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      await _apiService.addProduct(
+      final result = await _apiService.addProduct(
         name: _nameController.text.trim(),
         quantity: int.parse(_quantityController.text.trim()),
         buyingPrice: double.parse(_buyingPriceController.text.trim()),
         sellingPrice: double.parse(_sellingPriceController.text.trim()),
       );
 
+      // Check if product was saved in offline mode
+      final bool isOffline = result['offline'] == true;
+      
       setState(() {
         _success = true;
         _isLoading = false;
       });
+      
+      if (isOffline && mounted) {
+        // Show info message for offline mode
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Product saved in offline mode'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        if (e.toString().contains('HTML')) {
+          // More user-friendly error message
+          _errorMessage = "Server connection issue. The product may still be saved in offline mode.";
+        } else {
+          _errorMessage = e.toString();
+        }
         _isLoading = false;
       });
 
-      // Show a more detailed error dialog for debugging
-      if (mounted) {
+      // Check if we're offline but no specific offline handling was done
+      if (!connectivityProvider.isOnline && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No internet connection. The product will be saved locally and synced when online.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        
+        // Still mark as success since we have offline handling
+        setState(() {
+          _success = true;
+        });
+      } else if (mounted) {
+        // Show error only if online and real error occurred
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),

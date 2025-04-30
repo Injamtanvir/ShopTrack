@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/api_constants.dart';
 import '../models/user.dart';
+import '../services/product_service.dart';
 
 class ApiService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -298,25 +299,41 @@ class ApiService {
     }
 
     try {
-      print('Adding product to: ${ApiConstants.products}');
-      final response = await http.post(
-        Uri.parse(ApiConstants.products),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'name': name,
-          'quantity': quantity,
-          'buying_price': buyingPrice,
-          'selling_price': sellingPrice,
-        }),
-      );
-
-      print('Response status: ${response.statusCode}');
-      return await _handleApiResponse(response);
+      // Import ProductService dynamically to avoid circular dependency
+      final productService = ProductService();
+      
+      // Use ProductService to add product with offline support
+      final productId = await productService.addProduct({
+        'name': name,
+        'quantity': quantity,
+        'buying_price': buyingPrice,
+        'selling_price': sellingPrice,
+        'cost_price': buyingPrice, // Also include cost_price for batch creation
+      });
+      
+      if (productId.startsWith('offline_product_')) {
+        // Return offline product data with success message
+        return {
+          'product_id': productId,
+          'message': 'Product added in offline mode. Changes will be synced when connection is restored.',
+          'offline': true
+        };
+      }
+      
+      // Return normal success response
+      return {
+        'product_id': productId,
+        'message': 'Product added successfully',
+        'offline': false
+      };
     } catch (e) {
       print('Error adding product: $e');
+      
+      // Check if the error is about HTML response
+      if (e.toString().contains('HTML')) {
+        throw Exception('Server returned HTML instead of JSON. This usually indicates a server configuration or URL issue.');
+      }
+      
       rethrow;
     }
   }

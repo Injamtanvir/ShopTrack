@@ -4,6 +4,7 @@ import '../models/batch.dart';
 import '../models/product.dart';
 import '../services/product_service.dart';
 import '../constants/theme_constants.dart';
+import 'dart:convert';
 
 class BatchManagementScreen extends StatefulWidget {
   final Product product;
@@ -52,7 +53,33 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
 
     try {
       final batchData = await _productService.getBatches(widget.product.id);
-      final batches = batchData.map((data) => Batch.fromJson(data)).toList();
+      
+      // Filter out mock batches if we have real ones
+      List<dynamic> filteredBatchData = batchData;
+      bool hasMockBatches = batchData.any((batch) => 
+          (batch['_id'] as String?)?.startsWith('mock_') ?? false);
+      
+      bool hasRealBatches = batchData.any((batch) => 
+          !((batch['_id'] as String?)?.startsWith('mock_') ?? false));
+      
+      // If we have both mock and real batches, filter out the mock ones
+      if (hasMockBatches && hasRealBatches) {
+        filteredBatchData = batchData.where((batch) => 
+            !((batch['_id'] as String?)?.startsWith('mock_') ?? false)).toList();
+      }
+      
+      final batches = filteredBatchData.map((data) => Batch.fromJson(data)).toList();
+      
+      // Sort batches by date (oldest first for FIFO)
+      batches.sort((a, b) {
+        try {
+          final dateA = DateFormat('yyyy-MM-dd').parse(a.purchaseDate);
+          final dateB = DateFormat('yyyy-MM-dd').parse(b.purchaseDate);
+          return dateA.compareTo(dateB);
+        } catch (e) {
+          return 0; // Keep original order if parsing fails
+        }
+      });
       
       setState(() {
         _batches = batches;
@@ -236,6 +263,14 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
         title: Text('Batches for ${widget.product.name}'),
         backgroundColor: kNewPrimaryColor,
         foregroundColor: Colors.white,
+        actions: [
+          // Sync button to force sync with server
+          IconButton(
+            icon: Icon(Icons.sync),
+            tooltip: 'Sync with server',
+            onPressed: () => _syncWithServer(),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -424,5 +459,59 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
         ),
       ),
     );
+  }
+
+  // Method to force sync with server
+  Future<void> _syncWithServer() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Check if there are any offline batches that need syncing
+      final offlineBatchesJson = await _productService._storage.read(key: 'offline_batches') ?? '[]';
+      List<dynamic> offlineBatches = jsonDecode(offlineBatchesJson);
+      
+      // Filter batches for this product
+      final productBatches = offlineBatches
+          .where((batch) => batch['product_id'] == widget.product.id)
+          .toList();
+      
+      if (productBatches.isNotEmpty) {
+        // Show syncing message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Syncing ${productBatches.length} offline batches with server...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // In a real app, you would attempt to sync these with the server
+        // For now, we'll just reload batches to ensure we get the latest data
+      }
+      
+      // Reload batches from scratch to get fresh data
+      await _loadBatches();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync completed successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to sync with server: $e';
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 } 

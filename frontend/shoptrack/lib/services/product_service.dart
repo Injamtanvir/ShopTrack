@@ -50,40 +50,112 @@ class ProductService {
         body: jsonEncode(productData),
       );
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      // Check if response contains HTML (indicating a server issue)
+      if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
+        print('Server returned HTML instead of JSON when adding product');
         
-        // Create initial batch for new product
-        if (productData.containsKey('quantity') && productData.containsKey('cost_price')) {
-          try {
-            final batchData = {
-              'product_id': data['product_id'],
-              'product_name': productData['name'] ?? 'Unknown Product',
-              'shop_id': productData['shop_id'] ?? await _getShopId(),
-              'quantity': productData['quantity'],
-              'cost_price': productData['cost_price'],
-              'selling_price': productData['selling_price'],
-              'purchase_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
-              'remaining': productData['quantity'],
-              'added_by': await _storage.read(key: 'user_id') ?? 'Unknown',
-              'added_at': DateTime.now().toIso8601String(),
-              'is_initial_batch': true
-            };
-            
-            await addBatch(batchData);
-          } catch (e) {
-            print('Error creating initial batch for new product: $e');
-            // Continue even if initial batch fails as the product was created
-          }
+        // Generate a temporary product ID
+        final tempProductId = 'offline_product_${DateTime.now().millisecondsSinceEpoch}';
+        
+        // Save product for offline sync later
+        await _saveOfflineProduct(productData, tempProductId);
+        
+        // Create initial batch for offline product
+        try {
+          final batchData = {
+            'product_id': tempProductId,
+            'product_name': productData['name'] ?? 'Unknown Product',
+            'shop_id': productData['shop_id'] ?? await _getShopId(),
+            'quantity': productData['quantity'],
+            'cost_price': productData['cost_price'] ?? productData['buying_price'],
+            'selling_price': productData['selling_price'],
+            'purchase_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+            'remaining': productData['quantity'],
+            'added_by': await _storage.read(key: 'user_id') ?? 'Unknown',
+            'added_at': DateTime.now().toIso8601String(),
+            'is_initial_batch': true,
+            'is_offline': true
+          };
+          
+          _saveOfflineBatch(batchData);
+        } catch (e) {
+          print('Error creating offline batch for product: $e');
         }
         
-        return data['product_id'];
+        return tempProductId;
+      }
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        try {
+          final data = jsonDecode(response.body);
+          
+          // Create initial batch for new product
+          if (productData.containsKey('quantity') && (productData.containsKey('cost_price') || productData.containsKey('buying_price'))) {
+            try {
+              final batchData = {
+                'product_id': data['product_id'],
+                'product_name': productData['name'] ?? 'Unknown Product',
+                'shop_id': productData['shop_id'] ?? await _getShopId(),
+                'quantity': productData['quantity'],
+                'cost_price': productData['cost_price'] ?? productData['buying_price'],
+                'selling_price': productData['selling_price'],
+                'purchase_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                'remaining': productData['quantity'],
+                'added_by': await _storage.read(key: 'user_id') ?? 'Unknown',
+                'added_at': DateTime.now().toIso8601String(),
+                'is_initial_batch': true
+              };
+              
+              await addBatch(batchData);
+            } catch (e) {
+              print('Error creating initial batch for new product: $e');
+              // Continue even if initial batch fails as the product was created
+            }
+          }
+          
+          return data['product_id'];
+        } catch (e) {
+          print('Error parsing product response: $e');
+          // Generate a temporary product ID and save offline
+          final tempProductId = 'offline_product_${DateTime.now().millisecondsSinceEpoch}';
+          await _saveOfflineProduct(productData, tempProductId);
+          return tempProductId;
+        }
       } else {
         throw Exception('Failed to add product: ${response.statusCode}');
       }
     } catch (e) {
       print('Error adding product: $e');
-      rethrow;
+      // Save product offline if there's a network error
+      final tempProductId = 'offline_product_${DateTime.now().millisecondsSinceEpoch}';
+      await _saveOfflineProduct(productData, tempProductId);
+      return tempProductId;
+    }
+  }
+  
+  // Helper method to save product offline for later sync
+  Future<void> _saveOfflineProduct(Map<String, dynamic> productData, String tempId) async {
+    try {
+      // Get existing offline products
+      final offlineProductsJson = await _storage.read(key: 'offline_products') ?? '[]';
+      List<dynamic> offlineProducts = jsonDecode(offlineProductsJson);
+      
+      // Add temporary ID and timestamp
+      productData['_id'] = tempId;
+      productData['offline_created_at'] = DateTime.now().toIso8601String();
+      
+      // Add to offline products
+      offlineProducts.add(productData);
+      
+      // Save back to storage
+      await _storage.write(
+        key: 'offline_products', 
+        value: jsonEncode(offlineProducts)
+      );
+      
+      print('Saved product to offline storage for future sync');
+    } catch (e) {
+      print('Error saving offline product: $e');
     }
   }
   
