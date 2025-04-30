@@ -349,7 +349,7 @@ class ProductService {
           print('Error parsing batch data: $e');
           
           // Combine mock batches with any offline batches
-          final mockBatches = getMockBatchData(productId);
+          final mockBatches = await getMockBatchData(productId);
           final offlineBatches = await _getOfflineBatches(productId);
           final combinedBatches = [...mockBatches, ...offlineBatches];
           
@@ -366,7 +366,7 @@ class ProductService {
         if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
           // If the response is HTML, return mock data + offline batches
           print('Received HTML response for batches instead of JSON');
-          final mockBatches = getMockBatchData(productId);
+          final mockBatches = await getMockBatchData(productId);
           final offlineBatches = await _getOfflineBatches(productId);
           final combinedBatches = [...mockBatches, ...offlineBatches];
           
@@ -381,7 +381,7 @@ class ProductService {
         } catch (e) {
           // If we can't parse the error message, still return mock data + offline batches
           print('Error processing error response: $e');
-          final mockBatches = getMockBatchData(productId);
+          final mockBatches = await getMockBatchData(productId);
           final offlineBatches = await _getOfflineBatches(productId);
           final combinedBatches = [...mockBatches, ...offlineBatches];
           
@@ -391,7 +391,7 @@ class ProductService {
     } catch (e) {
       print('Error getting batches: $e');
       // For any error, return mock data + offline batches to prevent app crashes
-      final mockBatches = getMockBatchData(productId);
+      final mockBatches = await getMockBatchData(productId);
       final offlineBatches = await _getOfflineBatches(productId);
       final combinedBatches = [...mockBatches, ...offlineBatches];
       
@@ -582,7 +582,7 @@ class ProductService {
   }
 
   // Generate mock batch data for a product when API returns HTML
-  List<Map<String, dynamic>> getMockBatchData(String productId) async {
+  Future<List<Map<String, dynamic>>> getMockBatchData(String productId) async {
     // Create sample batches with realistic data that varies by product ID
     final today = DateTime.now();
     final shopId = await _getShopId();
