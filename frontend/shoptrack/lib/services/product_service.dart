@@ -322,9 +322,27 @@ class ProductService {
       
       if (response.statusCode == 200) {
         // Check if response contains HTML (which would indicate an error)
-        if (response.body.trim().startsWith('<!DOCTYPE') || response.body.trim().startsWith('<html>')) {
+        if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
+          // If the response is HTML, return mock data + offline batches
           print('Received HTML response for batches instead of JSON');
-          return getMockBatchData(productId); // Return mock data
+          
+          // Check if we have offline batches first
+          final offlineBatches = await _getOfflineBatches(productId);
+          if (offlineBatches.isNotEmpty) {
+            // Sort offline batches by date
+            offlineBatches.sort((a, b) {
+              final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
+              final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
+              return dateA.compareTo(dateB);
+            });
+            
+            return offlineBatches;
+          }
+          
+          // Fall back to mock data only if no offline batches
+          final mockBatches = await getMockBatchData(productId);
+          
+          return mockBatches;
         }
         
         try {
@@ -337,40 +355,65 @@ class ProductService {
             combinedBatches.addAll(offlineBatches);
           }
           
-          // Sort batches by date (ascending)
-          combinedBatches.sort((a, b) {
-            final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
-            final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
-            return dateA.compareTo(dateB);
-          });
-          
-          return combinedBatches;
+          // Only use actual data when available (don't use mock data)
+          if (combinedBatches.isNotEmpty) {
+            // Sort batches by date (ascending)
+            combinedBatches.sort((a, b) {
+              final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
+              final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
+              return dateA.compareTo(dateB);
+            });
+            
+            return combinedBatches;
+          } else {
+            // Only use mock data if no actual batches are available
+            final mockBatches = await getMockBatchData(productId);
+            
+            return mockBatches;
+          }
         } catch (e) {
           print('Error parsing batch data: $e');
           
-          // Combine mock batches with any offline batches
-          final mockBatches = await getMockBatchData(productId);
+          // Check if we have offline batches first
           final offlineBatches = await _getOfflineBatches(productId);
-          final combinedBatches = [...mockBatches, ...offlineBatches];
+          if (offlineBatches.isNotEmpty) {
+            // Sort offline batches by date
+            offlineBatches.sort((a, b) {
+              final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
+              final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
+              return dateA.compareTo(dateB);
+            });
+            
+            return offlineBatches;
+          }
           
-          // Sort batches by date (ascending)
-          combinedBatches.sort((a, b) {
-            final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
-            final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
-            return dateA.compareTo(dateB);
-          });
+          // Fall back to mock data only if no offline batches
+          final mockBatches = await getMockBatchData(productId);
           
-          return combinedBatches;
+          return mockBatches;
         }
       } else {
         if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
           // If the response is HTML, return mock data + offline batches
           print('Received HTML response for batches instead of JSON');
-          final mockBatches = await getMockBatchData(productId);
-          final offlineBatches = await _getOfflineBatches(productId);
-          final combinedBatches = [...mockBatches, ...offlineBatches];
           
-          return combinedBatches;
+          // Check if we have offline batches first
+          final offlineBatches = await _getOfflineBatches(productId);
+          if (offlineBatches.isNotEmpty) {
+            // Sort offline batches by date
+            offlineBatches.sort((a, b) {
+              final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
+              final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
+              return dateA.compareTo(dateB);
+            });
+            
+            return offlineBatches;
+          }
+          
+          // Fall back to mock data only if no offline batches
+          final mockBatches = await getMockBatchData(productId);
+          
+          return mockBatches;
         }
         
         try {
@@ -390,12 +433,23 @@ class ProductService {
       }
     } catch (e) {
       print('Error getting batches: $e');
-      // For any error, return mock data + offline batches to prevent app crashes
-      final mockBatches = await getMockBatchData(productId);
+      // For any error, return offline batches first, then mock data as last resort
       final offlineBatches = await _getOfflineBatches(productId);
-      final combinedBatches = [...mockBatches, ...offlineBatches];
+      if (offlineBatches.isNotEmpty) {
+        // Sort offline batches by date
+        offlineBatches.sort((a, b) {
+          final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
+          final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
+          return dateA.compareTo(dateB);
+        });
+        
+        return offlineBatches;
+      }
       
-      return combinedBatches;
+      // Fall back to mock data only if no offline batches exist
+      final mockBatches = await getMockBatchData(productId);
+      
+      return mockBatches;
     }
   }
   
@@ -583,83 +637,59 @@ class ProductService {
 
   // Generate mock batch data for a product when API returns HTML
   Future<List<Map<String, dynamic>>> getMockBatchData(String productId) async {
-    // Create sample batches with realistic data that varies by product ID
+    // Create initial batch with large quantity (first batch) and a follow-up batch
     final today = DateTime.now();
     final shopId = await _getShopId();
     final userName = await _storage.read(key: 'user_name') ?? 'System User';
     
-    // Use the product ID to generate seed values for variation
-    // This ensures the same product always gets the same mock data but different products get different data
-    int seed = 0;
-    for (int i = 0; i < productId.length; i++) {
-      seed += productId.codeUnitAt(i);
-    }
-    
-    // Use the seed to create variations in dates, quantities and prices
-    final dayOffset1 = (30 + (seed % 15));
-    final dayOffset2 = (15 + (seed % 10));
-    final dayOffset3 = (5 + (seed % 7));
-    
-    final baseQuantity1 = 5 + (seed % 20);
-    final baseQuantity2 = 10 + (seed % 15);
-    final baseQuantity3 = 15 + (seed % 25);
-    
-    final remainingRatio1 = 0.3 + ((seed % 40) / 100); // Between 30% and 70% remaining
-    final remainingRatio2 = 0.5 + ((seed % 35) / 100); // Between 50% and 85% remaining
-    final remainingRatio3 = 0.7 + ((seed % 20) / 100); // Between 70% and 90% remaining
-    
-    final baseCost1 = 60.0 + (seed % 50);
-    final baseCost2 = 70.0 + (seed % 40);
-    final baseCost3 = 80.0 + (seed % 30);
-    
-    // Get product name
+    // Get product details to use real values in mock data
     String productName = 'Unknown Product';
+    double costPrice = 100.0;
     try {
       final productData = await _getProductDetails(productId);
       productName = productData['name'] ?? 'Product $productId';
+      costPrice = productData['buying_price'] ?? 100.0;
+      if (costPrice is int) {
+        costPrice = costPrice.toDouble();
+      }
     } catch (e) {
       productName = 'Product $productId';
     }
     
+    // First batch: initial product creation with large quantity
+    final initialBatchDate = today.subtract(Duration(days: 30)); // 30 days ago
+    
+    // Second batch: additional recently added batch with smaller quantity
+    final secondBatchDate = today.subtract(Duration(days: 5)); // 5 days ago
+    
     return [
       {
-        '_id': 'mock_batch_${productId}_1',
+        '_id': 'mock_initial_batch_$productId',
         'product_id': productId,
         'product_name': productName,
         'shop_id': shopId,
-        'purchase_date': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset1))),
-        'quantity_purchased': baseQuantity1,
-        'remaining': (baseQuantity1 * remainingRatio1).round(),
-        'cost_price': baseCost1,
-        'added_by': userName,
-        'added_at': today.subtract(Duration(days: dayOffset1)).toIso8601String(),
-        'created_at': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset1))),
+        'purchase_date': DateFormat('yyyy-MM-dd').format(initialBatchDate),
+        'quantity_purchased': 2000,  // Large initial quantity
+        'remaining': 1800,  // Most remaining
+        'cost_price': costPrice,
+        'added_by': 'System',
+        'added_at': initialBatchDate.toIso8601String(),
+        'created_at': DateFormat('yyyy-MM-dd').format(initialBatchDate),
+        'is_initial_batch': true
       },
       {
         '_id': 'mock_batch_${productId}_2',
         'product_id': productId,
         'product_name': productName,
         'shop_id': shopId,
-        'purchase_date': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset2))),
-        'quantity_purchased': baseQuantity2,
-        'remaining': (baseQuantity2 * remainingRatio2).round(),
-        'cost_price': baseCost2,
+        'purchase_date': DateFormat('yyyy-MM-dd').format(secondBatchDate),
+        'quantity_purchased': 200,  // Additional smaller batch
+        'remaining': 200,  // All remaining since we deduct from oldest first
+        'cost_price': costPrice * 1.05, // Slightly higher cost price
         'added_by': userName,
-        'added_at': today.subtract(Duration(days: dayOffset2)).toIso8601String(),
-        'created_at': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset2))),
-      },
-      {
-        '_id': 'mock_batch_${productId}_3',
-        'product_id': productId,
-        'product_name': productName,
-        'shop_id': shopId,
-        'purchase_date': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset3))),
-        'quantity_purchased': baseQuantity3,
-        'remaining': (baseQuantity3 * remainingRatio3).round(),
-        'cost_price': baseCost3,
-        'added_by': userName,
-        'added_at': today.subtract(Duration(days: dayOffset3)).toIso8601String(),
-        'created_at': DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: dayOffset3))),
+        'added_at': secondBatchDate.toIso8601String(),
+        'created_at': DateFormat('yyyy-MM-dd').format(secondBatchDate),
+        'is_initial_batch': false
       }
     ];
   }

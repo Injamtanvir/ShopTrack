@@ -750,14 +750,19 @@ class ProductView(APIView):
 
                 # Also add a new batch record
                 batch_data = {
-                    "productId": str(existing_product['_id']),
-                    "purchaseDate": datetime.now(),
-                    "quantityPurchased": data['quantity'],
+                    "product_id": str(existing_product['_id']),
+                    "product_name": data['name'],
+                    "purchase_date": datetime.now(),
+                    "quantity_purchased": data['quantity'],
+                    "quantity": data['quantity'],
                     "remaining": data['quantity'],
-                    "costPrice": data['buying_price'],
+                    "cost_price": data['buying_price'],
                     "shop_id": shop_id,
-                    "created_by": user_email,
-                    "created_at": datetime.now()
+                    "added_by": user_email,
+                    "added_by_id": user_id if 'user_id' in payload else None,
+                    "added_at": datetime.now(),
+                    "created_at": datetime.now(),
+                    "is_initial_batch": True  # Mark this as an initial batch
                 }
                 batches_collection.insert_one(batch_data)
 
@@ -783,14 +788,19 @@ class ProductView(APIView):
 
                 # Also add a new batch record
                 batch_data = {
-                    "productId": str(result.inserted_id),
-                    "purchaseDate": datetime.now(),
-                    "quantityPurchased": data['quantity'],
+                    "product_id": str(result.inserted_id),
+                    "product_name": data['name'],
+                    "purchase_date": datetime.now(),
+                    "quantity_purchased": data['quantity'],
+                    "quantity": data['quantity'],
                     "remaining": data['quantity'],
-                    "costPrice": data['buying_price'],
+                    "cost_price": data['buying_price'],
                     "shop_id": shop_id,
-                    "created_by": user_email,
-                    "created_at": datetime.now()
+                    "added_by": user_email,
+                    "added_by_id": user_id if 'user_id' in payload else None,
+                    "added_at": datetime.now(),
+                    "created_at": datetime.now(),
+                    "is_initial_batch": True  # Mark this as an initial batch
                 }
                 batches_collection.insert_one(batch_data)
 
@@ -1852,6 +1862,33 @@ class GenerateInvoiceView(APIView):
                     {"_id": ObjectId(product_id)},
                     {"$inc": {"quantity_on_hold": -on_hold_update}}
                 )
+
+                # FIFO inventory management: deduct quantities from the oldest batches first
+                remaining_to_deduct = quantity
+                # Get batches ordered by date (oldest first)
+                batches = list(batches_collection.find(
+                    {"product_id": product_id, "remaining": {"$gt": 0}}
+                ).sort("purchase_date", 1))  # Sort by purchase date, oldest first
+                
+                for batch in batches:
+                    if remaining_to_deduct <= 0:
+                        break
+                    
+                    batch_id = batch["_id"]
+                    batch_remaining = batch.get("remaining", 0)
+                    
+                    if batch_remaining > 0:
+                        # Calculate how much to deduct from this batch
+                        deduct_from_batch = min(batch_remaining, remaining_to_deduct)
+                        
+                        # Update the batch
+                        batches_collection.update_one(
+                            {"_id": batch_id},
+                            {"$inc": {"remaining": -deduct_from_batch}}
+                        )
+                        
+                        # Adjust remaining to deduct
+                        remaining_to_deduct -= deduct_from_batch
 
             return Response({
                 "message": "Invoice generated successfully",
