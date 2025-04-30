@@ -109,18 +109,34 @@ class ProductService {
       );
 
       if (response.statusCode == 200) {
+        // Check if response contains HTML (which would indicate an error)
+        if (response.body.trim().startsWith('<!DOCTYPE') || response.body.trim().startsWith('<html>')) {
+          return []; // Return empty list instead of crashing
+        }
+        
         final data = jsonDecode(response.body);
         return data;
       } else {
-        final errorMessage = response.body.isNotEmpty ? jsonDecode(response.body)['error'] : 'Failed to get batches';
+        if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
+          // If the response is HTML, just return an empty list
+          print('Received HTML response for batches instead of JSON');
+          return [];
+        }
+        
+        final errorMessage = response.body.isNotEmpty 
+            ? (jsonDecode(response.body)['error'] ?? 'Unknown error') 
+            : 'Failed to get batches';
         throw Exception('Failed to get batches: ${errorMessage}');
       }
     } catch (e) {
       print('Error getting batches: $e');
       if (e is FormatException) {
-        throw Exception('Invalid response format when getting batches');
+        // Return empty list on format errors instead of crashing
+        print('Invalid response format when getting batches');
+        return [];
       }
-      rethrow;
+      // For other errors, still return empty list to prevent app crashes
+      return [];
     }
   }
   

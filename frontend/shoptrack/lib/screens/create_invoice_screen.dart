@@ -297,16 +297,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       } catch (e) {
         print('Error fetching shop info: $e');
         // Continue with empty shop info if there's an error
+        // Make sure we don't block the invoice creation due to missing shop info
       }
 
+      // Always provide default values for shop addresses in case shop info is not found
       final invoice = Invoice(
         id: '', // Empty string for new invoice
         invoiceNumber: _invoiceNumber,
         shopId: user.shopId,
         shopName: user.shopName ?? 'Unknown Shop',
-        shopAddress: user.address ?? '', // Use address from user if available
-        shopLicense: shopInfo['shopLicense'] ?? '', // Use license from shop info
-        shopVatLicense: shopInfo['shopVatLicense'] ?? '', // Use VAT license from shop info
+        shopAddress: user.address ?? shopInfo['address'] ?? '', // Use address from user or shop info
+        shopLicense: shopInfo['shopLicense'] ?? '', 
+        shopVatLicense: shopInfo['shopVatLicense'] ?? '',
         customerName: _customerNameController.text,
         customerAddress: _customerAddressController.text,
         customerPhone: _customerPhoneController.text,
@@ -320,10 +322,28 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         providedTotalAmount: _totalWithDiscount,
       );
 
-      // First save the invoice as pending
-      final saveResult = await _invoiceService.savePendingInvoice(invoice);
+      // First try to save the invoice
+      Map<String, dynamic> saveResult;
+      try {
+        saveResult = await _invoiceService.savePendingInvoice(invoice);
+      } catch (error) {
+        // If invoice with this number already exists, we need a new number
+        if (error.toString().contains('already exists')) {
+          ErrorHandler.showErrorSnackBar(context, 'Invoice number already exists. Please try again with a new invoice number.');
+          await _initInvoice(); // Get a new invoice number
+          setState(() {
+            _isProcessing = false;
+          });
+          return;
+        } else {
+          throw error; // Re-throw other errors
+        }
+      }
 
-      final invoiceId = saveResult['invoice_id'];
+      final invoiceId = saveResult['invoice_id'] ?? saveResult['_id'];
+      if (invoiceId == null) {
+        throw Exception('Failed to get invoice ID from response');
+      }
 
       // Then generate the invoice (update inventory)
       try {

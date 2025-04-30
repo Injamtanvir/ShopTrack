@@ -60,7 +60,7 @@ class InvoiceService {
 
       print('Response status: ${response.statusCode}');
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
         if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
