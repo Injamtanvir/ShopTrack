@@ -14,7 +14,7 @@ class ApiConstants {
   static const String verifyToken = '$baseUrl/verify-token/';
   static const String products = '$baseUrl/products/';
   static const String updateProductPrice = '$baseUrl/update-product-price/';
-  static const String productPriceList = '$baseUrl/product-price-list/';
+  static const String productPriceList = '$baseUrl/products/';
   static const String getNextInvoiceNumber = '$baseUrl/next-invoice-number/';
   static const String saveInvoice = '$baseUrl/invoices/';
   static const String savePendingInvoice = '$baseUrl/pending-invoices/save/';
@@ -48,4 +48,12 @@ class ApiConstants {
   static const String batches = '$baseUrl/batches/';
   static const String priceHistory = '$baseUrl/price-history';
   static const String profitReport = '$baseUrl/profit-report';
+
+  // Product price list with shop ID parameter
+  static String getProductPriceList(String? shopId) {
+    if (shopId != null && shopId.isNotEmpty) {
+      return '$baseUrl/shops/$shopId/price-list/';
+    }
+    return '$baseUrl/products/';
+  }
 }

@@ -8,6 +8,7 @@ class CustomButton extends StatelessWidget {
   final IconData? icon;
   final double? width;
   final Color? textColor;
+  final Color? color;
 
   const CustomButton({
     Key? key,
@@ -18,16 +19,18 @@ class CustomButton extends StatelessWidget {
     this.icon,
     this.width,
     this.textColor,
+    this.color,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: width ?? double.infinity,
+      width: width,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: buttonStyle ?? 
           ElevatedButton.styleFrom(
+            backgroundColor: color ?? Colors.indigo,
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),

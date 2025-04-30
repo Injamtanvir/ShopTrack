@@ -53,21 +53,106 @@ class _PriceListScreenState extends State<PriceListScreen> {
       _errorMessage = null;
     });
 
+    // Check network connectivity first
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      setState(() {
+        _errorMessage = 'No internet connection. Please connect to a network and try again.';
+        _isLoading = false;
+      });
+      return;
+    }
+
     try {
-      final priceList = await _apiService.getProductPriceList();
+      print('Loading price list...');
+      
+      Map<String, dynamic>? priceList;
+      
+      try {
+        // Debug the API endpoints first
+        await _apiService.debugApiEndpoints();
+        
+        // Try to get the price list from API
+        priceList = await _apiService.getProductPriceList();
+      } catch (apiError) {
+        print('Error from API: $apiError');
+        
+        // Check if the error is related to HTML response
+        if (apiError.toString().contains('HTML instead of JSON')) {
+          print('API returned HTML, using mock data instead');
+          // Use mock data as a fallback
+          priceList = await _apiService.getMockPriceListData();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Using offline mode due to server connectivity issues.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          // For other errors, try using the fallback mechanism
+          try {
+            print('Falling back to products endpoint...');
+            final products = await _apiService.getProducts();
+            final user = await _apiService.getCurrentUser();
+            
+            // Convert products list to price list format
+            priceList = {
+              'shop_id': user?.shopId ?? 'Unknown',
+              'shop_name': user?.shopName ?? 'Your Shop',
+              'shop_address': 'Address not available',
+              'products': products,
+            };
+            
+            print('Created fallback price list with ${products.length} products');
+          } catch (fallbackError) {
+            print('Fallback also failed: $fallbackError');
+            
+            // Last resort: use mock data
+            print('All API attempts failed, using mock data');
+            priceList = await _apiService.getMockPriceListData();
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Using sample data due to server connectivity issues.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      }
+      
+      if (mounted && priceList != null) {
         setState(() {
-        _priceListData = priceList;
+          _priceListData = priceList;
           _isLoading = false;
         });
-      
-      // Debug the data after loading
-      _debugProductData();
+        
+        // Debug the data after loading
+        _debugProductData();
+      } else {
+        throw Exception('Could not retrieve price list data');
+      }
     } catch (e) {
+      print('Error in _loadPriceList: $e');
+      if (mounted) {
+        String errorMsg = ErrorHandler.getErrorMessage(e);
+        
+        // Add more helpful instructions for specific error types
+        if (errorMsg.contains('HTML instead of JSON')) {
+          errorMsg = 'Server connection issue detected. The server might be temporarily unavailable or restarting. Please try again in a few moments.';
+        } else if (errorMsg.contains('token')) {
+          errorMsg = 'Authentication error. Please log out and log back in to continue.';
+        }
+        
         setState(() {
-        _errorMessage = ErrorHandler.getErrorMessage(e);
+          _errorMessage = errorMsg;
           _isLoading = false;
         });
       }
+    }
   }
 
   Future<void> _sharePriceList() async {
@@ -224,6 +309,95 @@ class _PriceListScreenState extends State<PriceListScreen> {
     }
   }
 
+  Widget _buildErrorWidget() {
+    IconData errorIcon = Icons.cloud_off;
+    String actionText = 'Retry Now';
+    String secondaryActionText = 'Go Back';
+    VoidCallback secondaryAction = () => Navigator.of(context).pop();
+    
+    // Choose appropriate icon and actions based on the error message
+    if (_errorMessage!.contains('network') || _errorMessage!.contains('internet')) {
+      errorIcon = Icons.signal_wifi_off;
+    } else if (_errorMessage!.contains('server') || _errorMessage!.contains('unavailable')) {
+      errorIcon = Icons.cloud_off;
+    } else if (_errorMessage!.contains('Authentication') || _errorMessage!.contains('token')) {
+      errorIcon = Icons.lock;
+      actionText = 'Log In Again';
+    } else if (_errorMessage!.contains('HTML instead of JSON')) {
+      errorIcon = Icons.web_asset_off;
+      actionText = 'Use Sample Data';
+      secondaryActionText = 'Try Again Later';
+      secondaryAction = () async {
+        // Load mock data instead
+        try {
+          final mockData = await _apiService.getMockPriceListData();
+          if (mounted) {
+            setState(() {
+              _priceListData = mockData;
+              _isLoading = false;
+              _errorMessage = null;
+            });
+          }
+        } catch (e) {
+          print('Error loading mock data: $e');
+        }
+      };
+    }
+    
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              errorIcon,
+              size: 80,
+              color: Colors.red.shade300,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Error',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.red.shade400,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CustomButton(
+                  text: actionText,
+                  icon: Icons.refresh,
+                  onPressed: _errorMessage!.contains('HTML') ? secondaryAction : _loadPriceList,
+                  color: Colors.blue,
+                ),
+                const SizedBox(width: 16),
+                CustomButton(
+                  text: secondaryActionText,
+                  icon: Icons.arrow_back,
+                  onPressed: _errorMessage!.contains('HTML') ? _loadPriceList : secondaryAction,
+                  color: Colors.grey,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -256,26 +430,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
-          ? Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Error: $_errorMessage',
-                style: const TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              CustomButton(
-                text: 'Retry',
-                onPressed: _loadPriceList,
-              ),
-            ],
-          ),
-        ),
-      )
+          ? _buildErrorWidget()
           : _priceListData == null || (_priceListData!['products'] as List).isEmpty
           ? const Center(
         child: Text('No products found. Add some products!'),
