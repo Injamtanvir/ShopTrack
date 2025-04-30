@@ -137,7 +137,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
       MaterialPageRoute(
         builder: (context) => BatchManagementScreen(product: product),
       ),
-    ).then((_) => _loadProducts()); // Reload products when returning
+    ).then((result) {
+      // Check if we need to refresh products
+      if (result != null && result is Map && result['refreshNeeded'] == true) {
+        _loadProducts(); // Reload products when returning with refresh flag
+      }
+    });
   }
   
   // New method to view profit report
