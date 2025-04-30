@@ -399,13 +399,21 @@ class DeleteInvoiceView(APIView):
                 product_id = item['product_id']
                 quantity = int(item['quantity'])
                 
+                # Get current product to verify on_hold count
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
+                if not product:
+                    continue
+
+                # Only reduce on_hold by what's available (to avoid negative values)
+                on_hold_update = min(quantity, product.get('quantity_on_hold', 0))
+                
                 # Restore the product quantity and reduce on_hold
                 products_collection.update_one(
                     {"_id": ObjectId(product_id)},
                     {
                         "$inc": {
                             "quantity": quantity,
-                            "quantity_on_hold": -quantity
+                            "quantity_on_hold": -on_hold_update
                         }
                     }
                 )
@@ -1415,15 +1423,17 @@ class BatchHistoryView(APIView):
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             shop_id = payload['shop_id']
+            
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return Response(
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-
+            
         try:
             # Get the product
             product = products_collection.find_one({"_id": ObjectId(product_id)})
+            
             if not product:
                 return Response(
                     {"error": "Product not found"},
@@ -1442,17 +1452,19 @@ class BatchHistoryView(APIView):
                 {"product_id": product_id}
             ).sort("purchase_date", -1))  # Sort by purchase date, newest first
 
-            # Format the response
+            # Format the response with correct field names to match frontend model
             formatted_batches = []
             for batch in batches:
                 formatted_batch = {
-                    "id": str(batch["_id"]),
-                    "quantity": batch["quantity"],
+                    "_id": str(batch["_id"]),
+                    "product_id": batch["product_id"],
+                    "quantity_purchased": batch["quantity"],
                     "remaining": batch["remaining"],
                     "cost_price": batch["cost_price"],
                     "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
-                    "created_by": batch["created_by"],
-                    "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                    "shop_id": batch.get("shop_id", shop_id),
+                    "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S"),
+                    "selling_price": product.get("selling_price", 0)
                 }
                 formatted_batches.append(formatted_batch)
 
@@ -1590,6 +1602,27 @@ class SaveInvoiceView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # Ensure required fields exist
+            required_fields = ['invoice_number', 'customer_name', 'items', 'total_amount']
+            for field in required_fields:
+                if field not in data:
+                    return Response(
+                        {"error": f"Missing required field: {field}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # Safely get the final_amount with a default based on total_amount
+            total_amount = float(data['total_amount'])
+            discount_amount = float(data.get('discount_amount', 0))
+            final_amount = total_amount - discount_amount
+            
+            if 'final_amount' in data and data['final_amount'] is not None:
+                try:
+                    final_amount = float(data['final_amount'])
+                except (ValueError, TypeError):
+                    # If there's a problem converting final_amount, use calculated value
+                    pass
+
             # Create invoice document
             invoice_data = {
                 "shop_id": shop_id,
@@ -1598,9 +1631,9 @@ class SaveInvoiceView(APIView):
                 "customer_address": data.get('customer_address', ''),
                 "customer_phone": data.get('customer_phone', ''),
                 "items": data['items'],
-                "total_amount": float(data['total_amount']),
-                "discount_amount": float(data.get('discount_amount', 0)),
-                "final_amount": float(data['final_amount']),
+                "total_amount": total_amount,
+                "discount_amount": discount_amount,
+                "final_amount": final_amount,
                 "status": "pending",
                 "created_by": user_email,
                 "created_at": datetime.now(),
@@ -1610,7 +1643,7 @@ class SaveInvoiceView(APIView):
             # Update product quantities and on_hold values
             for item in data['items']:
                 product_id = item['product_id']
-                quantity = item['quantity']
+                quantity = int(item['quantity'])
                 
                 # Decrease available quantity and increase on_hold
                 result = products_collection.update_one(
@@ -1649,7 +1682,7 @@ class SaveInvoiceView(APIView):
             return Response({
                 "message": "Invoice saved successfully",
                 "invoice_id": str(result.inserted_id)
-            })
+            }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response(

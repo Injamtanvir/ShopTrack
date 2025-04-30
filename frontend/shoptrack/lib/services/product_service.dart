@@ -107,10 +107,14 @@ class ProductService {
         final data = jsonDecode(response.body);
         return data;
       } else {
-        throw Exception('Failed to get batches: ${response.statusCode}');
+        final errorMessage = response.body.isNotEmpty ? jsonDecode(response.body)['error'] : 'Failed to get batches';
+        throw Exception('Failed to get batches: ${errorMessage}');
       }
     } catch (e) {
       print('Error getting batches: $e');
+      if (e is FormatException) {
+        throw Exception('Invalid response format when getting batches');
+      }
       rethrow;
     }
   }

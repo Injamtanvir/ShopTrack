@@ -23,15 +23,15 @@ class Batch {
 
   factory Batch.fromJson(Map<String, dynamic> json) {
     return Batch(
-      id: json['_id'],
-      productId: json['product_id'],
-      purchaseDate: json['purchase_date'],
-      quantityPurchased: json['quantity_purchased'],
-      remaining: json['remaining'],
-      costPrice: json['cost_price'].toDouble(),
+      id: json['_id'] ?? json['id'] ?? '',
+      productId: json['product_id'] ?? '',
+      purchaseDate: json['purchase_date'] ?? '',
+      quantityPurchased: json['quantity_purchased'] ?? json['quantity'] ?? 0,
+      remaining: json['remaining'] ?? 0,
+      costPrice: (json['cost_price'] is num) ? json['cost_price'].toDouble() : 0.0,
       shopId: json['shop_id'],
-      createdAt: json['created_at'],
-      sellingPrice: json['selling_price']?.toDouble(),
+      createdAt: json['created_at'] ?? '',
+      sellingPrice: (json['selling_price'] is num) ? json['selling_price'].toDouble() : null,
     );
   }
 
