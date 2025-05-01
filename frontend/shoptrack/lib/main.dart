@@ -128,7 +128,16 @@ class _InitScreenState extends State<InitScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Provider.of<AuthProvider>(context, listen: false).initialize();
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      
+      await authProvider.initialize();
+      
+      // If user is logged in, sync with UserProvider
+      if (authProvider.isLoggedIn && authProvider.user != null) {
+        userProvider.setUser(authProvider.user!);
+      }
+      
       if (mounted) {
         setState(() {
           _initialized = true;

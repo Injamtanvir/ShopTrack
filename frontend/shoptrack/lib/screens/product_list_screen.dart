@@ -6,6 +6,7 @@ import '../services/product_service.dart';
 import '../widgets/custom_button.dart';
 import '../utils/error_handler.dart';
 import '../providers/connectivity_provider.dart';
+import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'batch_management_screen.dart';
 import 'profit_report_screen.dart';
@@ -394,13 +395,22 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final user = userProvider.user;
     
-    // Check if user has permission (manager or owner)
-    if (user?.role != 'manager' && user?.role != 'owner') {
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User information not available')),
+      );
+      return;
+    }
+    
+    // Check if user has permission (manager or owner) using the UserProvider
+    if (!userProvider.canDeleteProducts) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Only managers and owners can delete products')),
       );
       return;
     }
+    
+    print('ProductListScreen: User ${user.name} with role ${user.role} attempting to delete product ${product.id}');
     
     // Controller for the confirmation text field
     final TextEditingController confirmController = TextEditingController();
@@ -505,8 +515,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
     );
     
     try {
+      // Print debug info for troubleshooting
+      print('ProductListScreen: Attempting to delete product ID: ${product.id}');
+      print('ProductListScreen: Product name: ${product.name}');
+      print('ProductListScreen: User role: ${Provider.of<UserProvider>(context, listen: false).user?.role}');
+      
       // Attempt to delete the product
       final success = await _productService.deleteProduct(product.id);
+      print('ProductListScreen: Delete operation completed with success: $success');
       
       // Hide the loading indicator
       setState(() {
@@ -530,6 +546,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
               duration: const Duration(seconds: 3),
             ),
           );
+          
+          // Reload the product list to ensure UI is in sync with backend
+          _loadProducts();
         } else {
           // This branch shouldn't be reached since deleteProduct throws on failure,
           // but just in case the function behavior changes
@@ -550,6 +569,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
       
       // Hide any existing snackbar
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      
+      print('ProductListScreen: Error deleting product: $e');
       
       if (mounted) {
         // Format the error message - remove Exception: prefix if present

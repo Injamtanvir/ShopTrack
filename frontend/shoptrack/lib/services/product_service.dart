@@ -800,14 +800,22 @@ class ProductService {
     }
 
     print('ProductService: Attempting to delete product with ID: $productId');
-    final deleteUrl = ApiConstants.deleteProduct + productId;
+    
+    // First try to clean the ID - sometimes IDs have extra quotes or spaces
+    String cleanedId = productId.trim().replaceAll('"', '').replaceAll("'", '');
+    print('ProductService: Using cleaned ID: $cleanedId');
+    
+    final deleteUrl = ApiConstants.deleteProduct + cleanedId;
     print('ProductService: Using URL: $deleteUrl');
 
     try {
       // First attempt with standard URL
       final response = await http.delete(
         Uri.parse(deleteUrl),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
       );
 
       print('ProductService: Delete response status: ${response.statusCode}');
@@ -842,13 +850,17 @@ class ProductService {
       if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
         print('ProductService: Received HTML response instead of JSON. Trying alternate URLs...');
         
-        // Try with different URL formats
+        // Try with different URL formats and variations of the ID
         final alternateUrls = [
-          '${ApiConstants.deleteProduct}/${productId}',
-          '${ApiConstants.products}/$productId',
-          '${ApiConstants.products}/${productId}',
-          '${ApiConstants.baseUrl}/api/products/$productId',
-          '${ApiConstants.baseUrl}/api/products/${productId}',
+          // With slashes
+          '${ApiConstants.deleteProduct}/${cleanedId}',
+          '${ApiConstants.products}/$cleanedId',
+          '${ApiConstants.products}/${cleanedId}',
+          '${ApiConstants.baseUrl}/api/products/$cleanedId',
+          '${ApiConstants.baseUrl}/api/products/${cleanedId}',
+          // Direct delete-product endpoint without trailing slash
+          '${ApiConstants.baseUrl}/api/delete-product$cleanedId',
+          '${ApiConstants.baseUrl}/api/delete-product/$cleanedId',
         ];
         
         for (final altUrl in alternateUrls) {
@@ -857,7 +869,10 @@ class ProductService {
           try {
             final altResponse = await http.delete(
               Uri.parse(altUrl),
-              headers: {'Authorization': 'Bearer $token'},
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
             );
             
             print('ProductService: Alternate URL response status: ${altResponse.statusCode}');

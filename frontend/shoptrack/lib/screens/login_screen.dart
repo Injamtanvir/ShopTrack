@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/user_provider.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import 'admin_home_screen.dart';
@@ -36,11 +37,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     final success = await authProvider.login(
       shopId: _shopIdController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
+      userProvider: userProvider,
     );
 
     if (success && mounted) {

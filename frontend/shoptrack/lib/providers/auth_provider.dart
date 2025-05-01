@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../providers/user_provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -72,6 +73,7 @@ class AuthProvider extends ChangeNotifier {
     required String shopId,
     required String email,
     required String password,
+    required UserProvider userProvider,
   }) async {
     _setLoading(true);
     _clearError();
@@ -84,6 +86,10 @@ class AuthProvider extends ChangeNotifier {
       );
 
       _user = User.fromJson(result['user']);
+      
+      // Update the UserProvider as well
+      userProvider.setUser(_user!);
+      
       notifyListeners();
       return true;
     } catch (e) {
