@@ -799,15 +799,33 @@ class ProductService {
       throw Exception('Authorization token not found');
     }
 
+    print('ProductService: Attempting to delete product with ID: $productId');
+    final deleteUrl = ApiConstants.deleteProduct + productId;
+    print('ProductService: Using URL: $deleteUrl');
+
     try {
       final response = await http.delete(
-        Uri.parse(ApiConstants.deleteProduct + productId),
+        Uri.parse(deleteUrl),
         headers: {'Authorization': 'Bearer $token'},
       );
 
-      return response.statusCode == 200;
+      print('ProductService: Delete response status: ${response.statusCode}');
+      print('ProductService: Response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        print('ProductService: Product successfully deleted');
+        return true;
+      } else {
+        // Try to parse error message
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception(errorData['error'] ?? 'Failed to delete product: ${response.statusCode}');
+        } catch (parseError) {
+          throw Exception('Failed to delete product: ${response.statusCode}. Response: ${response.body}');
+        }
+      }
     } catch (e) {
-      print('Error deleting product: $e');
+      print('ProductService: Error deleting product: $e');
       rethrow;
     }
   }

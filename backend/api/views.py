@@ -462,14 +462,27 @@ class DeleteProductView(APIView):
             )
 
         try:
+            # Try to convert product_id to ObjectId
+            try:
+                object_id = ObjectId(product_id)
+            except InvalidId:
+                return Response(
+                    {"error": f"Invalid product ID format: {product_id}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             # Get the product
-            product = products_collection.find_one({"_id": ObjectId(product_id)})
+            product = products_collection.find_one({"_id": object_id})
 
             if not product:
-                return Response(
-                    {"error": "Product not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+                # Try to find the product by string ID if ObjectId fails
+                product = products_collection.find_one({"_id": product_id})
+                
+                if not product:
+                    return Response(
+                        {"error": "Product not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
 
             # Check if the product belongs to this shop
             if product['shop_id'] != shop_id:
@@ -478,8 +491,11 @@ class DeleteProductView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Delete the product
-            result = products_collection.delete_one({"_id": ObjectId(product_id)})
+            # Delete the product using the correct ID type
+            if isinstance(product['_id'], ObjectId):
+                result = products_collection.delete_one({"_id": object_id})
+            else:
+                result = products_collection.delete_one({"_id": product_id})
 
             if result.deleted_count == 0:
                 return Response(
@@ -498,6 +514,7 @@ class DeleteProductView(APIView):
             })
 
         except Exception as e:
+            print(f"Error deleting product: {str(e)}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

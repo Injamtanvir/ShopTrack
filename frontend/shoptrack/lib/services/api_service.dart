@@ -208,6 +208,9 @@ class ApiService {
       throw Exception('Authorization token not found');
     }
     
+    print('Attempting to delete product with ID: $productId');
+    print('Using URL: ${ApiConstants.deleteProduct}$productId');
+    
     try {
       final response = await http.delete(
         Uri.parse(ApiConstants.deleteProduct + productId),
@@ -216,12 +219,25 @@ class ApiService {
         },
       );
       
+      print('Delete product response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('Product successfully deleted');
         return; // Successfully deleted
       } else {
-        throw Exception('Failed to delete product: ${response.statusCode}');
+        // Try to parse error from response
+        try {
+          final errorData = jsonDecode(response.body);
+          print('Server error response: $errorData');
+          throw Exception(errorData['error'] ?? 'Failed to delete product: ${response.statusCode}');
+        } catch (parseError) {
+          print('Error parsing error response: $parseError');
+          throw Exception('Failed to delete product: ${response.statusCode}. Response: ${response.body}');
+        }
       }
     } catch (e) {
+      print('Error deleting product: $e');
       throw Exception('Error deleting product: $e');
     }
   }
