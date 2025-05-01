@@ -544,6 +544,16 @@ class ProductService {
     }
   }
   
+  // Public method to get offline batches for a specific product
+  Future<List<Map<String, dynamic>>> getOfflineBatchesForProduct(String productId) async {
+    return await _getOfflineBatches(productId);
+  }
+  
+  // Public method to get raw offline batches JSON string for debugging
+  Future<String> getOfflineBatchesJson() async {
+    return await _storage.read(key: 'offline_batches') ?? '[]';
+  }
+  
   // Get price history for a product
   Future<List<dynamic>> getPriceHistory(String productId) async {
     final token = await _storage.read(key: 'token') ?? '';

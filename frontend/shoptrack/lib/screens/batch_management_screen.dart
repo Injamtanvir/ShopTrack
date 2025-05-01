@@ -470,13 +470,11 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
 
     try {
       // Check if there are any offline batches that need syncing
-      final offlineBatchesJson = await _productService._storage.read(key: 'offline_batches') ?? '[]';
+      final offlineBatchesJson = await _productService.getOfflineBatchesJson();
       List<dynamic> offlineBatches = jsonDecode(offlineBatchesJson);
       
-      // Filter batches for this product
-      final productBatches = offlineBatches
-          .where((batch) => batch['product_id'] == widget.product.id)
-          .toList();
+      // Get offline batches for this product using the public method
+      final productBatches = await _productService.getOfflineBatchesForProduct(widget.product.id);
       
       if (productBatches.isNotEmpty) {
         // Show syncing message
