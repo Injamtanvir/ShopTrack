@@ -2596,3 +2596,113 @@ class OfflinePriceChangesSyncView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+# Add ProductDetailView class after the ProductView class
+class ProductDetailView(APIView):
+    """
+    API view for handling single product operations by ID.
+    GET: Retrieve a single product
+    DELETE: Delete a product (has same functionality as DeleteProductView)
+    """
+    def get(self, request, product_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            
+            # Try to find the product - first as ObjectId
+            product = None
+            try:
+                object_id = ObjectId(product_id)
+                product = products_collection.find_one({"_id": object_id, "shop_id": shop_id})
+            except (InvalidId, Exception):
+                # Try as string ID
+                product = products_collection.find_one({"_id": product_id, "shop_id": shop_id})
+            
+            if not product:
+                return Response(
+                    {"error": "Product not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Convert ObjectId to string for JSON serialization
+            if '_id' in product and isinstance(product['_id'], ObjectId):
+                product['_id'] = str(product['_id'])
+                
+            return Response(product)
+            
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError) as e:
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+    
+    def delete(self, request, product_id):
+        # This is essentially the same as DeleteProductView for consistency
+        print(f"ProductDetailView: Delete request for product ID {product_id}")
+        
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+            role = payload.get('role', '')
+            
+            # Only managers and owners can delete products
+            if role not in ['manager', 'owner']:
+                return Response(
+                    {"error": "Only managers or owners can delete products"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Find the product
+            product = None
+            try:
+                # Try with ObjectId
+                if is_valid_object_id(product_id):
+                    object_id = ObjectId(product_id)
+                    product = products_collection.find_one({"_id": object_id, "shop_id": shop_id})
+                    if product:
+                        # Delete the product
+                        result = products_collection.delete_one({"_id": object_id})
+                        
+                        # Delete related records (batches, price history)
+                        batches_collection.delete_many({"product_id": str(object_id)})
+                        price_history_collection.delete_many({"product_id": str(object_id)})
+                        
+                        return Response({
+                            "message": f"Product '{product.get('name', 'Unknown')}' deleted successfully"
+                        })
+            except Exception as e:
+                print(f"Error deleting product: {str(e)}")
+                
+            # Try with string ID if ObjectId failed
+            try:
+                product = products_collection.find_one({"_id": product_id, "shop_id": shop_id})
+                if product:
+                    # Delete the product
+                    result = products_collection.delete_one({"_id": product_id})
+                    
+                    # Delete related records
+                    batches_collection.delete_many({"product_id": product_id})
+                    price_history_collection.delete_many({"product_id": product_id})
+                    
+                    return Response({
+                        "message": f"Product '{product.get('name', 'Unknown')}' deleted successfully"
+                    })
+            except Exception as e:
+                print(f"Error deleting product: {str(e)}")
+            
+            # If we get here, the product was not found or couldn't be deleted
+            return Response(
+                {"error": "Product not found or could not be deleted"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )

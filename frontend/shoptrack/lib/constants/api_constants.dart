@@ -24,7 +24,10 @@ class ApiConstants {
   static const String getInvoice = '$baseUrl/invoice/';
   static const String searchProducts = '$baseUrl/search-products/';
   static const String deletePendingInvoice = '$baseUrl/delete-invoice/';
-  static const String deleteProduct = '$baseUrl/delete-product/';
+  
+  // Changed this to function to properly format the URL with the exact format expected by backend
+  static String deleteProduct(String productId) => '$baseUrl/delete-product/$productId';
+  
   static const String getTodayStats = '$baseUrl/today-stats/';
   static const String getTodayInvoices = '$baseUrl/today-invoices/';
   static const String getShopUsers = '$baseUrl/shop-users/';

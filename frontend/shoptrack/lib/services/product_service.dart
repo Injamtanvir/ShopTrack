@@ -59,7 +59,7 @@ class ProductService {
         final tempProductId = 'offline_product_${DateTime.now().millisecondsSinceEpoch}';
         
         // Save product for offline sync later
-        await _saveOfflineProduct(productData, tempProductId);
+        await _saveOfflineProduct(productData, tempId);
         
         // Create initial batch for offline product
         try {
@@ -805,13 +805,10 @@ class ProductService {
     String cleanedId = productId.trim().replaceAll('"', '').replaceAll("'", '');
     print('ProductService: Using cleaned ID: $cleanedId');
     
-    // Try multiple deletion strategies
-    List<String> errors = [];
-    
-    // Strategy 1: Use direct DELETE endpoint
     try {
-      final deleteUrl = '${ApiConstants.deleteProduct}$cleanedId';
-      print('ProductService: Strategy 1 - Using URL: $deleteUrl');
+      // Using the correct URL format from ApiConstants
+      final deleteUrl = ApiConstants.deleteProduct(cleanedId);
+      print('ProductService: Using URL: $deleteUrl');
       
       final response = await http.delete(
         Uri.parse(deleteUrl),
@@ -821,103 +818,58 @@ class ProductService {
         },
       );
       
-      print('ProductService: Strategy 1 response status: ${response.statusCode}');
+      print('ProductService: Response status: ${response.statusCode}');
+      print('ProductService: Response body: ${response.body}');
       
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        print('ProductService: Product successfully deleted using Strategy 1');
+        print('ProductService: Product successfully deleted');
         _cleanupLocalCache(productId);
         return true;
+      } else if (response.statusCode == 404) {
+        // Try a secondary strategy - using the products endpoint
+        print('ProductService: Product not found at primary endpoint, trying secondary strategy');
+        
+        final productsUrl = '${ApiConstants.products}${cleanedId}';
+        print('ProductService: Using secondary URL: $productsUrl');
+        
+        final secondResponse = await http.delete(
+          Uri.parse(productsUrl),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        );
+        
+        print('ProductService: Secondary response status: ${secondResponse.statusCode}');
+        
+        if (secondResponse.statusCode >= 200 && secondResponse.statusCode < 300) {
+          print('ProductService: Product successfully deleted using secondary URL');
+          _cleanupLocalCache(productId);
+          return true;
+        }
+        
+        // If secondary strategy fails, throw exception with more details
+        throw Exception('Product not found - it may have been already deleted or never existed');
       } else {
-        errors.add('Strategy 1 failed: ${response.statusCode}');
+        // If the response contains HTML (which indicates a server error)
+        if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
+          throw Exception('Server returned HTML instead of JSON - backend issue. Status code: ${response.statusCode}');
+        }
+        
+        // Try to parse error from JSON response
+        try {
+          final errorData = jsonDecode(response.body);
+          final errorMessage = errorData['error'] ?? 'Unknown error';
+          throw Exception(errorMessage);
+        } catch (parseError) {
+          // If we can't parse the error, use the raw status code
+          throw Exception('Failed to delete product: status ${response.statusCode}');
+        }
       }
     } catch (e) {
-      print('ProductService: Strategy 1 error: $e');
-      errors.add('Strategy 1 exception: $e');
+      print('ProductService: Error deleting product: $e');
+      rethrow;
     }
-    
-    // Strategy 2: Try with slash in URL
-    try {
-      final deleteUrl = '${ApiConstants.deleteProduct}/$cleanedId';
-      print('ProductService: Strategy 2 - Using URL: $deleteUrl');
-      
-      final response = await http.delete(
-        Uri.parse(deleteUrl),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-      
-      print('ProductService: Strategy 2 response status: ${response.statusCode}');
-      
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        print('ProductService: Product successfully deleted using Strategy 2');
-        _cleanupLocalCache(productId);
-        return true;
-      } else {
-        errors.add('Strategy 2 failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('ProductService: Strategy 2 error: $e');
-      errors.add('Strategy 2 exception: $e');
-    }
-    
-    // Strategy 3: Try the products endpoint directly
-    try {
-      final deleteUrl = '${ApiConstants.products}/$cleanedId';
-      print('ProductService: Strategy 3 - Using URL: $deleteUrl');
-      
-      final response = await http.delete(
-        Uri.parse(deleteUrl),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-      
-      print('ProductService: Strategy 3 response status: ${response.statusCode}');
-      
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        print('ProductService: Product successfully deleted using Strategy 3');
-        _cleanupLocalCache(productId);
-        return true;
-      } else {
-        errors.add('Strategy 3 failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('ProductService: Strategy 3 error: $e');
-      errors.add('Strategy 3 exception: $e');
-    }
-    
-    // Strategy 4: Send a raw DELETE request to the base API URL
-    try {
-      final deleteUrl = '${ApiConstants.baseUrl}/products/$cleanedId';
-      print('ProductService: Strategy 4 - Using URL: $deleteUrl');
-      
-      final response = await http.delete(
-        Uri.parse(deleteUrl),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-      
-      print('ProductService: Strategy 4 response status: ${response.statusCode}');
-      
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        print('ProductService: Product successfully deleted using Strategy 4');
-        _cleanupLocalCache(productId);
-        return true;
-      } else {
-        errors.add('Strategy 4 failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('ProductService: Strategy 4 error: $e');
-      errors.add('Strategy 4 exception: $e');
-    }
-
-    // If we get here, all strategies failed
-    throw Exception('Failed to delete product after multiple attempts. Errors: ${errors.join(', ')}');
   }
   
   // Helper method to clean up local cache after product deletion
@@ -991,5 +943,45 @@ class ProductService {
         'is_initial_batch': true
       }
     ];
+  }
+
+  // Direct HTTP method for product deletion - REST-style approach
+  Future<bool> deleteProductDirect(String productId) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+
+    print('ProductService: Direct delete for product ID: $productId');
+    
+    // Clean the ID
+    String cleanedId = productId.trim().replaceAll('"', '').replaceAll("'", '');
+    
+    // Try the RESTful pattern with products endpoint
+    final url = '${ApiConstants.baseUrl}/products/$cleanedId';
+    print('ProductService: Using direct REST URL: $url');
+    
+    try {
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      print('ProductService: Direct method response: ${response.statusCode}');
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('ProductService: Product successfully deleted with direct method');
+        _cleanupLocalCache(productId);
+        return true;
+      } else {
+        throw Exception('Direct deletion failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('ProductService: Error in direct deletion: $e');
+      throw e;
+    }
   }
 } 

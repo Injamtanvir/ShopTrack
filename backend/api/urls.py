@@ -24,6 +24,7 @@ urlpatterns = [
 
     # Product management endpoints
     path('products/', views.ProductView.as_view(), name='products'),
+    path('products/<str:product_id>/', views.ProductDetailView.as_view(), name='product-detail'),
     path('update-product-price/', views.UpdateProductPriceView.as_view(), name='update-product-price'),
     path('price-list/', views.ProductPriceListView.as_view(), name='price-list'),
     path('delete-product/<str:product_id>/', views.DeleteProductView.as_view(), name='delete-product'),
