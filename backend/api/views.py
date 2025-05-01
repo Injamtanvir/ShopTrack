@@ -1013,3 +1013,605 @@ class VerifyTokenView(APIView):
                 "valid": False,
                 "error": f"Unknown error: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UpdateProductPriceView(APIView):
+    def post(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            # Check if user is manager or owner
+            if payload['role'] not in ['manager', 'owner']:
+                return Response(
+                    {"error": "Only managers and owners can update product prices"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+            user_id = payload.get('user_id', 'unknown')
+            
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Validate request data
+            product_id = request.data.get('product_id')
+            if not product_id:
+                return Response(
+                    {"error": "Product ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            try:
+                selling_price = float(request.data.get('selling_price', 0))
+                if selling_price <= 0:
+                    return Response(
+                        {"error": "Selling price must be greater than zero"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except (ValueError, TypeError):
+                return Response(
+                    {"error": "Invalid selling price format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Find the product
+            try:
+                product_object_id = ObjectId(product_id)
+                product = products_collection.find_one({"_id": product_object_id})
+            except InvalidId:
+                return Response(
+                    {"error": "Invalid product ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            if not product:
+                return Response(
+                    {"error": "Product not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Check if product belongs to the user's shop
+            if product.get('shop_id') != shop_id:
+                return Response(
+                    {"error": "Product belongs to a different shop"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            # Get current price for the price history
+            old_price = product.get('selling_price', 0)
+            
+            # Update the product price
+            products_collection.update_one(
+                {"_id": product_object_id},
+                {
+                    "$set": {
+                        "selling_price": selling_price,
+                        "updated_at": datetime.now()
+                    }
+                }
+            )
+            
+            # Record the price change in price history
+            price_history_entry = {
+                "product_id": str(product_object_id),
+                "old_price": old_price,
+                "new_price": selling_price,
+                "changed_by": user_email,
+                "changed_by_id": user_id,
+                "change_date": datetime.now(),
+                "shop_id": shop_id
+            }
+            
+            price_history_collection.insert_one(price_history_entry)
+            
+            return Response({
+                "message": "Product price updated successfully",
+                "product_id": str(product_object_id),
+                "old_price": old_price,
+                "new_price": selling_price
+            })
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class UserInfoView(APIView):
+    def get(self, request, user_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            requester_shop_id = payload['shop_id']
+            requester_role = payload.get('role', '')
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Find the user
+            try:
+                user_object_id = ObjectId(user_id)
+                user = users_collection.find_one({"_id": user_object_id})
+            except InvalidId:
+                return Response(
+                    {"error": "Invalid user ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check if user exists
+            if not user:
+                return Response(
+                    {"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Owners and managers can view any user in their shop
+            # Regular users can only view their own information
+            if requester_role not in ['owner', 'manager']:
+                if str(user.get('_id')) != payload.get('user_id'):
+                    return Response(
+                        {"error": "You can only view your own information"},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+            # Check if the user belongs to the same shop (for managers/owners)
+            if requester_role in ['owner', 'manager'] and user.get('shop_id') != requester_shop_id:
+                return Response(
+                    {"error": "User belongs to a different shop"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Convert ObjectId to string
+            user['_id'] = str(user['_id'])
+            
+            # Remove password for security
+            if 'password' in user:
+                del user['password']
+
+            # Convert date objects to ISO format strings
+            if 'date_of_birth' in user and user['date_of_birth']:
+                if isinstance(user['date_of_birth'], (datetime, date)):
+                    user['date_of_birth'] = user['date_of_birth'].isoformat()
+                    
+            if 'created_at' in user and user['created_at']:
+                if isinstance(user['created_at'], datetime):
+                    user['created_at'] = user['created_at'].isoformat()
+                    
+            if 'updated_at' in user and user['updated_at']:
+                if isinstance(user['updated_at'], datetime):
+                    user['updated_at'] = user['updated_at'].isoformat()
+
+            return Response(user)
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def post(self, request, user_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            requester_shop_id = payload['shop_id']
+            requester_id = payload.get('user_id', '')
+            requester_role = payload.get('role', '')
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Find the user to update
+            try:
+                user_object_id = ObjectId(user_id)
+                user = users_collection.find_one({"_id": user_object_id})
+            except InvalidId:
+                return Response(
+                    {"error": "Invalid user ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check if user exists
+            if not user:
+                return Response(
+                    {"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Owners and managers can update any user in their shop
+            # Regular users can only update their own information
+            if requester_role not in ['owner', 'manager']:
+                if str(user.get('_id')) != requester_id:
+                    return Response(
+                        {"error": "You can only update your own information"},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+            # Check if the user belongs to the same shop (for managers/owners)
+            if requester_role in ['owner', 'manager'] and user.get('shop_id') != requester_shop_id:
+                return Response(
+                    {"error": "User belongs to a different shop"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Managers cannot change owner role
+            if requester_role == 'manager' and user.get('role') == 'owner':
+                return Response(
+                    {"error": "Managers cannot update owner information"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Get update data
+            update_data = request.data
+            
+            # Don't allow changing email or shop_id
+            if 'email' in update_data:
+                del update_data['email']
+                
+            if 'shop_id' in update_data:
+                del update_data['shop_id']
+
+            # Only owners can change roles
+            if 'role' in update_data and requester_role != 'owner':
+                del update_data['role']
+
+            # Hash password if provided
+            if 'password' in update_data and update_data['password']:
+                update_data['password'] = hash_password(update_data['password'])
+            
+            # Handle image upload (from file or base64)
+            if 'image' in request.FILES:
+                update_data['image_url'] = save_image(request.FILES['image'])
+            elif 'image_base64' in request.data and request.data['image_base64']:
+                update_data['image_url'] = save_base64_image(request.data['image_base64'])
+
+            # Format date of birth if provided
+            if 'date_of_birth' in update_data:
+                date_of_birth = update_data['date_of_birth']
+                if isinstance(date_of_birth, str):
+                    try:
+                        update_data['date_of_birth'] = datetime.fromisoformat(date_of_birth.replace('Z', '+00:00'))
+                    except ValueError:
+                        try:
+                            update_data['date_of_birth'] = datetime.strptime(date_of_birth, '%Y-%m-%d')
+                        except ValueError:
+                            del update_data['date_of_birth']
+
+            # Set updated_at timestamp
+            update_data['updated_at'] = datetime.now()
+
+            # Update the user
+            users_collection.update_one(
+                {"_id": user_object_id},
+                {"$set": update_data}
+            )
+
+            # Get the updated user
+            updated_user = users_collection.find_one({"_id": user_object_id})
+            
+            # Convert ObjectId to string
+            updated_user['_id'] = str(updated_user['_id'])
+            
+            # Remove password for security
+            if 'password' in updated_user:
+                del updated_user['password']
+
+            # Convert date objects to ISO format strings
+            if 'date_of_birth' in updated_user and updated_user['date_of_birth']:
+                if isinstance(updated_user['date_of_birth'], (datetime, date)):
+                    updated_user['date_of_birth'] = updated_user['date_of_birth'].isoformat()
+                    
+            if 'created_at' in updated_user and updated_user['created_at']:
+                if isinstance(updated_user['created_at'], datetime):
+                    updated_user['created_at'] = updated_user['created_at'].isoformat()
+                    
+            if 'updated_at' in updated_user and updated_user['updated_at']:
+                if isinstance(updated_user['updated_at'], datetime):
+                    updated_user['updated_at'] = updated_user['updated_at'].isoformat()
+
+            return Response(updated_user)
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ShopInfoView(APIView):
+    def get(self, request, shop_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            user_shop_id = payload['shop_id']
+            
+            # Users can only view their own shop info
+            if shop_id != user_shop_id:
+                return Response(
+                    {"error": "You can only view your own shop information"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Find the shop
+            shop = shops_collection.find_one({"_id": shop_id})
+            
+            if not shop:
+                return Response(
+                    {"error": "Shop not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Convert ObjectId to string if needed
+            if '_id' in shop and not isinstance(shop['_id'], str):
+                shop['_id'] = str(shop['_id'])
+                
+            # Format timestamps
+            if 'created_at' in shop and shop['created_at']:
+                if isinstance(shop['created_at'], datetime):
+                    shop['created_at'] = shop['created_at'].isoformat()
+                    
+            if 'updated_at' in shop and shop['updated_at']:
+                if isinstance(shop['updated_at'], datetime):
+                    shop['updated_at'] = shop['updated_at'].isoformat()
+            
+            return Response(shop)
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    def post(self, request, shop_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            user_shop_id = payload['shop_id']
+            role = payload.get('role', '')
+            
+            # Only owners can update shop info
+            if role != 'owner':
+                return Response(
+                    {"error": "Only shop owners can update shop information"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            # Users can only update their own shop
+            if shop_id != user_shop_id:
+                return Response(
+                    {"error": "You can only update your own shop information"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Find the shop
+            shop = shops_collection.find_one({"_id": shop_id})
+            
+            if not shop:
+                return Response(
+                    {"error": "Shop not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Get update data
+            update_data = request.data.copy()
+            
+            # Don't allow changing shop_id
+            if '_id' in update_data:
+                del update_data['_id']
+                
+            # Handle image upload (from file or base64)
+            if 'image' in request.FILES:
+                update_data['image_url'] = save_image(request.FILES['image'])
+            elif 'image_base64' in request.data and request.data['image_base64']:
+                update_data['image_url'] = save_base64_image(request.data['image_base64'])
+                
+            # Set updated_at timestamp
+            update_data['updated_at'] = datetime.now()
+            
+            # Update the shop
+            shops_collection.update_one(
+                {"_id": shop_id},
+                {"$set": update_data}
+            )
+            
+            # Get the updated shop
+            updated_shop = shops_collection.find_one({"_id": shop_id})
+            
+            # Format timestamps
+            if 'created_at' in updated_shop and updated_shop['created_at']:
+                if isinstance(updated_shop['created_at'], datetime):
+                    updated_shop['created_at'] = updated_shop['created_at'].isoformat()
+                    
+            if 'updated_at' in updated_shop and updated_shop['updated_at']:
+                if isinstance(updated_shop['updated_at'], datetime):
+                    updated_shop['updated_at'] = updated_shop['updated_at'].isoformat()
+            
+            return Response(updated_shop)
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ImageUploadView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            # All authenticated users can upload images
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            if 'image' in request.FILES:
+                # Save image from file upload
+                image_url = save_image(request.FILES['image'])
+                return Response({"image_url": image_url})
+            elif 'image_base64' in request.data and request.data['image_base64']:
+                # Save image from base64 string
+                image_url = save_base64_image(request.data['image_base64'])
+                return Response({"image_url": image_url})
+            else:
+                return Response(
+                    {"error": "No image provided in 'image' file or 'image_base64' field"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ProductView(APIView):
+    def get(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            # All authenticated users can view products
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Find all products for this shop
+            products_list = list(products_collection.find({"shop_id": shop_id}))
+
+            # Process each product for output
+            for product in products_list:
+                # Convert ObjectId to string
+                product['_id'] = str(product['_id'])
+                
+                # Format timestamps if present
+                for field in ['created_at', 'updated_at']:
+                    if field in product and product[field] and isinstance(product[field], datetime):
+                        product[field] = product[field].isoformat()
+
+            return Response(products_list)
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def post(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            user_email = payload['email']
+            # All authenticated users can add products
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Get product data from request
+            product_data = request.data.copy()
+            
+            # Add shop_id and created_by to product data
+            product_data['shop_id'] = shop_id
+            product_data['created_by'] = user_email
+            product_data['created_at'] = datetime.now()
+            product_data['updated_at'] = datetime.now()
+            
+            # Handle image upload if provided
+            if 'image' in request.FILES:
+                product_data['image_url'] = save_image(request.FILES['image'])
+            elif 'image_base64' in request.data and request.data['image_base64']:
+                product_data['image_url'] = save_base64_image(request.data['image_base64'])
+            
+            # Ensure quantity and prices are numeric
+            if 'quantity' in product_data:
+                try:
+                    product_data['quantity'] = int(product_data['quantity'])
+                except (ValueError, TypeError):
+                    product_data['quantity'] = 0
+            else:
+                product_data['quantity'] = 0
+                
+            if 'quantity_on_hold' not in product_data:
+                product_data['quantity_on_hold'] = 0
+            
+            # Set prices as floats
+            for price_field in ['buying_price', 'selling_price', 'cost_price']:
+                if price_field in product_data:
+                    try:
+                        product_data[price_field] = float(product_data[price_field])
+                    except (ValueError, TypeError):
+                        product_data[price_field] = 0.0
+            
+            # Create the product
+            result = products_collection.insert_one(product_data)
+            
+            # Create batch if buying_price and cost_price are provided
+            if 'buying_price' in product_data and 'cost_price' in product_data:
+                batch_data = {
+                    'product_id': str(result.inserted_id),
+                    'shop_id': shop_id,
+                    'quantity': product_data['quantity'],
+                    'remaining_quantity': product_data['quantity'],
+                    'buying_price': product_data['buying_price'],
+                    'cost_price': product_data['cost_price'],
+                    'batch_date': datetime.now(),
+                    'created_by': user_email,
+                    'created_at': datetime.now(),
+                    'updated_at': datetime.now()
+                }
+                batches_collection.insert_one(batch_data)
+            
+            return Response({
+                "message": "Product added successfully",
+                "product_id": str(result.inserted_id)
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
