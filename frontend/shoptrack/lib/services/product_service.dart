@@ -51,7 +51,8 @@ class ProductService {
       );
 
       // Check if response contains HTML (indicating a server issue)
-      if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
+      if ((response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) && 
+          !(response.statusCode >= 200 && response.statusCode < 300)) {
         print('Server returned HTML instead of JSON when adding product');
         
         // Generate a temporary product ID

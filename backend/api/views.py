@@ -449,7 +449,7 @@ class DeleteProductView(APIView):
             role = payload.get('role', '')
 
             # Allow both managers and owners to delete products
-            if role != 'manager' or role != 'owner':
+            if role not in ['manager', 'owner']:
                 return Response(
                     {"error": "Only managers or owners can delete products"},
                     status=status.HTTP_403_FORBIDDEN
