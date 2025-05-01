@@ -804,28 +804,92 @@ class ProductService {
     print('ProductService: Using URL: $deleteUrl');
 
     try {
+      // First attempt with standard URL
       final response = await http.delete(
         Uri.parse(deleteUrl),
         headers: {'Authorization': 'Bearer $token'},
       );
 
       print('ProductService: Delete response status: ${response.statusCode}');
-      print('ProductService: Response body: ${response.body}');
+      print('ProductService: Response body preview: ${response.body.length > 200 ? response.body.substring(0, 200) + "..." : response.body}');
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
+      // Check for successful status code
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         print('ProductService: Product successfully deleted');
-        return true;
-      } else {
-        // Try to parse error message
+        
+        // Update local cache if needed
         try {
-          final errorData = jsonDecode(response.body);
-          throw Exception(errorData['error'] ?? 'Failed to delete product: ${response.statusCode}');
-        } catch (parseError) {
-          throw Exception('Failed to delete product: ${response.statusCode}. Response: ${response.body}');
+          // Remove product from any local cache
+          final cachedProductsJson = await _storage.read(key: 'cached_products') ?? '[]';
+          final List<dynamic> cachedProducts = jsonDecode(cachedProductsJson);
+          
+          final updatedProducts = cachedProducts.where((product) => 
+              product['_id'] != productId && product['id'] != productId).toList();
+          
+          if (cachedProducts.length != updatedProducts.length) {
+            print('ProductService: Updated local product cache after deletion');
+            await _storage.write(key: 'cached_products', value: jsonEncode(updatedProducts));
+          }
+        } catch (e) {
+          print('ProductService: Error updating local cache: $e');
+          // Continue with deletion - this is just a cache cleanup
         }
+        
+        return true;
+      } 
+      
+      // If the response contains HTML (which indicates a server error), try alternate URLs
+      if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
+        print('ProductService: Received HTML response instead of JSON. Trying alternate URLs...');
+        
+        // Try with different URL formats
+        final alternateUrls = [
+          '${ApiConstants.deleteProduct}/${productId}',
+          '${ApiConstants.products}/$productId',
+          '${ApiConstants.products}/${productId}',
+          '${ApiConstants.baseUrl}/api/products/$productId',
+          '${ApiConstants.baseUrl}/api/products/${productId}',
+        ];
+        
+        for (final altUrl in alternateUrls) {
+          print('ProductService: Trying alternate URL: $altUrl');
+          
+          try {
+            final altResponse = await http.delete(
+              Uri.parse(altUrl),
+              headers: {'Authorization': 'Bearer $token'},
+            );
+            
+            print('ProductService: Alternate URL response status: ${altResponse.statusCode}');
+            
+            if (altResponse.statusCode >= 200 && altResponse.statusCode < 300) {
+              print('ProductService: Product successfully deleted using alternate URL');
+              return true;
+            }
+          } catch (e) {
+            print('ProductService: Error with alternate URL $altUrl: $e');
+            // Continue to the next URL
+          }
+        }
+        
+        // If we've tried all alternate URLs and none worked
+        throw Exception('Failed to delete product. Server is returning HTML instead of JSON responses.');
+      }
+      
+      // Try to parse error from JSON response
+      try {
+        final errorData = jsonDecode(response.body);
+        final errorMessage = errorData['error'] ?? 'Unknown error deleting product';
+        print('ProductService: Server error: $errorMessage');
+        throw Exception(errorMessage);
+      } catch (parseError) {
+        // If we can't parse the error, use the raw response
+        print('ProductService: Error parsing error response: $parseError');
+        throw Exception('Failed to delete product: ${response.statusCode}. Response: ${response.body}');
       }
     } catch (e) {
       print('ProductService: Error deleting product: $e');
+      // Rethrow so caller can handle
       rethrow;
     }
   }

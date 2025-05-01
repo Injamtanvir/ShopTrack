@@ -402,61 +402,175 @@ class _ProductListScreenState extends State<ProductListScreen> {
       return;
     }
     
+    // Controller for the confirmation text field
+    final TextEditingController confirmController = TextEditingController();
+    // Track if the confirmation text is valid
+    bool isConfirmationValid = false;
+    
     return showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete ${product.name}?'),
-        content: const Text(
-          'This will permanently delete this product and all its batch history. '
-          'This action cannot be undone.'
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Delete ${product.name}?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'WARNING: This will permanently delete this product and ALL its related data:\n'
+                '• All batch history will be deleted\n'
+                '• All sales records associated with this product\n'
+                '• All price history data\n\n'
+                'This action CANNOT be undone.',
+                style: TextStyle(color: Colors.red),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'To confirm deletion, type "Delete" in the field below:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: confirmController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Type "Delete" to confirm',
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    isConfirmationValid = value == 'Delete';
+                  });
+                },
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: isConfirmationValid 
+                ? () async {
+                    Navigator.pop(dialogContext);
+                    await _deleteProduct(product);
+                  }
+                : null,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: isConfirmationValid ? Colors.red : Colors.grey,
+                disabledForegroundColor: Colors.grey.shade300,
+              ),
+              child: const Text('Delete Product'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _deleteProduct(product);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
       ),
     );
   }
   
   // Delete product from backend
   Future<void> _deleteProduct(Product product) async {
+    // Show loading indicator
     setState(() {
       _isLoading = true;
     });
     
+    // Show an ongoing snackbar that can be dismissed
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text('Deleting ${product.name}...'),
+          ],
+        ),
+        duration: const Duration(seconds: 30), // Long duration
+        action: SnackBarAction(
+          label: 'Dismiss',
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+    
     try {
-      await _apiService.deleteProduct(product.id);
+      // Attempt to delete the product
+      final success = await _productService.deleteProduct(product.id);
       
+      // Hide the loading indicator
       setState(() {
-        _products.removeWhere((p) => p.id == product.id);
         _isLoading = false;
+        if (success) {
+          // Remove the product from the local list if successful
+          _products.removeWhere((p) => p.id == product.id);
+        }
       });
       
+      // Hide any existing snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${product.name} has been deleted')),
-        );
+        if (success) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${product.name} has been deleted'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        } else {
+          // This branch shouldn't be reached since deleteProduct throws on failure,
+          // but just in case the function behavior changes
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Failed to delete product for unknown reason'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
     } catch (e) {
+      // Hide the loading indicator
       setState(() {
         _isLoading = false;
       });
       
+      // Hide any existing snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      
       if (mounted) {
+        // Format the error message - remove Exception: prefix if present
+        String errorMsg = e.toString();
+        if (errorMsg.startsWith('Exception: ')) {
+          errorMsg = errorMsg.substring('Exception: '.length);
+        }
+        
+        // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error deleting product: ${e.toString()}'),
+            content: Text('Error deleting product: $errorMsg'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () {
+                _deleteProduct(product);
+              },
+            ),
           ),
         );
       }
