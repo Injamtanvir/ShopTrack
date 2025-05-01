@@ -906,6 +906,87 @@ class ShopUsersView(APIView):
             )
 
 
+class DeleteUserView(APIView):
+    def delete(self, request, user_id):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            requester_email = payload['email']
+            role = payload.get('role', '')
+
+            # Only managers and owners can delete users
+            if role not in ['manager', 'owner']:
+                return Response(
+                    {"error": "Only managers and owners can delete users"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Find the user to delete
+            try:
+                user_object_id = ObjectId(user_id)
+                user = users_collection.find_one({"_id": user_object_id})
+            except InvalidId:
+                return Response(
+                    {"error": "Invalid user ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check if user exists
+            if not user:
+                return Response(
+                    {"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Check if the user belongs to the same shop as the requester
+            if user.get('shop_id') != shop_id:
+                return Response(
+                    {"error": "You can only delete users from your own shop"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Owners can delete anyone, but managers can't delete owners or other managers
+            if role == 'manager' and user.get('role') in ['owner', 'manager']:
+                return Response(
+                    {"error": "Managers cannot delete owners or other managers"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Store user info for the response
+            user_name = user.get('name', 'Unknown')
+            user_email = user.get('email', 'Unknown')
+            user_role = user.get('role', 'Unknown')
+
+            # Delete the user
+            result = users_collection.delete_one({"_id": user_object_id})
+
+            if result.deleted_count == 0:
+                return Response(
+                    {"error": "Failed to delete user"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            return Response({
+                "message": f"User {user_name} ({user_email}) with role {user_role} has been deleted",
+                "deleted_by": requester_email
+            })
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class VerifyTokenView(APIView):
     def get(self, request):
         # Verify JWT token from headers
