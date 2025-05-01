@@ -209,11 +209,14 @@ class ApiService {
     }
     
     print('Attempting to delete product with ID: $productId');
-    print('Using URL: ${ApiConstants.deleteProduct}$productId');
+    
+    // Use the function properly instead of concatenation
+    final deleteUrl = ApiConstants.deleteProduct(productId);
+    print('Using URL: $deleteUrl');
     
     try {
       final response = await http.delete(
-        Uri.parse(ApiConstants.deleteProduct + productId),
+        Uri.parse(deleteUrl),
         headers: {
           'Authorization': 'Bearer $token',
         },

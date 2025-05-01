@@ -59,7 +59,7 @@ class ProductService {
         final tempProductId = 'offline_product_${DateTime.now().millisecondsSinceEpoch}';
         
         // Save product for offline sync later
-        await _saveOfflineProduct(productData, tempId);
+        await _saveOfflineProduct(productData, tempProductId);
         
         // Create initial batch for offline product
         try {
@@ -806,7 +806,7 @@ class ProductService {
     print('ProductService: Using cleaned ID: $cleanedId');
     
     try {
-      // Using the correct URL format from ApiConstants
+      // Using the correct URL format from ApiConstants (with trailing slash)
       final deleteUrl = ApiConstants.deleteProduct(cleanedId);
       print('ProductService: Using URL: $deleteUrl');
       
@@ -826,29 +826,45 @@ class ProductService {
         _cleanupLocalCache(productId);
         return true;
       } else if (response.statusCode == 404) {
-        // Try a secondary strategy - using the products endpoint
-        print('ProductService: Product not found at primary endpoint, trying secondary strategy');
+        // Try multiple different URL patterns to increase chances of success
+        print('ProductService: Primary endpoint returned 404, trying alternative URL patterns');
         
-        final productsUrl = '${ApiConstants.products}${cleanedId}';
-        print('ProductService: Using secondary URL: $productsUrl');
+        // List of URL patterns to try
+        final urlPatterns = [
+          '${ApiConstants.baseUrl}/products/$cleanedId/', // Try products endpoint with trailing slash
+          '${ApiConstants.baseUrl}/products/$cleanedId',  // Try products endpoint without trailing slash
+          '${ApiConstants.baseUrl}/delete-product/$cleanedId/', // Try delete-product with trailing slash
+          '${ApiConstants.baseUrl}/delete-product/$cleanedId',  // Try delete-product without trailing slash
+          '${ApiConstants.baseUrl}/api/products/$cleanedId/',   // Try with extra /api/ prefix
+          '${ApiConstants.baseUrl}/api/delete-product/$cleanedId/'  // Try with extra /api/ prefix
+        ];
         
-        final secondResponse = await http.delete(
-          Uri.parse(productsUrl),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        );
-        
-        print('ProductService: Secondary response status: ${secondResponse.statusCode}');
-        
-        if (secondResponse.statusCode >= 200 && secondResponse.statusCode < 300) {
-          print('ProductService: Product successfully deleted using secondary URL');
-          _cleanupLocalCache(productId);
-          return true;
+        for (final url in urlPatterns) {
+          try {
+            print('ProductService: Trying alternative URL: $url');
+            
+            final altResponse = await http.delete(
+              Uri.parse(url),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+            );
+            
+            print('ProductService: Alternative URL response status: ${altResponse.statusCode}');
+            
+            if (altResponse.statusCode >= 200 && altResponse.statusCode < 300) {
+              print('ProductService: Product successfully deleted using alternative URL: $url');
+              _cleanupLocalCache(productId);
+              return true;
+            }
+          } catch (e) {
+            print('ProductService: Error with alternative URL $url: $e');
+            // Continue trying other URLs
+          }
         }
         
-        // If secondary strategy fails, throw exception with more details
+        // If we get here, all alternative URLs failed
         throw Exception('Product not found - it may have been already deleted or never existed');
       } else {
         // If the response contains HTML (which indicates a server error)
@@ -957,31 +973,47 @@ class ProductService {
     // Clean the ID
     String cleanedId = productId.trim().replaceAll('"', '').replaceAll("'", '');
     
-    // Try the RESTful pattern with products endpoint
-    final url = '${ApiConstants.baseUrl}/products/$cleanedId';
-    print('ProductService: Using direct REST URL: $url');
+    // List of URLs to try in order
+    final urlsToTry = [
+      '${ApiConstants.baseUrl}/products/$cleanedId/',  // With trailing slash
+      '${ApiConstants.baseUrl}/products/$cleanedId',   // Without trailing slash
+      'https://shoptrack-w8wu.onrender.com/api/products/$cleanedId/', // Full URL with trailing slash
+      'https://shoptrack-w8wu.onrender.com/api/products/$cleanedId',  // Full URL without trailing slash
+      'https://shoptrack-w8wu.onrender.com/api/delete-product/$cleanedId/', // Alternative endpoint
+      'https://shoptrack-w8wu.onrender.com/api/delete-product/$cleanedId'   // Alternative without slash
+    ];
     
-    try {
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-      
-      print('ProductService: Direct method response: ${response.statusCode}');
-      
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        print('ProductService: Product successfully deleted with direct method');
-        _cleanupLocalCache(productId);
-        return true;
-      } else {
-        throw Exception('Direct deletion failed: ${response.statusCode}');
+    List<String> errors = [];
+    
+    // Try each URL
+    for (final url in urlsToTry) {
+      try {
+        print('ProductService: Trying direct REST URL: $url');
+        
+        final response = await http.delete(
+          Uri.parse(url),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        );
+        
+        print('ProductService: Direct method response for $url: ${response.statusCode}');
+        
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          print('ProductService: Product successfully deleted with direct method using URL: $url');
+          _cleanupLocalCache(productId);
+          return true;
+        } else {
+          errors.add('URL $url failed with status ${response.statusCode}');
+        }
+      } catch (e) {
+        print('ProductService: Error in direct deletion using $url: $e');
+        errors.add('URL $url error: $e');
       }
-    } catch (e) {
-      print('ProductService: Error in direct deletion: $e');
-      throw e;
     }
+    
+    // If we get here, all URLs failed
+    throw Exception('Direct deletion failed: ${errors.join(', ')}');
   }
 } 

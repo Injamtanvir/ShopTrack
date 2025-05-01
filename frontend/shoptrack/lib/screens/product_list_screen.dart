@@ -556,11 +556,15 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
         );
         
-        // Refresh the product list
+        // Refresh the product list and remove from local list
+        setState(() {
+          _products.removeWhere((p) => p.id == product.id);
+        });
         _loadProducts();
       } else {
-        // If all methods failed, throw a combined error
-        throw Exception('All deletion approaches failed: ${errors.join(', ')}');
+        // Show a dialog with a force delete option
+        snackBar.close();
+        await _showForceDeleteDialog(product);
       }
     } catch (e) {
       // Close the progress snackbar
@@ -597,5 +601,53 @@ class _ProductListScreenState extends State<ProductListScreen> {
         });
       }
     }
+  }
+  
+  // Show a dialog with force delete option
+  Future<void> _showForceDeleteDialog(Product product) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Failed'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Failed to delete ${product.name} on the server.'),
+                const SizedBox(height: 8),
+                const Text('Would you like to remove it from the local display only? Note that this does not delete the product from the server.'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Remove Locally'),
+              onPressed: () {
+                // Remove product from local list only
+                setState(() {
+                  _products.removeWhere((p) => p.id == product.id);
+                });
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${product.name} removed from local display'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }
