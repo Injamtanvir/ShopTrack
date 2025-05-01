@@ -805,11 +805,14 @@ class ProductService {
     String cleanedId = productId.trim().replaceAll('"', '').replaceAll("'", '');
     print('ProductService: Using cleaned ID: $cleanedId');
     
-    final deleteUrl = ApiConstants.deleteProduct + cleanedId;
-    print('ProductService: Using URL: $deleteUrl');
-
+    // Try multiple deletion strategies
+    List<String> errors = [];
+    
+    // Strategy 1: Use direct DELETE endpoint
     try {
-      // First attempt with standard URL
+      final deleteUrl = '${ApiConstants.deleteProduct}$cleanedId';
+      print('ProductService: Strategy 1 - Using URL: $deleteUrl');
+      
       final response = await http.delete(
         Uri.parse(deleteUrl),
         headers: {
@@ -817,95 +820,123 @@ class ProductService {
           'Content-Type': 'application/json',
         },
       );
-
-      print('ProductService: Delete response status: ${response.statusCode}');
-      print('ProductService: Response body preview: ${response.body.length > 200 ? response.body.substring(0, 200) + "..." : response.body}');
-
-      // Check for successful status code
+      
+      print('ProductService: Strategy 1 response status: ${response.statusCode}');
+      
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        print('ProductService: Product successfully deleted');
-        
-        // Update local cache if needed
-        try {
-          // Remove product from any local cache
-          final cachedProductsJson = await _storage.read(key: 'cached_products') ?? '[]';
-          final List<dynamic> cachedProducts = jsonDecode(cachedProductsJson);
-          
-          final updatedProducts = cachedProducts.where((product) => 
-              product['_id'] != productId && product['id'] != productId).toList();
-          
-          if (cachedProducts.length != updatedProducts.length) {
-            print('ProductService: Updated local product cache after deletion');
-            await _storage.write(key: 'cached_products', value: jsonEncode(updatedProducts));
-          }
-        } catch (e) {
-          print('ProductService: Error updating local cache: $e');
-          // Continue with deletion - this is just a cache cleanup
-        }
-        
+        print('ProductService: Product successfully deleted using Strategy 1');
+        _cleanupLocalCache(productId);
         return true;
-      } 
-      
-      // If the response contains HTML (which indicates a server error), try alternate URLs
-      if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
-        print('ProductService: Received HTML response instead of JSON. Trying alternate URLs...');
-        
-        // Try with different URL formats and variations of the ID
-        final alternateUrls = [
-          // With slashes
-          '${ApiConstants.deleteProduct}/${cleanedId}',
-          '${ApiConstants.products}/$cleanedId',
-          '${ApiConstants.products}/${cleanedId}',
-          '${ApiConstants.baseUrl}/api/products/$cleanedId',
-          '${ApiConstants.baseUrl}/api/products/${cleanedId}',
-          // Direct delete-product endpoint without trailing slash
-          '${ApiConstants.baseUrl}/api/delete-product$cleanedId',
-          '${ApiConstants.baseUrl}/api/delete-product/$cleanedId',
-        ];
-        
-        for (final altUrl in alternateUrls) {
-          print('ProductService: Trying alternate URL: $altUrl');
-          
-          try {
-            final altResponse = await http.delete(
-              Uri.parse(altUrl),
-              headers: {
-                'Authorization': 'Bearer $token',
-                'Content-Type': 'application/json',
-              },
-            );
-            
-            print('ProductService: Alternate URL response status: ${altResponse.statusCode}');
-            
-            if (altResponse.statusCode >= 200 && altResponse.statusCode < 300) {
-              print('ProductService: Product successfully deleted using alternate URL');
-              return true;
-            }
-          } catch (e) {
-            print('ProductService: Error with alternate URL $altUrl: $e');
-            // Continue to the next URL
-          }
-        }
-        
-        // If we've tried all alternate URLs and none worked
-        throw Exception('Failed to delete product. Server is returning HTML instead of JSON responses.');
-      }
-      
-      // Try to parse error from JSON response
-      try {
-        final errorData = jsonDecode(response.body);
-        final errorMessage = errorData['error'] ?? 'Unknown error deleting product';
-        print('ProductService: Server error: $errorMessage');
-        throw Exception(errorMessage);
-      } catch (parseError) {
-        // If we can't parse the error, use the raw response
-        print('ProductService: Error parsing error response: $parseError');
-        throw Exception('Failed to delete product: ${response.statusCode}. Response: ${response.body}');
+      } else {
+        errors.add('Strategy 1 failed: ${response.statusCode}');
       }
     } catch (e) {
-      print('ProductService: Error deleting product: $e');
-      // Rethrow so caller can handle
-      rethrow;
+      print('ProductService: Strategy 1 error: $e');
+      errors.add('Strategy 1 exception: $e');
+    }
+    
+    // Strategy 2: Try with slash in URL
+    try {
+      final deleteUrl = '${ApiConstants.deleteProduct}/$cleanedId';
+      print('ProductService: Strategy 2 - Using URL: $deleteUrl');
+      
+      final response = await http.delete(
+        Uri.parse(deleteUrl),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      print('ProductService: Strategy 2 response status: ${response.statusCode}');
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('ProductService: Product successfully deleted using Strategy 2');
+        _cleanupLocalCache(productId);
+        return true;
+      } else {
+        errors.add('Strategy 2 failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('ProductService: Strategy 2 error: $e');
+      errors.add('Strategy 2 exception: $e');
+    }
+    
+    // Strategy 3: Try the products endpoint directly
+    try {
+      final deleteUrl = '${ApiConstants.products}/$cleanedId';
+      print('ProductService: Strategy 3 - Using URL: $deleteUrl');
+      
+      final response = await http.delete(
+        Uri.parse(deleteUrl),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      print('ProductService: Strategy 3 response status: ${response.statusCode}');
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('ProductService: Product successfully deleted using Strategy 3');
+        _cleanupLocalCache(productId);
+        return true;
+      } else {
+        errors.add('Strategy 3 failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('ProductService: Strategy 3 error: $e');
+      errors.add('Strategy 3 exception: $e');
+    }
+    
+    // Strategy 4: Send a raw DELETE request to the base API URL
+    try {
+      final deleteUrl = '${ApiConstants.baseUrl}/products/$cleanedId';
+      print('ProductService: Strategy 4 - Using URL: $deleteUrl');
+      
+      final response = await http.delete(
+        Uri.parse(deleteUrl),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      print('ProductService: Strategy 4 response status: ${response.statusCode}');
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('ProductService: Product successfully deleted using Strategy 4');
+        _cleanupLocalCache(productId);
+        return true;
+      } else {
+        errors.add('Strategy 4 failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('ProductService: Strategy 4 error: $e');
+      errors.add('Strategy 4 exception: $e');
+    }
+
+    // If we get here, all strategies failed
+    throw Exception('Failed to delete product after multiple attempts. Errors: ${errors.join(', ')}');
+  }
+  
+  // Helper method to clean up local cache after product deletion
+  Future<void> _cleanupLocalCache(String productId) async {
+    try {
+      // Remove product from any local cache
+      final cachedProductsJson = await _storage.read(key: 'cached_products') ?? '[]';
+      final List<dynamic> cachedProducts = jsonDecode(cachedProductsJson);
+      
+      final updatedProducts = cachedProducts.where((product) => 
+          product['_id'] != productId && product['id'] != productId).toList();
+      
+      if (cachedProducts.length != updatedProducts.length) {
+        print('ProductService: Updated local product cache after deletion');
+        await _storage.write(key: 'cached_products', value: jsonEncode(updatedProducts));
+      }
+    } catch (e) {
+      print('ProductService: Error updating local cache: $e');
+      // Continue with deletion - this is just a cache cleanup
     }
   }
 

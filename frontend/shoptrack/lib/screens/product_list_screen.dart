@@ -514,77 +514,76 @@ class _ProductListScreenState extends State<ProductListScreen> {
       ),
     );
     
-    try {
-      // Print debug info for troubleshooting
-      print('ProductListScreen: Attempting to delete product ID: ${product.id}');
-      print('ProductListScreen: Product name: ${product.name}');
-      print('ProductListScreen: User role: ${Provider.of<UserProvider>(context, listen: false).user?.role}');
-      
-      // Attempt to delete the product
-      final success = await _productService.deleteProduct(product.id);
-      print('ProductListScreen: Delete operation completed with success: $success');
-      
-      // Hide the loading indicator
-      setState(() {
-        _isLoading = false;
+    int retryCount = 0;
+    const maxRetries = 3;
+    bool success = false;
+    String lastError = '';
+    
+    while (retryCount < maxRetries && !success) {
+      try {
+        // Print debug info for troubleshooting
+        print('ProductListScreen: Attempt ${retryCount + 1} - Deleting product ID: ${product.id}');
+        print('ProductListScreen: Product name: ${product.name}');
+        print('ProductListScreen: User role: ${Provider.of<UserProvider>(context, listen: false).user?.role}');
+        
+        // Attempt to delete the product
+        success = await _productService.deleteProduct(product.id);
+        print('ProductListScreen: Delete operation completed with success: $success');
+        
         if (success) {
-          // Remove the product from the local list if successful
-          _products.removeWhere((p) => p.id == product.id);
+          break; // Exit the retry loop if successful
         }
-      });
-      
-      // Hide any existing snackbar
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      
-      if (mounted) {
-        if (success) {
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${product.name} has been deleted'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          
-          // Reload the product list to ensure UI is in sync with backend
-          _loadProducts();
-        } else {
-          // This branch shouldn't be reached since deleteProduct throws on failure,
-          // but just in case the function behavior changes
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Failed to delete product for unknown reason'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
-          );
+      } catch (e) {
+        lastError = e.toString();
+        print('ProductListScreen: Error deleting product (attempt ${retryCount + 1}): $lastError');
+        
+        // Wait a moment before retrying
+        if (retryCount < maxRetries - 1) {
+          await Future.delayed(Duration(seconds: 1 + retryCount));
         }
       }
-    } catch (e) {
-      // Hide the loading indicator
-      setState(() {
-        _isLoading = false;
-      });
       
-      // Hide any existing snackbar
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      
-      print('ProductListScreen: Error deleting product: $e');
-      
-      if (mounted) {
+      retryCount++;
+    }
+    
+    // Hide the loading indicator
+    setState(() {
+      _isLoading = false;
+      if (success) {
+        // Remove the product from the local list if successful
+        _products.removeWhere((p) => p.id == product.id);
+      }
+    });
+    
+    // Hide any existing snackbar
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    
+    if (mounted) {
+      if (success) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${product.name} has been deleted'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        // Reload the product list to ensure UI is in sync with backend
+        _loadProducts();
+      } else {
         // Format the error message - remove Exception: prefix if present
-        String errorMsg = e.toString();
+        String errorMsg = lastError;
         if (errorMsg.startsWith('Exception: ')) {
           errorMsg = errorMsg.substring('Exception: '.length);
         }
         
-        // Show error message
+        // Show error message with retry button
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error deleting product: $errorMsg'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 10),
             action: SnackBarAction(
               label: 'Retry',
               textColor: Colors.white,
