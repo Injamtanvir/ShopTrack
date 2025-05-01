@@ -346,6 +346,97 @@ class SalesPersonRegistrationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class AdminRegistrationView(APIView):
+    def post(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            # Only owner can register admins/managers
+            if payload['role'] != 'owner':
+                return Response(
+                    {"error": "Only owners can register managers"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Get shop_id from token
+            shop_id = payload['shop_id']
+            owner_email = payload['email']
+        except jwt.ExpiredSignatureError:
+            return Response(
+                {"error": "Token expired"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        except jwt.InvalidTokenError:
+            return Response(
+                {"error": "Invalid token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Validate request data
+        serializer = SalesPersonRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+
+            # Check if email already exists
+            if users_collection.find_one({"email": data['email']}):
+                return Response(
+                    {"error": "Email already registered"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Handle image upload (from file or base64)
+            image_url = None
+            if 'image' in request.FILES:
+                image_url = save_image(request.FILES['image'])
+            elif 'image_base64' in request.data and request.data['image_base64']:
+                image_url = save_base64_image(request.data['image_base64'])
+
+            # Format date of birth
+            date_of_birth = data['date_of_birth']
+            if isinstance(date_of_birth, str):
+                try:
+                    date_of_birth = datetime.fromisoformat(date_of_birth.replace('Z', '+00:00'))
+                except ValueError:
+                    # Try more format options
+                    try:
+                        date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d')
+                    except ValueError:
+                        pass
+            # Convert date object to datetime object if needed
+            elif isinstance(date_of_birth, date) and not isinstance(date_of_birth, datetime):
+                date_of_birth = datetime.combine(date_of_birth, datetime.min.time())
+
+            # Create manager/admin user
+            user_data = {
+                "shop_id": shop_id,
+                "name": data['name'],
+                "email": data['email'],
+                "password": hash_password(data['password']),
+                "role": "manager",  # Set role as manager
+                "designation": data['designation'],
+                "employee_id": data['employee_id'],
+                "image_url": image_url,
+                "id_number": data['id_number'],
+                "date_of_birth": date_of_birth,
+                "address": data['address'],
+                "phone_number": data['phone_number'],
+                "salary": data['salary'],
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+                "created_by": owner_email
+            }
+            
+            result = users_collection.insert_one(user_data)
+            
+            return Response({
+                "message": "Manager registered successfully",
+                "user_id": str(result.inserted_id)
+            }, status=status.HTTP_201_CREATED)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 # Add this class to your views.py file
 class DeleteInvoiceView(APIView):
     def delete(self, request, invoice_id):
