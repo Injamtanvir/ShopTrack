@@ -850,6 +850,62 @@ class OfflinePriceChangesSyncView(APIView):
             )
 
 
+class ShopUsersView(APIView):
+    def get(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            shop_id = payload['shop_id']
+            role = payload.get('role', '')
+            
+            # Only managers and owners can see all shop users
+            if role not in ['manager', 'owner']:
+                return Response(
+                    {"error": "Only managers and owners can view all shop users"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+        try:
+            # Find all users for this shop
+            users = list(users_collection.find({"shop_id": shop_id}))
+            
+            # Convert ObjectId to string for each user
+            for user in users:
+                user['_id'] = str(user['_id'])
+                
+                # Remove password field for security
+                if 'password' in user:
+                    del user['password']
+                    
+                # Convert date objects to ISO format strings
+                if 'date_of_birth' in user and user['date_of_birth']:
+                    if isinstance(user['date_of_birth'], (datetime, date)):
+                        user['date_of_birth'] = user['date_of_birth'].isoformat()
+                        
+                if 'created_at' in user and user['created_at']:
+                    if isinstance(user['created_at'], datetime):
+                        user['created_at'] = user['created_at'].isoformat()
+                        
+                if 'updated_at' in user and user['updated_at']:
+                    if isinstance(user['updated_at'], datetime):
+                        user['updated_at'] = user['updated_at'].isoformat()
+            
+            return Response(users)
+            
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class VerifyTokenView(APIView):
     def get(self, request):
         # Verify JWT token from headers
