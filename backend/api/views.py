@@ -850,10 +850,10 @@ class UpdateProductPriceView(APIView):
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            # Check if user is admin
-            if payload['role'] != 'manager':
+            # Check if user is manager or owner
+            if payload['role'] not in ['manager', 'owner']:
                 return Response(
-                    {"error": "Only managers can update product prices"},
+                    {"error": "Only managers and owners can update product prices"},
                     status=status.HTTP_403_FORBIDDEN
                 )
             shop_id = payload['shop_id']

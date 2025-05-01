@@ -210,7 +210,7 @@ class ApiService {
     
     try {
       final response = await http.delete(
-        Uri.parse('${ApiConstants.products}/$productId'),
+        Uri.parse(ApiConstants.deleteProduct + productId),
         headers: {
           'Authorization': 'Bearer $token',
         },
