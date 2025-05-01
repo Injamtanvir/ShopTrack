@@ -9,6 +9,7 @@ import '../providers/connectivity_provider.dart';
 import 'package:provider/provider.dart';
 import 'batch_management_screen.dart';
 import 'profit_report_screen.dart';
+import '../providers/user_provider.dart';
 
 class ProductListScreen extends StatefulWidget {
   static const routeName = '/product-list';
@@ -268,106 +269,175 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     final product = _products[i];
                     final isLowStock = product.availableQuantity < 10;
                     
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    product.name,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  'Price: \$${product.sellingPrice.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.indigo,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Total: ${product.quantity}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                Text(
-                                  'On Hold: ${product.quantityOnHold}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.orange,
-                                  ),
-                                ),
-                                Text(
-                                  'Available: ${product.availableQuantity}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isLowStock ? Colors.red : Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                // Update Price Button
-                                ElevatedButton.icon(
-                                  onPressed: () => _updatePrice(product),
-                                  icon: const Icon(Icons.price_change),
-                                  label: const Text('Update Price'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.indigo,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                                
-                                // Manage Batches Button
-                                ElevatedButton.icon(
-                                  onPressed: () => _manageBatches(product),
-                                  icon: const Icon(Icons.inventory),
-                                  label: const Text('Manage Batches'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.teal,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                                
-                                // Delete Button
-                                IconButton(
-                                  onPressed: () => _deleteProduct(product),
-                                  icon: const Icon(Icons.delete),
-                                  color: Colors.red,
-                                  tooltip: 'Delete Product',
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
+                    return _buildProductCard(context, product);
                   },
                 ),
     );
+  }
+
+  Widget _buildProductCard(BuildContext context, Product product) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  product.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Price: \$${product.sellingPrice.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total: ${product.quantity}'),
+                Text(
+                  'On Hold: ${product.quantityOnHold}',
+                  style: TextStyle(
+                    color: product.quantityOnHold > 0 ? Colors.orange : Colors.black54,
+                  ),
+                ),
+                Text(
+                  'Available: ${product.availableQuantity}',
+                  style: TextStyle(
+                    color: product.availableQuantity <= 0 ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Update Price Button
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _showUpdatePriceDialog(context, product);
+                  },
+                  icon: const Icon(Icons.monetization_on),
+                  label: const Text('Update Price'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.indigo,
+                  ),
+                ),
+                
+                // Manage Batches Button
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _navigateToBatchManagement(context, product);
+                  },
+                  icon: const Icon(Icons.inventory_2),
+                  label: const Text('Manage Batches'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.teal,
+                  ),
+                ),
+                
+                // Delete Product Button
+                IconButton(
+                  onPressed: () => _showDeleteConfirmation(context, product),
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  tooltip: 'Delete Product',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Show delete confirmation dialog
+  Future<void> _showDeleteConfirmation(BuildContext context, Product product) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final user = userProvider.user;
+    
+    // Check if user has permission (manager or owner)
+    if (user?.role != 'manager' && user?.role != 'owner') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only managers and owners can delete products')),
+      );
+      return;
+    }
+    
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${product.name}?'),
+        content: const Text(
+          'This will permanently delete this product and all its batch history. '
+          'This action cannot be undone.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteProduct(product);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Delete product from backend
+  Future<void> _deleteProduct(Product product) async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      await _apiService.deleteProduct(product.id);
+      
+      setState(() {
+        _products.removeWhere((p) => p.id == product.id);
+        _isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${product.name} has been deleted')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting product: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

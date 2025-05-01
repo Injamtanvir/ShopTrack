@@ -244,11 +244,34 @@ class ProductService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         try {
           final data = jsonDecode(response.body);
+          
+          // Update product total quantity since batch was added successfully
+          try {
+            // Get quantity from batch data
+            int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
+            if (quantity > 0) {
+              await _updateProductQuantity(batchData['product_id'], quantity);
+            }
+          } catch (e) {
+            print('Error updating product quantity: $e');
+          }
+          
           return data['batch_id'] ?? 'batch_id_unknown';
         } catch (e) {
           print('Error parsing batch creation response: $e');
           // Store batch locally for future sync
           _saveOfflineBatch(batchData);
+          
+          // Update local product quantity for offline mode
+          try {
+            int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
+            if (quantity > 0) {
+              await _updateProductQuantity(batchData['product_id'], quantity);
+            }
+          } catch (e) {
+            print('Error updating offline product quantity: $e');
+          }
+          
           return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         }
       } else {
@@ -258,11 +281,33 @@ class ProductService {
           print('Server error: ${errorData['error'] ?? response.statusCode}');
           // Store batch locally for future sync
           _saveOfflineBatch(batchData);
+          
+          // Update local product quantity for offline mode
+          try {
+            int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
+            if (quantity > 0) {
+              await _updateProductQuantity(batchData['product_id'], quantity);
+            }
+          } catch (e) {
+            print('Error updating offline product quantity: $e');
+          }
+          
           return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         } catch (e) {
           print('Failed to add batch and parse error: ${response.statusCode}');
           // Store batch locally for future sync
           _saveOfflineBatch(batchData);
+          
+          // Update local product quantity for offline mode
+          try {
+            int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
+            if (quantity > 0) {
+              await _updateProductQuantity(batchData['product_id'], quantity);
+            }
+          } catch (e) {
+            print('Error updating offline product quantity: $e');
+          }
+          
           return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         }
       }
@@ -270,7 +315,56 @@ class ProductService {
       print('Error adding batch: $e');
       // Store batch locally for future sync
       _saveOfflineBatch(batchData);
+      
+      // Update local product quantity for offline mode
+      try {
+        int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
+        if (quantity > 0) {
+          await _updateProductQuantity(batchData['product_id'], quantity);
+        }
+      } catch (e) {
+        print('Error updating offline product quantity: $e');
+      }
+      
       return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
+  
+  // Helper method to update product quantity when adding batch
+  Future<void> _updateProductQuantity(String productId, int quantityToAdd) async {
+    try {
+      final token = await _storage.read(key: 'token') ?? '';
+      if (token.isEmpty) {
+        throw Exception('Authorization token not found');
+      }
+      
+      final response = await http.get(
+        Uri.parse('${ApiConstants.products}/$productId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      
+      if (response.statusCode == 200) {
+        final productData = jsonDecode(response.body);
+        final currentQuantity = productData['quantity'] ?? 0;
+        final newQuantity = currentQuantity + quantityToAdd;
+        
+        // Update product with new quantity
+        await http.put(
+          Uri.parse('${ApiConstants.products}/$productId'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'quantity': newQuantity,
+          }),
+        );
+        
+        print('Product quantity updated from $currentQuantity to $newQuantity');
+      }
+    } catch (e) {
+      print('Failed to update product quantity: $e');
+      // Continue without failing the whole operation
     }
   }
   
@@ -719,7 +813,7 @@ class ProductService {
 
   // Generate mock batch data for a product when API returns HTML
   Future<List<Map<String, dynamic>>> getMockBatchData(String productId) async {
-    // Create initial batch with large quantity (first batch) and a follow-up batch
+    // Create an initial batch that resembles what happens when product is first created
     final today = DateTime.now();
     final shopId = await _getShopId();
     final userName = await _storage.read(key: 'user_name') ?? 'System User';
@@ -727,10 +821,12 @@ class ProductService {
     // Get product details to use real values in mock data
     String productName = 'Unknown Product';
     double costPrice = 100.0;
+    int initialQuantity = 100;
     try {
       final productData = await _getProductDetails(productId);
       productName = productData['name'] ?? 'Product $productId';
       costPrice = productData['buying_price'] ?? 100.0;
+      initialQuantity = productData['quantity'] ?? 100;
       if (costPrice is int) {
         costPrice = costPrice.toDouble();
       }
@@ -738,40 +834,32 @@ class ProductService {
       productName = 'Product $productId';
     }
     
-    // First batch: initial product creation with large quantity
-    final initialBatchDate = today.subtract(Duration(days: 30)); // 30 days ago
+    // Use create date if available, otherwise default to 30 days ago
+    DateTime creationDate = today.subtract(Duration(days: 30));
+    try {
+      final productData = await _getProductDetails(productId);
+      if (productData.containsKey('created_at')) {
+        creationDate = DateTime.parse(productData['created_at']);
+      }
+    } catch (e) {
+      // Use default date
+    }
     
-    // Second batch: additional recently added batch with smaller quantity
-    final secondBatchDate = today.subtract(Duration(days: 5)); // 5 days ago
-    
+    // Only create one batch representing the initial product creation
     return [
       {
-        '_id': 'mock_initial_batch_$productId',
+        '_id': 'initial_batch_$productId',
         'product_id': productId,
         'product_name': productName,
         'shop_id': shopId,
-        'purchase_date': DateFormat('yyyy-MM-dd').format(initialBatchDate),
-        'quantity_purchased': 2000,  // Large initial quantity
-        'remaining': 1800,  // Most remaining
+        'purchase_date': DateFormat('yyyy-MM-dd').format(creationDate),
+        'quantity_purchased': initialQuantity,
+        'remaining': initialQuantity,
         'cost_price': costPrice,
         'added_by': 'System',
-        'added_at': initialBatchDate.toIso8601String(),
-        'created_at': DateFormat('yyyy-MM-dd').format(initialBatchDate),
+        'added_at': creationDate.toIso8601String(),
+        'created_at': DateFormat('yyyy-MM-dd').format(creationDate),
         'is_initial_batch': true
-      },
-      {
-        '_id': 'mock_batch_${productId}_2',
-        'product_id': productId,
-        'product_name': productName,
-        'shop_id': shopId,
-        'purchase_date': DateFormat('yyyy-MM-dd').format(secondBatchDate),
-        'quantity_purchased': 200,  // Additional smaller batch
-        'remaining': 200,  // All remaining since we deduct from oldest first
-        'cost_price': costPrice * 1.05, // Slightly higher cost price
-        'added_by': userName,
-        'added_at': secondBatchDate.toIso8601String(),
-        'created_at': DateFormat('yyyy-MM-dd').format(secondBatchDate),
-        'is_initial_batch': false
       }
     ];
   }

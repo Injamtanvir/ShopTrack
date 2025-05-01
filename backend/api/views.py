@@ -448,10 +448,10 @@ class DeleteProductView(APIView):
             user_email = payload['email']
             role = payload.get('role', '')
 
-            # Only admins can delete products
-            if role != 'manager':
+            # Allow both managers and owners to delete products
+            if role != 'manager' and role != 'owner':
                 return Response(
-                    {"error": "Only managers can delete products"},
+                    {"error": "Only managers and owners can delete products"},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -486,6 +486,12 @@ class DeleteProductView(APIView):
                     {"error": "Failed to delete product"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+                
+            # Also delete related batches for this product
+            batches_collection.delete_many({"product_id": product_id})
+            
+            # Also delete any sales records for this product
+            sales_collection.delete_many({"product_id": product_id})
 
             return Response({
                 "message": "Product deleted successfully"

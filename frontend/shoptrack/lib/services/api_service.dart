@@ -207,30 +207,22 @@ class ApiService {
     if (token.isEmpty) {
       throw Exception('Authorization token not found');
     }
-
+    
     try {
       final response = await http.delete(
-        Uri.parse('${ApiConstants.deleteProduct}$productId/'),
+        Uri.parse('${ApiConstants.products}/$productId'),
         headers: {
           'Authorization': 'Bearer $token',
         },
       );
-
-      if (response.statusCode != 200) {
-        if (response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) {
-          throw Exception('Server returned HTML instead of JSON. Check URL configuration.');
-        }
-
-        try {
-          final errorData = jsonDecode(response.body);
-          throw Exception(errorData['error'] ?? 'Failed to delete product');
-        } catch (e) {
-          throw Exception('Error ${response.statusCode}: ${response.body}');
-        }
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return; // Successfully deleted
+      } else {
+        throw Exception('Failed to delete product: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error deleting product: $e');
-      rethrow;
+      throw Exception('Error deleting product: $e');
     }
   }
 

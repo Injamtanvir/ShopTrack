@@ -180,8 +180,8 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
             _isAddingBatch = false;
           });
           
-          // Navigate back to refresh product list view with updated quantities
-          Navigator.of(context).pop({'refreshNeeded': true});
+          // Remove navigation back - stay on this screen
+          // Navigator.of(context).pop({'refreshNeeded': true});
         } else {
           await _loadBatches();
           
@@ -189,8 +189,8 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
             const SnackBar(content: Text('Batch added successfully')),
           );
           
-          // Navigate back to refresh product list with updated quantities
-          Navigator.of(context).pop({'refreshNeeded': true});
+          // Remove navigation back - stay on this screen
+          // Navigator.of(context).pop({'refreshNeeded': true});
         }
       } catch (e) {
         print('Error adding batch: $e');
@@ -235,8 +235,8 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
                     ),
                   );
                   
-                  // Navigate back to refresh product list with updated quantities
-                  Navigator.of(context).pop({'refreshNeeded': true});
+                  // Remove navigation back - stay on this screen
+                  // Navigator.of(context).pop({'refreshNeeded': true});
                 },
               ),
               duration: Duration(seconds: 8),
