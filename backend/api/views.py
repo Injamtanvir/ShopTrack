@@ -757,3 +757,31 @@ class OfflinePriceChangesSyncView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class VerifyTokenView(APIView):
+    def get(self, request):
+        # Verify JWT token from headers
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        try:
+            # Attempt to decode the token
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            
+            # If we get here, token is valid
+            return Response({
+                "valid": True,
+                "user_id": payload.get('user_id', ''),
+                "email": payload.get('email', ''),
+                "role": payload.get('role', ''),
+                "shop_id": payload.get('shop_id', '')
+            })
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError) as e:
+            return Response({
+                "valid": False,
+                "error": str(e)
+            }, status=status.HTTP_200_OK)  # Still return 200 to allow client to handle this gracefully
+        except Exception as e:
+            return Response({
+                "valid": False,
+                "error": f"Unknown error: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
