@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/connectivity_provider.dart';
+import 'providers/user_provider.dart';
 import 'services/connectivity_service.dart';
 
 import 'screens/admin_home_screen.dart';
@@ -48,6 +49,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (ctx) => AuthProvider()),
         ChangeNotifierProvider(create: (ctx) => ConnectivityProvider(connectivityService)),
+        ChangeNotifierProvider(create: (ctx) => UserProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

@@ -163,64 +163,86 @@ class _ProductListScreenState extends State<ProductListScreen> {
     );
   }
 
-  // New method to delete a product
-  Future<void> _deleteProduct(Product product) async {
-    // Show confirmation dialog
-    final bool confirm = await showDialog<bool>(
+  // Navigate to batch management screen
+  void _navigateToBatchManagement(BuildContext context, Product product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BatchManagementScreen(product: product),
+      ),
+    ).then((result) {
+      // Check if we need to refresh the product list
+      if (result != null && result is Map && result['refreshNeeded'] == true) {
+        _loadProducts();
+      }
+    });
+  }
+
+  // Show dialog to update product price
+  Future<void> _showUpdatePriceDialog(BuildContext context, Product product) async {
+    // Check network connectivity
+    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
+    if (!connectivityProvider.isOnline) {
+      ErrorHandler.showErrorSnackBar(
+        context, 
+        'No internet connection. Please connect your device to a network.'
+      );
+      return;
+    }
+
+    final TextEditingController controller = TextEditingController(
+      text: product.sellingPrice.toString(),
+    );
+
+    return showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Delete Product?'),
-          content: Text(
-            'Are you sure you want to delete "${product.name}"?\n\nThis action cannot be undone.',
+          title: Text('Update Price for ${product.name}'),
+          content: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'New Selling Price',
+              border: OutlineInputBorder(),
+            ),
           ),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(false);
+                Navigator.of(dialogContext).pop();
               },
             ),
             TextButton(
-              child: const Text('Delete'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
+              child: const Text('Update'),
+              onPressed: () async {
+                if (double.tryParse(controller.text) != null) {
+                  Navigator.of(dialogContext).pop();
+
+                  try {
+                    await _apiService.updateProductPrice(
+                      productId: product.id,
+                      sellingPrice: double.parse(controller.text),
+                    );
+
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Price updated successfully')),
+                    );
+
+                    _loadProducts(); // Reload the list
+                  } catch (e) {
+                    if (!mounted) return;
+                    ErrorHandler.showErrorSnackBar(context, e);
+                  }
+                }
               },
             ),
           ],
         );
       },
-    ) ?? false;
-
-    if (!confirm) return;
-
-    // Proceed with deletion
-    try {
-      setState(() {
-        _isLoading = true;
-      });
-
-      await _apiService.deleteProduct(product.id);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product deleted successfully')),
-      );
-
-      _loadProducts(); // Reload the list
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      ErrorHandler.showErrorSnackBar(context, e);
-    }
+    );
   }
 
   @override
