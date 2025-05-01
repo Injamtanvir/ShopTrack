@@ -462,61 +462,159 @@ class DeleteProductView(APIView):
             )
 
         try:
-            # Try to convert product_id to ObjectId
+            print(f"Attempting to delete product {product_id} by user {user_email} with role {role}")
+            
+            # First attempt - try with ObjectId
+            product = None
+            delete_id = None
             try:
                 object_id = ObjectId(product_id)
+                product = products_collection.find_one({"_id": object_id})
+                if product:
+                    print(f"Found product with ObjectId: {product.get('name', 'Unknown')}")
+                    delete_id = object_id
             except InvalidId:
+                print(f"Product ID {product_id} is not a valid ObjectId format")
+            except Exception as e:
+                print(f"Error when searching with ObjectId: {str(e)}")
+            
+            # Second attempt - try with string ID
+            if not product:
+                try:
+                    product = products_collection.find_one({"_id": product_id})
+                    if product:
+                        print(f"Found product with string ID: {product.get('name', 'Unknown')}")
+                        delete_id = product_id
+                except Exception as e:
+                    print(f"Error when searching with string ID: {str(e)}")
+            
+            # Third attempt - try looking up by name in this shop
+            if not product:
+                try:
+                    # Try searching by shop_id and looking for product ID in other fields
+                    shop_products = list(products_collection.find({"shop_id": shop_id}))
+                    print(f"Found {len(shop_products)} products for shop {shop_id}")
+                    
+                    for p in shop_products:
+                        # Check if any field matches the product_id
+                        if (str(p.get('_id', '')) == product_id or 
+                            p.get('id', '') == product_id or 
+                            p.get('product_id', '') == product_id):
+                            product = p
+                            delete_id = p['_id']
+                            print(f"Found product by field comparison: {product.get('name', 'Unknown')}")
+                            break
+                except Exception as e:
+                    print(f"Error during shop products search: {str(e)}")
+
+            # If product is still not found, return error
+            if not product:
                 return Response(
-                    {"error": f"Invalid product ID format: {product_id}"},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": f"Product not found with ID: {product_id}"},
+                    status=status.HTTP_404_NOT_FOUND
                 )
 
-            # Get the product
-            product = products_collection.find_one({"_id": object_id})
-
-            if not product:
-                # Try to find the product by string ID if ObjectId fails
-                product = products_collection.find_one({"_id": product_id})
-                
-                if not product:
-                    return Response(
-                        {"error": "Product not found"},
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-
             # Check if the product belongs to this shop
-            if product['shop_id'] != shop_id:
+            if product.get('shop_id') != shop_id:
                 return Response(
-                    {"error": "Unauthorized access"},
+                    {"error": "Unauthorized access - product belongs to a different shop"},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Delete the product using the correct ID type
-            if isinstance(product['_id'], ObjectId):
-                result = products_collection.delete_one({"_id": object_id})
-            else:
-                result = products_collection.delete_one({"_id": product_id})
-
-            if result.deleted_count == 0:
-                return Response(
-                    {"error": "Failed to delete product"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-                
-            # Also delete related batches for this product
-            batches_collection.delete_many({"product_id": product_id})
+            # Store product info for response
+            product_name = product.get('name', 'Unknown Product')
             
-            # Also delete any sales records for this product
-            sales_collection.delete_many({"product_id": product_id})
+            # Delete the product
+            print(f"Deleting product with ID type {type(delete_id).__name__}: {delete_id}")
+            try:
+                result = products_collection.delete_one({"_id": delete_id})
+                print(f"Product deletion result: {result.deleted_count} document(s) deleted")
+            except Exception as e:
+                print(f"Error during product deletion: {str(e)}")
+                # Try with string ID if ObjectId failed
+                if isinstance(delete_id, ObjectId):
+                    try:
+                        str_id = str(delete_id)
+                        result = products_collection.delete_one({"_id": str_id})
+                        print(f"Fallback deletion with string ID: {result.deleted_count} document(s) deleted")
+                    except Exception as nested_e:
+                        print(f"Error during fallback deletion: {str(nested_e)}")
+                        result = None
+            
+            # Convert product_id to string for related collections
+            product_id_str = str(delete_id) if isinstance(delete_id, ObjectId) else product_id
+            
+            # Delete batches - try both string and ObjectId formats
+            batches_deleted = 0
+            try:
+                # Try with string ID
+                batch_result = batches_collection.delete_many({"product_id": product_id_str})
+                batches_deleted += batch_result.deleted_count
+                print(f"Deleted {batch_result.deleted_count} batches with string product_id")
+                
+                # Try with ObjectId if possible
+                try:
+                    obj_id = ObjectId(product_id_str)
+                    batch_result = batches_collection.delete_many({"product_id": obj_id})
+                    batches_deleted += batch_result.deleted_count
+                    print(f"Deleted {batch_result.deleted_count} batches with ObjectId product_id")
+                except (InvalidId, Exception) as e:
+                    print(f"Skip ObjectId batch deletion: {str(e)}")
+            except Exception as e:
+                print(f"Error deleting batches: {str(e)}")
+            
+            # Delete sales records - try both formats
+            sales_deleted = 0
+            try:
+                # Try with string ID
+                sales_result = sales_collection.delete_many({"product_id": product_id_str})
+                sales_deleted += sales_result.deleted_count
+                print(f"Deleted {sales_result.deleted_count} sales with string product_id")
+                
+                # Try with ObjectId if possible
+                try:
+                    obj_id = ObjectId(product_id_str)
+                    sales_result = sales_collection.delete_many({"product_id": obj_id})
+                    sales_deleted += sales_result.deleted_count
+                    print(f"Deleted {sales_result.deleted_count} sales with ObjectId product_id")
+                except (InvalidId, Exception) as e:
+                    print(f"Skip ObjectId sales deletion: {str(e)}")
+            except Exception as e:
+                print(f"Error deleting sales: {str(e)}")
+            
+            # Delete price history
+            price_history_deleted = 0
+            try:
+                # Try with string ID
+                ph_result = price_history_collection.delete_many({"product_id": product_id_str})
+                price_history_deleted += ph_result.deleted_count
+                print(f"Deleted {ph_result.deleted_count} price history records with string product_id")
+                
+                # Try with ObjectId if possible
+                try:
+                    obj_id = ObjectId(product_id_str)
+                    ph_result = price_history_collection.delete_many({"product_id": obj_id})
+                    price_history_deleted += ph_result.deleted_count
+                    print(f"Deleted {ph_result.deleted_count} price history records with ObjectId product_id")
+                except (InvalidId, Exception) as e:
+                    print(f"Skip ObjectId price history deletion: {str(e)}")
+            except Exception as e:
+                print(f"Error deleting price history: {str(e)}")
 
             return Response({
-                "message": "Product deleted successfully"
+                "message": f"Product '{product_name}' and related data deleted successfully",
+                "batches_deleted": batches_deleted,
+                "sales_deleted": sales_deleted,
+                "price_history_deleted": price_history_deleted
             })
 
         except Exception as e:
-            print(f"Error deleting product: {str(e)}")
+            error_message = f"Error deleting product: {str(e)}"
+            print(error_message)
+            import traceback
+            print(traceback.format_exc())
             return Response(
-                {"error": str(e)},
+                {"error": error_message},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
