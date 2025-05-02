@@ -386,6 +386,14 @@ class ProductService {
         }
       }
       
+      // After batch is added, recalculate product quantities to ensure they reflect all batches
+      try {
+        await recalculateProductQuantity(productId);
+        print('Product quantities recalculated after batch creation');
+      } catch (e) {
+        print('Error recalculating product quantities: $e');
+      }
+      
       return batchId;
     } catch (e) {
       print('Error adding batch: $e');
@@ -1110,5 +1118,57 @@ class ProductService {
   // Public method to get product details
   Future<Map<String, dynamic>> getProductDetails(String productId) async {
     return await _getProductDetails(productId);
+  }
+
+  // Recalculate product quantities based on all batches
+  Future<void> recalculateProductQuantity(String productId) async {
+    try {
+      final token = await _storage.read(key: 'token') ?? '';
+      if (token.isEmpty) {
+        throw Exception('Authorization token not found');
+      }
+
+      // Get all batches for this product
+      final batches = await getBatches(productId);
+      
+      // Calculate total quantity from all batches
+      int totalQuantity = 0;
+      for (var batch in batches) {
+        totalQuantity += int.parse(batch['quantity']?.toString() ?? '0');
+      }
+      
+      // Get current product data
+      final productData = await _getProductDetails(productId);
+      final int currentOnHold = productData['quantity_on_hold'] ?? 0;
+      
+      // Calculate available quantity
+      final int availableQuantity = totalQuantity - currentOnHold;
+      
+      print('Recalculating product quantities - Total: $totalQuantity, Available: $availableQuantity');
+      
+      // Update product with new quantities
+      final response = await http.put(
+        Uri.parse('${ApiConstants.products}/$productId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'quantity': totalQuantity,
+          'available_quantity': availableQuantity
+        }),
+      );
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('Successfully recalculated and updated product quantities');
+        return;
+      } else {
+        print('Error updating product quantities: ${response.statusCode}');
+        throw Exception('Failed to update product quantities: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error recalculating product quantity: $e');
+      throw Exception('Failed to recalculate product quantity: $e');
+    }
   }
 } 

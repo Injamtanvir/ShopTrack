@@ -68,6 +68,10 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
     });
 
     try {
+      // First recalculate product quantities to ensure they match all batches
+      await _productService.recalculateProductQuantity(widget.product.id);
+      
+      // Then fetch batches
       final batchData = await _productService.getBatches(widget.product.id);
       
       // Filter out mock batches if we have real ones
@@ -101,6 +105,9 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
           return 0; // Keep original order if parsing fails
         }
       });
+      
+      // Also refresh product data to get updated quantities
+      await _refreshProductData();
       
       setState(() {
         _batches = batches;
@@ -255,20 +262,19 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
       final productData = await _productService.getProductDetails(widget.product.id);
       
       // Create a product instance from the updated data for the UI
-      // (we don't modify the original product as its properties are final)
-      final updatedProduct = Product.fromJson(productData);
+      // We can't modify the original product as its properties are final
+      // So we create a new instance for display purposes
       
-      // Update UI to show the latest quantities
+      // The key properties we need for quantity display
       if (mounted) {
         setState(() {
-          // Use updatedProduct in UI rendering instead of widget.product
-          _updatedQuantity = updatedProduct.quantity;
-          _updatedAvailable = updatedProduct.availableQuantity;
-          _updatedOnHold = updatedProduct.quantityOnHold;
+          // Update our local state variables with the latest values
+          _updatedQuantity = productData['quantity'] ?? 0;
+          _updatedAvailable = productData['available_quantity'] ?? 0;
+          _updatedOnHold = productData['quantity_on_hold'] ?? 0;
           
-          if (updatedProduct.sellingPrice != widget.product.sellingPrice) {
-            _sellingPriceController.text = updatedProduct.sellingPrice.toString();
-          }
+          // Log the updated values
+          print('Product refreshed: Total: $_updatedQuantity, Available: $_updatedAvailable, OnHold: $_updatedOnHold');
         });
       }
       
