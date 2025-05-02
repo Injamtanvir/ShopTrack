@@ -43,8 +43,7 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
     _updatedAvailable = widget.product.availableQuantity;
     _updatedOnHold = widget.product.quantityOnHold;
     
-    // Initialize selling price from product
-    _sellingPriceController.text = widget.product.sellingPrice.toString();
+    // Initialize date to today
     _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
     
     // Load data - always refresh product data first to get latest quantities
@@ -182,13 +181,6 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
         'purchase_date': _dateController.text,
       };
 
-      // If selling price is changed and not empty, add it to the batch
-      final newSellingPrice = _sellingPriceController.text.trim();
-      if (newSellingPrice.isNotEmpty) {
-        batchData['new_selling_price'] = double.parse(newSellingPrice);
-        batchData['selling_price'] = double.parse(newSellingPrice);
-      }
-
       // Add the batch
       final batchId = await _productService.addBatch(batchData);
 
@@ -215,7 +207,6 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
         // Reset form
         _quantityController.clear();
         _costPriceController.clear();
-        _sellingPriceController.clear();
         _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
         
         setState(() {
@@ -505,26 +496,6 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
                             }
                             if (double.tryParse(value) == null || double.parse(value) <= 0) {
                               return 'Please enter a valid cost price';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Selling price
-                        TextFormField(
-                          controller: _sellingPriceController,
-                          decoration: const InputDecoration(
-                            labelText: 'New Selling Price (optional)',
-                            hintText: 'Enter new selling price if changed',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value != null && value.isNotEmpty) {
-                              if (double.tryParse(value) == null || double.parse(value) <= 0) {
-                                return 'Please enter a valid selling price';
-                              }
                             }
                             return null;
                           },

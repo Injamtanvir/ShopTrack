@@ -1613,6 +1613,10 @@ class BatchView(APIView):
             # Set remaining to be equal to quantity if not specified
             if 'remaining' not in batch_data:
                 batch_data['remaining'] = quantity
+                
+            # Copy selling price from product for consistency in batch history
+            if 'selling_price' not in batch_data:
+                batch_data['selling_price'] = product.get('selling_price', 0)
 
             # Insert the batch into batches collection
             batch_id = batches_collection.insert_one(batch_data).inserted_id
@@ -2478,34 +2482,6 @@ class OfflineBatchSyncView(APIView):
                             }
                         }
                     )
-
-                    # If new selling price is provided, update it and log in price history
-                    if 'new_selling_price' in batch_data and batch_data['new_selling_price']:
-                        try:
-                            new_selling_price = float(batch_data['new_selling_price'])
-                            old_selling_price = product.get('selling_price', 0)
-
-                            if new_selling_price != old_selling_price:
-                                # Update product selling price
-                                products_collection.update_one(
-                                    {"_id": ObjectId(product_id)},
-                                    {"$set": {"selling_price": new_selling_price}}
-                                )
-
-                                # Log price change
-                                price_history_collection.insert_one({
-                                    "product_id": product_id,
-                                    "old_price": old_selling_price,
-                                    "new_price": new_selling_price,
-                                    "changed_by": user_email,
-                                    "changed_by_id": user_id,
-                                    "change_date": datetime.now(),
-                                    "shop_id": shop_id
-                                })
-                        except ValueError:
-                            # If there's an error with the selling price, just continue 
-                            # with the batch addition
-                            pass
 
                     # Add to success list
                     results['success'].append({
