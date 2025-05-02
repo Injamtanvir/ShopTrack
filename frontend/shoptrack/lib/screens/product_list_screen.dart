@@ -3,14 +3,17 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
 import '../services/product_service.dart';
+import '../services/stats_service.dart';
 import '../widgets/custom_button.dart';
 import '../utils/error_handler.dart';
 import '../providers/connectivity_provider.dart';
 import '../providers/user_provider.dart';
+import '../widgets/connectivity_banner.dart';
 import 'package:provider/provider.dart';
 import 'batch_management_screen.dart';
 import 'profit_report_screen.dart';
 import '../providers/user_provider.dart';
+import 'package:intl/intl.dart';
 
 class ProductListScreen extends StatefulWidget {
   static const routeName = '/product-list';
@@ -149,17 +152,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
   
   // New method to view profit report
   void _viewProfitReport() {
-    if (_shopId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Shop ID not available')),
-      );
-      return;
-    }
-    
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ProfitReportScreen(shopId: _shopId!),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('This feature is currently unavailable, will be implemented in future'),
+        duration: Duration(seconds: 3),
       ),
     );
   }
@@ -248,16 +244,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Product List'),
-        backgroundColor: Colors.indigo,
+        title: const Text('Products'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.analytics),
-            onPressed: _viewProfitReport,
-            tooltip: 'Profit Report',
-          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadProducts,
@@ -265,36 +256,44 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Error: $_errorMessage',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  CustomButton(
-                    text: 'Retry',
-                    onPressed: _loadProducts,
-                  ),
-                ],
-              ),
-            )
-          : _products.isEmpty
-              ? const Center(child: Text('No products found'))
-              : ListView.builder(
-                  itemCount: _products.length,
-                  itemBuilder: (ctx, i) {
-                    final product = _products[i];
-                    final isLowStock = product.availableQuantity < 10;
-                    
-                    return _buildProductCard(context, product);
-                  },
+      body: ConnectivityBanner(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Error: $_errorMessage',
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    CustomButton(
+                      text: 'Retry',
+                      onPressed: _loadProducts,
+                    ),
+                  ],
                 ),
+              )
+            : _products.isEmpty
+                ? const Center(
+                    child: Text('No products found'),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadProducts,
+                    child: ListView.builder(
+                      itemCount: _products.length,
+                      itemBuilder: (ctx, index) {
+                        final product = _products[index];
+                        final isLowStock = product.availableQuantity < 10;
+                        
+                        return _buildProductCard(context, product);
+                      },
+                    ),
+                  ),
+      ),
     );
   }
 
@@ -649,5 +648,150 @@ class _ProductListScreenState extends State<ProductListScreen> {
         );
       },
     );
+  }
+
+  // Add the daily tracking card builder method
+  Widget _buildDailyTrackingCard() {
+    return Card(
+      margin: const EdgeInsets.all(16),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Daily Tracking',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade700,
+                  ),
+                ),
+                Text(
+                  DateFormat('MMMM dd, yyyy').format(DateTime.now()),
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                // Total Sales
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.shopping_cart, color: Colors.blue.shade700, size: 20),
+                          const SizedBox(width: 4),
+                          const Text('Sales', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      FutureBuilder<Map<String, dynamic>>(
+                        future: _loadTodayStats(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Text('...');
+                          }
+                          return Text(
+                            '${snapshot.data?['total_sales'] ?? 0}',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                // Revenue
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.attach_money, color: Colors.green.shade700, size: 20),
+                          const SizedBox(width: 4),
+                          const Text('Revenue', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      FutureBuilder<Map<String, dynamic>>(
+                        future: _loadTodayStats(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Text('...');
+                          }
+                          return Text(
+                            '\$${(snapshot.data?['total_revenue'] ?? 0).toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 20, 
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                // Pending
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.pending, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 4),
+                          const Text('Pending', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      FutureBuilder<Map<String, dynamic>>(
+                        future: _loadTodayStats(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Text('...');
+                          }
+                          return Text(
+                            '${snapshot.data?['pending_invoices'] ?? 0}',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Add method to load today's stats data
+  Future<Map<String, dynamic>> _loadTodayStats() async {
+    try {
+      final shopId = _shopId;
+      if (shopId != null) {
+        final statsService = StatsService();
+        return await statsService.getTodaySalesStats(shopId);
+      }
+      return {'total_sales': 0, 'total_revenue': 0, 'pending_invoices': 0};
+    } catch (e) {
+      print('Error loading stats: $e');
+      return {'total_sales': 0, 'total_revenue': 0, 'pending_invoices': 0};
+    }
   }
 }

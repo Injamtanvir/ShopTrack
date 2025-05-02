@@ -115,13 +115,19 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         // Already on home screen
         break;
       case 1:
-        Navigator.pushNamed(context, ProductListScreen.routeName);
+        Navigator.pushNamed(context, PriceListScreen.routeName);
         break;
       case 2:
         Navigator.pushNamed(context, CreateInvoiceScreen.routeName);
         break;
       case 3:
-        _showComingSoonSnackBar('Reports and Analytics');
+        // Show "feature unavailable" message instead of coming soon
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This feature is currently unavailable, will be implemented in future'),
+            duration: Duration(seconds: 3),
+          ),
+        );
         break;
       case 4:
         _showMenuOptions();

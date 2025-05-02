@@ -116,7 +116,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         Navigator.pushNamed(context, CreateInvoiceScreen.routeName);
         break;
       case 3:
-        _showComingSoonSnackBar('Reports and Analytics');
+        // Show "feature unavailable" message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This feature is currently unavailable, will be implemented in future'),
+            duration: Duration(seconds: 3),
+          ),
+        );
         break;
       case 4:
         _showMenuOptions();
@@ -466,7 +472,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               title: 'Daily Reports',
               description: 'Track daily performance',
               icon: Icons.analytics,
-              onTap: () => Navigator.pushNamed(context, DailyTrackingScreen.routeName),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('This feature is currently unavailable, will be implemented in future'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              },
               color: kNewAccentColor,
             ),
             _buildFeatureCard(
