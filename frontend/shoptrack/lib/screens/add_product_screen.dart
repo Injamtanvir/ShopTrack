@@ -1,272 +1,337 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/api_service.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/custom_text_field.dart';
-import '../providers/connectivity_provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../services/product_service.dart';
+import '../constants/theme_constants.dart';
+import '../models/product.dart';
 
 class AddProductScreen extends StatefulWidget {
-  static const routeName = '/add-product';
   const AddProductScreen({Key? key}) : super(key: key);
 
   @override
-  State<AddProductScreen> createState() => _AddProductScreenState();
+  _AddProductScreenState createState() => _AddProductScreenState();
 }
 
 class _AddProductScreenState extends State<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _quantityController = TextEditingController();
-  final _buyingPriceController = TextEditingController();
-  final _sellingPriceController = TextEditingController();
-  final _apiService = ApiService();
+  final _productService = ProductService();
+  final _storage = const FlutterSecureStorage();
+  
   bool _isLoading = false;
+  bool _isSuccess = false;
   String? _errorMessage;
-  bool _success = false;
+
+  // Text controllers
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _quantityController = TextEditingController();
+  final TextEditingController _costPriceController = TextEditingController();
+  final TextEditingController _sellingPriceController = TextEditingController();
+  final TextEditingController _barcodeController = TextEditingController();
 
   @override
   void dispose() {
     _nameController.dispose();
+    _descriptionController.dispose();
     _quantityController.dispose();
-    _buyingPriceController.dispose();
+    _costPriceController.dispose();
     _sellingPriceController.dispose();
+    _barcodeController.dispose();
     super.dispose();
   }
 
-  Future<void> _addProduct() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    // Check network connectivity
-    final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
-    
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+  Future<bool> _checkConnectivity() async {
     try {
-      final result = await _apiService.addProduct(
-        name: _nameController.text.trim(),
-        quantity: int.parse(_quantityController.text.trim()),
-        buyingPrice: double.parse(_buyingPriceController.text.trim()),
-        sellingPrice: double.parse(_sellingPriceController.text.trim()),
-      );
-
-      // Check if product was saved in offline mode
-      final bool isOffline = result['offline'] == true;
-      
-      setState(() {
-        _success = true;
-        _isLoading = false;
-      });
-      
-      if (isOffline && mounted) {
-        // Show info message for offline mode
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Product saved in offline mode'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-      
+      // Implement a better connectivity check that tries to access the server
+      // Don't just rely on device network status which could be misleading
+      bool isConnected = await _productService.testConnection();
+      return isConnected;
     } catch (e) {
+      print('Error checking connectivity: $e');
+      return false;
+    }
+  }
+
+  Future<void> _submitForm() async {
+    if (_formKey.currentState?.validate() ?? false) {
       setState(() {
-        if (e.toString().contains('HTML')) {
-          // More user-friendly error message
-          _errorMessage = "Server connection issue. The product may still be saved in offline mode.";
-        } else {
-          _errorMessage = e.toString();
-        }
-        _isLoading = false;
+        _isLoading = true;
+        _errorMessage = null;
       });
 
-      // Check if we're offline but no specific offline handling was done
-      if (!connectivityProvider.isOnline && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No internet connection. The product will be saved locally and synced when online.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 5),
-          ),
-        );
+      try {
+        // Check connectivity before proceeding
+        bool isConnected = await _checkConnectivity();
         
-        // Still mark as success since we have offline handling
+        // Get product data from form
+        final String name = _nameController.text.trim();
+        final String description = _descriptionController.text.trim();
+        final int quantity = int.parse(_quantityController.text.trim());
+        final double costPrice = double.parse(_costPriceController.text.trim());
+        final double sellingPrice = double.parse(_sellingPriceController.text.trim());
+        final String barcode = _barcodeController.text.trim();
+        
+        final shopId = await _storage.read(key: 'shop_id') ?? '';
+        final userId = await _storage.read(key: 'user_id') ?? '';
+
+        // Create product data
+        Map<String, dynamic> productData = {
+          'name': name,
+          'description': description,
+          'quantity': quantity,
+          'available_quantity': quantity,
+          'cost_price': costPrice,
+          'selling_price': sellingPrice,
+          'shop_id': shopId,
+          'added_by': userId,
+        };
+
+        if (barcode.isNotEmpty) {
+          productData['barcode'] = barcode;
+        }
+
+        // Add the product
+        final createdProduct = await _productService.addProduct(productData);
+        
+        // If successful, create initial batch
+        if (createdProduct != null && createdProduct.containsKey('_id')) {
+          String productId = createdProduct['_id'];
+          
+          // Create initial batch data
+          Map<String, dynamic> initialBatchData = {
+            'product_id': productId,
+            'product_name': name,
+            'quantity': quantity,
+            'quantity_purchased': quantity,
+            'cost_price': costPrice,
+            'selling_price': sellingPrice,
+            'purchase_date': DateTime.now().toString().split(' ')[0],
+            'remaining': quantity,
+            'shop_id': shopId,
+            'added_by': userId,
+            'is_initial_batch': true,
+            'batch_number': 1
+          };
+          
+          try {
+            // Create initial batch
+            await _productService.addBatch(initialBatchData);
+            print('Created initial batch for product $name');
+          } catch (e) {
+            print('Error creating initial batch: $e');
+            // Continue with success flow even if batch creation fails
+            // The product was still created successfully
+          }
+        }
+
+        // Check if the product was added in offline mode
+        final wasOffline = await _storage.read(key: 'last_product_offline') == 'true';
+        
         setState(() {
-          _success = true;
+          _isSuccess = true;
+          _isLoading = false;
+          // Only show offline notification if we're truly offline
+          _errorMessage = wasOffline 
+              ? 'Product added in offline mode. Changes will be synced when connection is restored.'
+              : null;
         });
-      } else if (mounted) {
-        // Show error only if online and real error occurred
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        
+        // Clear form fields
+        _nameController.clear();
+        _descriptionController.clear();
+        _quantityController.clear();
+        _costPriceController.clear();
+        _sellingPriceController.clear();
+        _barcodeController.clear();
+        
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+          _isSuccess = false;
+          _errorMessage = 'Failed to add product: $e';
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_success) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Add Product'),
-          backgroundColor: Colors.indigo,
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.check_circle_outline,
-                  color: Colors.green,
-                  size: 80,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Product Added Successfully!',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                CustomButton(
-                  text: 'Add Another Product',
-                  onPressed: () {
-                    setState(() {
-                      _success = false;
-                      _nameController.clear();
-                      _quantityController.clear();
-                      _buyingPriceController.clear();
-                      _sellingPriceController.clear();
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                CustomButton(
-                  text: 'Back to Dashboard',
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  buttonStyle: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Product'),
-        backgroundColor: Colors.indigo,
+        elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_errorMessage != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade300),
-                  ),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Colors.red.shade800),
-                  ),
+      body: _isSuccess
+          ? _buildSuccessScreen()
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Product Name',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a product name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (Optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _quantityController,
+                      decoration: const InputDecoration(
+                        labelText: 'Initial Quantity',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter an initial quantity';
+                        }
+                        if (int.tryParse(value) == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _costPriceController,
+                      decoration: const InputDecoration(
+                        labelText: 'Cost Price',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a cost price';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Please enter a valid price';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _sellingPriceController,
+                      decoration: const InputDecoration(
+                        labelText: 'Selling Price',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a selling price';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Please enter a valid price';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _barcodeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Barcode (Optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          primary: Colors.blue,
+                        ),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text('Add Product'),
+                      ),
+                    ),
+                  ],
                 ),
-              const Text(
-                'Product Information',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSuccessScreen() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.check_circle_outline,
+              color: Colors.green,
+              size: 80,
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Product Added Successfully!',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                color: Colors.orange.shade100,
+                child: Text(
+                  _errorMessage!,
+                  style: TextStyle(color: Colors.orange.shade800),
+                  textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 16),
-              // Product Name
-              CustomTextField(
-                label: 'Product Name',
-                controller: _nameController,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter product name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Quantity
-              CustomTextField(
-                label: 'Quantity',
-                controller: _quantityController,
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter quantity';
-                  }
-                  if (int.tryParse(value) == null || int.parse(value) < 0) {
-                    return 'Please enter a valid quantity';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Buying Price
-              CustomTextField(
-                label: 'Buying Price',
-                controller: _buyingPriceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter buying price';
-                  }
-                  if (double.tryParse(value) == null || double.parse(value) <= 0) {
-                    return 'Please enter a valid price';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Selling Price
-              CustomTextField(
-                label: 'Selling Price',
-                controller: _sellingPriceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter selling price';
-                  }
-                  if (double.tryParse(value) == null || double.parse(value) <= 0) {
-                    return 'Please enter a valid price';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              // Add Button
-              CustomButton(
-                text: 'Add Product',
-                onPressed: _addProduct,
-                isLoading: _isLoading,
-              ),
-            ],
-          ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isSuccess = false;
+                });
+              },
+              child: const Text('Add Another Product'),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Back to Dashboard'),
+            ),
+          ],
         ),
       ),
     );
