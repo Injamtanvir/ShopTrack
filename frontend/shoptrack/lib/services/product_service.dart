@@ -1161,8 +1161,8 @@ class ProductService {
           
           if (batches.isNotEmpty) {
             // Calculate total from batches
-            final totalFromBatches = batches.fold(0, (total, batch) => 
-                total + (batch['quantity'] ?? batch['quantity_purchased'] ?? 0));
+            final totalFromBatches = batches.fold<int>(0, (total, batch) => 
+                total + (int.parse((batch['quantity'] ?? batch['quantity_purchased'] ?? 0).toString())));
                 
             // If quantities don't match, prefer the batch-based calculation
             if (totalFromBatches != productData['quantity']) {
@@ -1211,7 +1211,8 @@ class ProductService {
       // Calculate total from batches
       int totalFromBatches = 0;
       for (var batch in batches) {
-        totalFromBatches += batch['quantity'] ?? batch['quantity_purchased'] ?? 0;
+        var quantity = batch['quantity'] ?? batch['quantity_purchased'] ?? 0;
+        totalFromBatches += int.parse(quantity.toString());
       }
       
       // If there's a mismatch, update the product

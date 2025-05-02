@@ -305,7 +305,8 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
             // Calculate total quantity from batches
             int batchTotalQuantity = 0;
             for (var batch in batchData) {
-              batchTotalQuantity += batch['quantity'] ?? batch['quantity_purchased'] ?? 0;
+              var quantity = batch['quantity'] ?? batch['quantity_purchased'] ?? 0;
+              batchTotalQuantity += int.parse(quantity.toString());
             }
             
             // Get quantities from product data
