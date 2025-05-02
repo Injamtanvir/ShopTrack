@@ -11,6 +11,7 @@ import 'batch_detail_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class BatchManagementScreen extends StatefulWidget {
+  static const routeName = '/batch-management';
   final Product product;
 
   const BatchManagementScreen({Key? key, required this.product}) : super(key: key);

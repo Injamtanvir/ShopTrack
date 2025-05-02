@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class BatchDetailScreen extends StatelessWidget {
   final Map<String, dynamic> batchData;
@@ -14,89 +13,86 @@ class BatchDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isInitialBatch = batchData['is_initial_batch'] == true;
-    final batchId = batchData['_id'] ?? 'Unknown';
-    final batchNumber = isInitialBatch ? 1 : (batchData['batch_number'] ?? 'Unknown');
-    
-    // Format dates
-    String purchaseDate = 'Unknown';
-    try {
-      purchaseDate = batchData['purchase_date'] ?? 
-          (batchData['created_at'] != null 
-              ? DateFormat('yyyy-MM-dd').format(DateTime.parse(batchData['created_at']))
-              : 'Unknown');
-    } catch (e) {
-      purchaseDate = batchData['purchase_date'] ?? batchData['created_at']?.toString().split('T')[0] ?? 'Unknown';
-    }
-    
+    final batchNumber = isInitialBatch ? 1 : (batchData['batch_number'] ?? '?');
+    final purchaseDate = batchData['purchase_date'] ?? batchData['created_at']?.toString().split('T')[0] ?? 'Unknown';
+    final quantity = batchData['quantity_purchased'] ?? batchData['quantity'] ?? 0;
+    final remaining = batchData['remaining'] ?? 0;
+    final costPrice = batchData['cost_price'] ?? 0.0;
+    final sellingPrice = batchData['selling_price'] ?? 0.0;
+    final addedBy = batchData['added_by'] ?? 'Unknown';
+    final addedAt = batchData['added_at']?.toString().split('T')[0] ?? purchaseDate;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(isInitialBatch ? 'Initial Batch Details' : 'Batch #$batchNumber Details'),
+        title: Text('Batch Details'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      productName,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildDetailRow('Batch ID', batchId),
-                    _buildDetailRow('Purchase Date', purchaseDate),
-                    _buildDetailRow(
-                      'Quantity Purchased', 
-                      '${batchData['quantity_purchased'] ?? batchData['quantity'] ?? 'Unknown'} units'
-                    ),
-                    _buildDetailRow(
-                      'Remaining', 
-                      '${batchData['remaining'] ?? 'Unknown'} units'
-                    ),
-                    _buildDetailRow(
-                      'Cost Price', 
-                      '\$${(batchData['cost_price'] ?? 0).toStringAsFixed(2)}'
-                    ),
-                    _buildDetailRow(
-                      'Selling Price', 
-                      '\$${(batchData['selling_price'] ?? 0).toStringAsFixed(2)}'
-                    ),
-                    if (batchData['added_by'] != null)
-                      _buildDetailRow('Added By', batchData['added_by']),
-                  ],
-                ),
+            // Header
+            Text(
+              isInitialBatch ? 'Initial Batch (#1)' : 'Batch #$batchNumber',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
             ),
+            Text(
+              'Product: $productName',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[700],
+              ),
+            ),
+            Divider(height: 32),
             
-            const SizedBox(height: 16),
+            // Batch Information
+            _buildInfoRow('Purchase Date', purchaseDate),
+            _buildInfoRow('Quantity Purchased', '$quantity units'),
+            _buildInfoRow('Remaining', '$remaining units'),
+            _buildInfoRow('Cost Price', '\$${costPrice.toStringAsFixed(2)}'),
+            _buildInfoRow('Selling Price', '\$${sellingPrice.toStringAsFixed(2)}'),
             
-            // More details if needed
-            if (batchData.containsKey('notes'))
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Notes',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+            Divider(height: 32),
+            
+            // Additional Information
+            Text(
+              'Additional Information',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 16),
+            _buildInfoRow('Added By', addedBy),
+            _buildInfoRow('Date Added', addedAt),
+            _buildInfoRow('Batch ID', batchData['_id'] ?? 'Unknown'),
+            
+            // If offline, show indicator
+            if (batchData['is_offline'] == true)
+              Container(
+                margin: EdgeInsets.only(top: 24),
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.offline_bolt,
+                      color: Colors.orange.shade800,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This batch was created in offline mode and will be synced when connection is restored.',
+                        style: TextStyle(color: Colors.orange.shade800),
                       ),
-                      const SizedBox(height: 8),
-                      Text(batchData['notes'] ?? 'No notes available'),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -105,27 +101,27 @@ class BatchDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 140,
             child: Text(
-              '$label:',
-              style: const TextStyle(
+              label,
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.grey,
+                color: Colors.grey[700],
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
+              style: TextStyle(
+                fontSize: 16,
               ),
             ),
           ),

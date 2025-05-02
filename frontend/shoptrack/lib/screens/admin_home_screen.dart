@@ -352,10 +352,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               _buildActionButton(
                 icon: Icons.add_circle_outline,
                 title: 'Add Product',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AddProductScreen()),
-                ),
+                onTap: () => Navigator.pushNamed(context, AddProductScreen.routeName),
                 color: kNewSecondaryColor,
               ),
               _buildActionButton(
@@ -386,45 +383,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget _buildActionButton({
     required IconData icon,
     required String title,
-    required VoidCallback onTap,
+    required Function() onTap,
     required Color color,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 110,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: kCardShadow,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: kNewTextColor,
-                ),
-              ),
-            ],
-          ),
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 12),
+      child: ElevatedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon),
+        label: Text(title),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(vertical: 16),
+          alignment: Alignment.centerLeft,
         ),
       ),
     );

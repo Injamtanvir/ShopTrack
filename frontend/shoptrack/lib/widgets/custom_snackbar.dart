@@ -1,71 +1,31 @@
 import 'package:flutter/material.dart';
 
 class CustomSnackbar {
-  static void show(
-    BuildContext context, {
-    required String message,
-    Color backgroundColor = Colors.black87,
-    Duration duration = const Duration(seconds: 4),
-    SnackBarAction? action,
-  }) {
+  static void show(BuildContext context, String message, {bool isError = false, Duration? duration}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          message,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-          ),
-        ),
-        backgroundColor: backgroundColor,
-        duration: duration,
-        action: action,
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        duration: duration ?? Duration(seconds: isError ? 4 : 2),
       ),
     );
   }
-
-  static void showSuccess(
-    BuildContext context, {
-    required String message,
-    Duration duration = const Duration(seconds: 4),
-    SnackBarAction? action,
-  }) {
-    show(
-      context,
-      message: message,
-      backgroundColor: Colors.green,
-      duration: duration,
-      action: action,
-    );
+  
+  static void showSuccess(BuildContext context, String message, {Duration? duration}) {
+    show(context, message, isError: false, duration: duration);
   }
-
-  static void showError(
-    BuildContext context, {
-    required String message,
-    Duration duration = const Duration(seconds: 4),
-    SnackBarAction? action,
-  }) {
-    show(
-      context,
-      message: message,
-      backgroundColor: Colors.red,
-      duration: duration,
-      action: action,
-    );
+  
+  static void showError(BuildContext context, String message, {Duration? duration}) {
+    show(context, message, isError: true, duration: duration);
   }
-
-  static void showWarning(
-    BuildContext context, {
-    required String message,
-    Duration duration = const Duration(seconds: 4),
-    SnackBarAction? action,
-  }) {
-    show(
-      context,
-      message: message,
-      backgroundColor: Colors.orange,
-      duration: duration,
-      action: action,
+  
+  static void showWarning(BuildContext context, String message, {Duration? duration}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.orange,
+        duration: duration ?? Duration(seconds: 3),
+      ),
     );
   }
 } 

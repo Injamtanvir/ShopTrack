@@ -494,10 +494,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               _buildActionButton(
                 icon: Icons.add_circle_outline,
                 title: 'Add Product',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AddProductScreen()),
-                ),
+                onTap: () => Navigator.pushNamed(context, AddProductScreen.routeName),
                 color: kNewSecondaryColor,
               ),
               _buildActionButton(
@@ -697,8 +694,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               onPressed: () => Navigator.pushNamed(context, ShopUsersScreen.routeName),
               icon: const Icon(Icons.people_outline, size: 16),
               label: const Text('View All'),
-              style: TextButton.styleFrom(
-                foregroundColor: kOwnerRoleColor,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kOwnerRoleColor,
+                foregroundColor: Colors.white,
               ),
             ),
           ],

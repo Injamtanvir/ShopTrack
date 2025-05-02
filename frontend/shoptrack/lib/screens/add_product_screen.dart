@@ -54,12 +54,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   Future<void> _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-      try {
+    try {
         // Check connectivity before proceeding
         bool isConnected = await _checkConnectivity();
         
@@ -117,7 +117,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             // Create initial batch
             await _productService.addBatch(initialBatchData);
             print('Created initial batch for product $name');
-          } catch (e) {
+    } catch (e) {
             print('Error creating initial batch: $e');
             // Continue with success flow even if batch creation fails
             // The product was still created successfully
@@ -129,7 +129,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         
         setState(() {
           _isSuccess = true;
-          _isLoading = false;
+        _isLoading = false;
           // Only show offline notification if we're truly offline
           _errorMessage = wasOffline 
               ? 'Product added in offline mode. Changes will be synced when connection is restored.'
@@ -156,9 +156,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Product'),
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Add Product'),
         elevation: 0,
       ),
       body: _isSuccess
@@ -287,31 +287,31 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   Widget _buildSuccessScreen() {
     return Center(
-      child: Padding(
+          child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.check_circle_outline,
-              color: Colors.green,
-              size: 80,
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Product Added Successfully!',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_errorMessage != null)
-              Container(
-                padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green,
+                  size: 80,
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Product Added Successfully!',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              if (_errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
                 color: Colors.orange.shade100,
-                child: Text(
-                  _errorMessage!,
+                  child: Text(
+                    _errorMessage!,
                   style: TextStyle(color: Colors.orange.shade800),
                   textAlign: TextAlign.center,
                 ),
@@ -324,8 +324,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 });
               },
               child: const Text('Add Another Product'),
-            ),
-            const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);

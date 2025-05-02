@@ -24,6 +24,7 @@ import 'screens/pending_invoices_screen.dart';
 import 'screens/invoice_history_screen.dart';
 import 'screens/admin_pending_invoice_screen.dart';
 import 'screens/daily_tracking_screen.dart';
+import 'screens/batch_history_screen.dart';
 
 
 
@@ -97,6 +98,7 @@ class MyApp extends StatelessWidget {
           RegisterSalesPersonScreen.routeName: (ctx) => const RegisterSalesPersonScreen(),
           RegisterManagerScreen.routeName: (ctx) => const RegisterManagerScreen(),
           SellerProductListScreen.routeName: (ctx) => const SellerProductListScreen(),
+          AddProductScreen.routeName: (ctx) => const AddProductScreen(),
           ProductListScreen.routeName: (ctx) => const ProductListScreen(),
           PriceListScreen.routeName: (ctx) => const PriceListScreen(),
           CreateInvoiceScreen.routeName: (ctx) => const CreateInvoiceScreen(),
@@ -107,7 +109,7 @@ class MyApp extends StatelessWidget {
           DailyTrackingScreen.routeName: (ctx) => const DailyTrackingScreen(),
           OwnerHomeScreen.routeName: (ctx) => const OwnerHomeScreen(),
           ShopUsersScreen.routeName: (ctx) => const ShopUsersScreen(),
-          AddProductScreen.routeName: (ctx) => const AddProductScreen(),
+          BatchHistoryScreen.routeName: (ctx) => const BatchHistoryScreen(productId: '', productName: '', batches: []),
         },
       ),
     );
