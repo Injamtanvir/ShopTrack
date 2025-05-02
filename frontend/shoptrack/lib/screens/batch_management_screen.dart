@@ -567,7 +567,8 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
                                         Text('Quantity: ${batch.quantityPurchased} units'),
                                         Text('Remaining: ${batch.remaining} units'),
                                         Text('Cost Price: \$${batch.costPrice.toStringAsFixed(2)}'),
-                                        Text('Selling Price: \$${widget.product.sellingPrice.toStringAsFixed(2)}'),
+                                        if (batch.sellingPrice != null)
+                                          Text('Selling Price: \$${batch.sellingPrice!.toStringAsFixed(2)}'),
                                       ],
                                     ),
                                     isThreeLine: true,

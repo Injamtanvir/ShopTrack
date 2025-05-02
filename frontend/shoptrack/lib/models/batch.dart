@@ -8,8 +8,6 @@ class Batch {
   final double costPrice;
   final String? shopId;
   final String createdAt;
-  // This is kept for backward compatibility but should not be used directly in UI
-  // Always use the current product's selling price from the Product model instead
   final double? sellingPrice;
   final bool isInitialBatch;
 
