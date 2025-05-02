@@ -5,6 +5,7 @@ import '../constants/theme_constants.dart';
 import '../models/product.dart';
 
 class AddProductScreen extends StatefulWidget {
+  static const routeName = '/add-product';
   const AddProductScreen({Key? key}) : super(key: key);
 
   @override
@@ -268,7 +269,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _submitForm,
                         style: ElevatedButton.styleFrom(
-                          primary: Colors.blue,
+                          backgroundColor: Colors.blue,
                         ),
                         child: _isLoading
                             ? const CircularProgressIndicator(

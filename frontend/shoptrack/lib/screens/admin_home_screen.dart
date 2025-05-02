@@ -8,7 +8,7 @@ import '../widgets/connectivity_banner.dart';
 import '../services/stats_service.dart';
 import 'login_screen.dart';
 import 'register_sales_person_screen.dart';
-import 'add_product_screen.dart';
+import '../screens/add_product_screen.dart';
 import 'product_list_screen.dart';
 import 'price_list_screen.dart';
 import 'create_invoice_screen.dart';
@@ -352,7 +352,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               _buildActionButton(
                 icon: Icons.add_circle_outline,
                 title: 'Add Product',
-                onTap: () => Navigator.pushNamed(context, AddProductScreen.routeName),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AddProductScreen()),
+                ),
                 color: kNewSecondaryColor,
               ),
               _buildActionButton(

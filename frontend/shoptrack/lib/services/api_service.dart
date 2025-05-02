@@ -322,10 +322,15 @@ class ApiService {
         'cost_price': buyingPrice, // Also include cost_price for batch creation
       });
       
-      if (productId.startsWith('offline_product_')) {
+      // Check if productId indicates offline mode (could be String or Map)
+      final String productIdStr = productId is Map 
+          ? (productId['_id'] ?? productId['product_id'] ?? '') 
+          : productId.toString();
+          
+      if (productIdStr.startsWith('offline_product_') || productIdStr.startsWith('mock_product_')) {
         // Return offline product data with success message
         return {
-          'product_id': productId,
+          'product_id': productIdStr,
           'message': 'Product added in offline mode. Changes will be synced when connection is restored.',
           'offline': true
         };
@@ -333,7 +338,7 @@ class ApiService {
       
       // Return normal success response
       return {
-        'product_id': productId,
+        'product_id': productIdStr,
         'message': 'Product added successfully',
         'offline': false
       };

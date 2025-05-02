@@ -358,8 +358,8 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
                                     ? CircularProgressIndicator(color: Colors.white)
                                     : Text('Add Batch'),
                                 style: ElevatedButton.styleFrom(
-                                  primary: Colors.blue,
-                                  onPrimary: Colors.white,
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
                                 ),
                               ),
                             ),
