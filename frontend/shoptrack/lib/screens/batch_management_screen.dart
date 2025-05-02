@@ -68,10 +68,6 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
     });
 
     try {
-      // First recalculate product quantities to ensure they match all batches
-      await _productService.recalculateProductQuantity(widget.product.id);
-      
-      // Then fetch batches
       final batchData = await _productService.getBatches(widget.product.id);
       
       // Filter out mock batches if we have real ones
@@ -106,7 +102,7 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
         }
       });
       
-      // Also refresh product data to get updated quantities
+      // Always refresh product data to get the most up-to-date quantities
       await _refreshProductData();
       
       setState(() {
@@ -258,27 +254,24 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
   // Add method to refresh product data
   Future<void> _refreshProductData() async {
     try {
-      // Get updated product details
-      final productData = await _productService.getProductDetails(widget.product.id);
-      
-      // Create a product instance from the updated data for the UI
-      // We can't modify the original product as its properties are final
-      // So we create a new instance for display purposes
-      
-      // The key properties we need for quantity display
-      if (mounted) {
+      // Get updated product details 
+      final productData = await _productService.getProductDetails(widget.product.id, forceRefresh: true);
+
+      // Update UI to show the latest quantities
+      if (mounted && productData != null) {
+        // Calculate total quantity from batches if needed
+        final int totalQuantity = productData['quantity'] ?? 0;
+        final int availableQuantity = productData['available_quantity'] ?? totalQuantity;
+        final int onHoldQuantity = productData['quantity_on_hold'] ?? 0;
+        
         setState(() {
-          // Update our local state variables with the latest values
-          _updatedQuantity = productData['quantity'] ?? 0;
-          _updatedAvailable = productData['available_quantity'] ?? 0;
-          _updatedOnHold = productData['quantity_on_hold'] ?? 0;
-          
-          // Log the updated values
-          print('Product refreshed: Total: $_updatedQuantity, Available: $_updatedAvailable, OnHold: $_updatedOnHold');
+          _updatedQuantity = totalQuantity;
+          _updatedAvailable = availableQuantity;
+          _updatedOnHold = onHoldQuantity;
         });
       }
       
-      print('Product data refreshed successfully');
+      print('Product data refreshed successfully: Quantity $_updatedQuantity, Available $_updatedAvailable');
     } catch (e) {
       print('Error refreshing product data: $e');
     }

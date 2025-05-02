@@ -292,20 +292,9 @@ class ProductService {
     }
 
     print('Adding batch with data: ${batchData.toString()}');
-
-    // First update the product quantity
+    
+    // Store productId and quantity for future refresh
     String productId = batchData['product_id'];
-    int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
-    if (quantity > 0 && productId != null && productId.isNotEmpty) {
-      try {
-        print('Updating product quantity with batch quantity: $quantity');
-        await updateProductQuantity(productId, quantity);
-        print('Successfully updated product quantity');
-      } catch (e) {
-        print('Error updating product quantity: $e');
-        // Continue with batch creation even if product update fails
-      }
-    }
 
     try {
       // Try both URLs to handle potential API inconsistencies
@@ -364,6 +353,16 @@ class ProductService {
         try {
           final data = jsonDecode(response.body);
           batchId = data['batch_id'] ?? batchId;
+          
+          // Refresh the product details after a successful batch add
+          if (productId != null && productId.isNotEmpty) {
+            try {
+              await _getProductDetails(productId, forceRefresh: true);
+              print('Successfully refreshed product data after batch addition');
+            } catch (e) {
+              print('Error refreshing product after batch add: $e');
+            }
+          }
         } catch (e) {
           print('Error parsing batch creation response: $e');
           // Store batch locally for future sync
@@ -384,14 +383,6 @@ class ProductService {
           _saveOfflineBatch(batchData);
           batchId = 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         }
-      }
-      
-      // After batch is added, recalculate product quantities to ensure they reflect all batches
-      try {
-        await recalculateProductQuantity(productId);
-        print('Product quantities recalculated after batch creation');
-      } catch (e) {
-        print('Error recalculating product quantities: $e');
       }
       
       return batchId;
@@ -496,7 +487,7 @@ class ProductService {
   }
   
   // Helper method to get product details
-  Future<Map<String, dynamic>> _getProductDetails(String productId) async {
+  Future<Map<String, dynamic>> _getProductDetails(String productId, {bool forceRefresh = false}) async {
     try {
       final token = await _storage.read(key: 'token') ?? '';
       if (token.isEmpty) {
@@ -1116,59 +1107,7 @@ class ProductService {
   }
 
   // Public method to get product details
-  Future<Map<String, dynamic>> getProductDetails(String productId) async {
-    return await _getProductDetails(productId);
-  }
-
-  // Recalculate product quantities based on all batches
-  Future<void> recalculateProductQuantity(String productId) async {
-    try {
-      final token = await _storage.read(key: 'token') ?? '';
-      if (token.isEmpty) {
-        throw Exception('Authorization token not found');
-      }
-
-      // Get all batches for this product
-      final batches = await getBatches(productId);
-      
-      // Calculate total quantity from all batches
-      int totalQuantity = 0;
-      for (var batch in batches) {
-        totalQuantity += int.parse(batch['quantity']?.toString() ?? '0');
-      }
-      
-      // Get current product data
-      final productData = await _getProductDetails(productId);
-      final int currentOnHold = productData['quantity_on_hold'] ?? 0;
-      
-      // Calculate available quantity
-      final int availableQuantity = totalQuantity - currentOnHold;
-      
-      print('Recalculating product quantities - Total: $totalQuantity, Available: $availableQuantity');
-      
-      // Update product with new quantities
-      final response = await http.put(
-        Uri.parse('${ApiConstants.products}/$productId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'quantity': totalQuantity,
-          'available_quantity': availableQuantity
-        }),
-      );
-      
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        print('Successfully recalculated and updated product quantities');
-        return;
-      } else {
-        print('Error updating product quantities: ${response.statusCode}');
-        throw Exception('Failed to update product quantities: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error recalculating product quantity: $e');
-      throw Exception('Failed to recalculate product quantity: $e');
-    }
+  Future<Map<String, dynamic>> getProductDetails(String productId, {bool forceRefresh = false}) async {
+    return await _getProductDetails(productId, forceRefresh: forceRefresh);
   }
 } 

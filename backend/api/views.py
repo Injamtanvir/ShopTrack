@@ -1599,21 +1599,26 @@ class BatchView(APIView):
             # Insert the batch into batches collection
             batch_id = batches_collection.insert_one(batch_data).inserted_id
             
-            # Calculate total product quantity from all batches instead of just incrementing
-            # This ensures we have the correct total even if there were issues with previous updates
+            # Get all batches for this product to recalculate total quantity
             all_batches = list(batches_collection.find({"product_id": product_id}))
             total_quantity = sum(int(batch.get('quantity', 0)) for batch in all_batches)
             
-            # Calculate on_hold quantity (from invoices or other sources)
+            # Also update the product's total quantity and available quantity
+            current_quantity = int(product.get('quantity', 0))
+            current_available = int(product.get('available_quantity', 0))
             current_on_hold = int(product.get('quantity_on_hold', 0))
             
-            # Update product with calculated quantities
+            # Set the quantities to match the total from all batches
+            new_quantity = total_quantity
+            new_available = total_quantity - current_on_hold
+            
+            # Update product with new quantities
             products_collection.update_one(
                 {"_id": ObjectId(product_id)},
                 {
                     "$set": {
-                        "quantity": total_quantity,
-                        "available_quantity": total_quantity - current_on_hold,
+                        "quantity": new_quantity,
+                        "available_quantity": new_available,
                         "updated_at": datetime.utcnow().isoformat()
                     }
                 }
@@ -1624,9 +1629,9 @@ class BatchView(APIView):
                     "batch_id": str(batch_id),
                     "message": "Batch added successfully",
                     "product_quantity_updated": {
-                        "total_quantity": total_quantity,
-                        "on_hold": current_on_hold,
-                        "available": total_quantity - current_on_hold
+                        "previous": current_quantity,
+                        "new_total": new_quantity,
+                        "all_batches_sum": total_quantity
                     }
                 },
                 status=status.HTTP_201_CREATED
