@@ -70,8 +70,13 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
       
       final batches = filteredBatchData.map((data) => Batch.fromJson(data)).toList();
       
-      // Sort batches by date (oldest first for FIFO)
+      // Sort batches - initial batch first, then by date (oldest to newest)
       batches.sort((a, b) {
+        // Initial batch always comes first
+        if (a.isInitialBatch && !b.isInitialBatch) return -1;
+        if (!a.isInitialBatch && b.isInitialBatch) return 1;
+        
+        // Otherwise sort by date
         try {
           final dateA = DateFormat('yyyy-MM-dd').parse(a.purchaseDate);
           final dateB = DateFormat('yyyy-MM-dd').parse(b.purchaseDate);
@@ -132,126 +137,142 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
       // Create batch data
       final batchData = {
         'product_id': widget.product.id,
+        'product_name': widget.product.name,
         'quantity': newQuantity,
+        'quantity_purchased': newQuantity,
         'cost_price': newCostPrice,
         'purchase_date': DateFormat('yyyy-MM-dd').format(_selectedDate),
         'remaining': newQuantity, // Initially all items are remaining
+        'shop_id': await _getShopId(),
+        'is_initial_batch': false // Mark as not an initial batch
       };
 
       // Add new selling price if it's different from the current one
       if (newSellingPrice != null && newSellingPrice != widget.product.sellingPrice) {
-        batchData['new_selling_price'] = newSellingPrice;
+        batchData['selling_price'] = newSellingPrice;
+        
+        // Also update the product price
+        try {
+          await _productService.updateProduct(widget.product.id, {
+            'selling_price': newSellingPrice
+          });
+          print('Updated product selling price to $newSellingPrice');
+        } catch (e) {
+          print('Error updating product price: $e');
+          // Continue with batch creation even if price update fails
+        }
+      } else {
+        // Use current selling price if not changing
+        batchData['selling_price'] = widget.product.sellingPrice;
       }
 
-      try {
-        final batchId = await _productService.addBatch(batchData);
-        
-        // Clear the form
-        _quantityController.clear();
-        _costPriceController.clear();
-        
-        if (batchId.startsWith('mock_batch_id')) {
-          // If we got a mock ID, it means the API had issues
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Batch was saved in offline mode due to server issues. Changes will be synced when connection is restored.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 4),
-            ),
-          );
-          
-          // Create a local Batch object to display immediately
-          final newBatch = Batch(
-            id: batchId,
-            productId: widget.product.id,
-            purchaseDate: DateFormat('yyyy-MM-dd').format(_selectedDate),
-            quantityPurchased: newQuantity,
-            remaining: newQuantity,
-            costPrice: newCostPrice,
-            createdAt: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-            sellingPrice: newSellingPrice ?? widget.product.sellingPrice,
-          );
-          
-          // Add the batch to our local list and update the total quantity
-          // (simulating what the backend would do)
-          setState(() {
-            _batches = [newBatch, ..._batches];
-            _isLoading = false;
-            _isAddingBatch = false;
-          });
-          
-          // Remove navigation back - stay on this screen
-          // Navigator.of(context).pop({'refreshNeeded': true});
-        } else {
-          await _loadBatches();
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Batch added successfully')),
-          );
-          
-          // Remove navigation back - stay on this screen
-          // Navigator.of(context).pop({'refreshNeeded': true});
-        }
-      } catch (e) {
-        print('Error adding batch: $e');
+      // Add batch on the server
+      final batchId = await _productService.addBatch(batchData);
+      
+      // Clear the form
+      _quantityController.clear();
+      _costPriceController.clear();
+      
+      // Set a flag to show we need to reload products
+      bool needsRefresh = true;
+      
+      if (batchId.startsWith('offline_batch_id') || batchId.startsWith('mock_')) {
+        // If we got a mock ID, it means the API had issues
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add batch: ${e.toString().contains('Exception:') ? e.toString().split('Exception:')[1] : e}'),
-            backgroundColor: Colors.red,
+            content: Text('Batch was saved in offline mode due to server issues. Changes will be synced when connection is restored.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
           ),
         );
         
-        // Check if the error is server-related, and if so, show a special message
-        if (e.toString().contains('500') || e.toString().contains('HTML')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Server error detected. Would you like to add this batch in offline mode?'),
-              action: SnackBarAction(
-                label: 'Yes',
-                onPressed: () {
-                  // Add a mock batch to the local list
-                  final mockBatchId = 'mock_batch_id_${DateTime.now().millisecondsSinceEpoch}';
-                  final newBatch = Batch(
-                    id: mockBatchId,
-                    productId: widget.product.id,
-                    purchaseDate: DateFormat('yyyy-MM-dd').format(_selectedDate),
-                    quantityPurchased: newQuantity,
-                    remaining: newQuantity, 
-                    costPrice: newCostPrice,
-                    createdAt: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                    sellingPrice: newSellingPrice ?? widget.product.sellingPrice,
-                  );
-                  
-                  setState(() {
-                    _batches = [newBatch, ..._batches];
-                    _quantityController.clear();
-                    _costPriceController.clear();
-                  });
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Batch added in offline mode'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                  
-                  // Remove navigation back - stay on this screen
-                  // Navigator.of(context).pop({'refreshNeeded': true});
-                },
-              ),
-              duration: Duration(seconds: 8),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
+        // Create a local Batch object to display immediately
+        final newBatch = Batch(
+          id: batchId,
+          productId: widget.product.id,
+          productName: widget.product.name,
+          purchaseDate: DateFormat('yyyy-MM-dd').format(_selectedDate),
+          quantityPurchased: newQuantity,
+          remaining: newQuantity,
+          costPrice: newCostPrice,
+          createdAt: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          sellingPrice: newSellingPrice ?? widget.product.sellingPrice,
+        );
+        
+        // Add the batch to our local list
+        setState(() {
+          _batches = [newBatch, ..._batches];
+          _isAddingBatch = false;
+        });
+      } else {
+        // Successful server-side addition
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Batch added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Reload batches to show the new one
+        await _loadBatches();
+      }
+      
+      // Notify the parent screen that the products need to be refreshed
+      if (needsRefresh && mounted) {
+        Navigator.pop(context, {'refreshNeeded': true});
       }
     } catch (e) {
+      // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid input: $e')),
+        SnackBar(
+          content: Text('Failed to add batch: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
+      print('Error adding batch: $e');
     } finally {
       setState(() {
         _isAddingBatch = false;
+      });
+    }
+  }
+  
+  // Get shop ID
+  Future<String> _getShopId() async {
+    try {
+      final ProductService productService = ProductService();
+      return await productService.getShopId();
+    } catch (e) {
+      print('Error getting shop ID: $e');
+      return '';
+    }
+  }
+  
+  // Force sync batches with server
+  Future<void> _syncWithServer() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      await _loadBatches();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Batches synced successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to sync batches: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
@@ -439,7 +460,9 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 8),
                                   child: ListTile(
-                                    title: Text('Batch #${index + 1}'),
+                                    title: Text(batch.isInitialBatch 
+                                      ? 'Initial Batch (#${index + 1})' 
+                                      : 'Batch #${index + 1}'),
                                     subtitle: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
@@ -447,6 +470,8 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
                                         Text('Quantity: ${batch.quantityPurchased} units'),
                                         Text('Remaining: ${batch.remaining} units'),
                                         Text('Cost Price: \$${batch.costPrice.toStringAsFixed(2)}'),
+                                        if (batch.sellingPrice != null)
+                                          Text('Selling Price: \$${batch.sellingPrice!.toStringAsFixed(2)}'),
                                       ],
                                     ),
                                     isThreeLine: true,
@@ -459,57 +484,5 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
         ),
       ),
     );
-  }
-
-  // Method to force sync with server
-  Future<void> _syncWithServer() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      // Check if there are any offline batches that need syncing
-      final offlineBatchesJson = await _productService.getOfflineBatchesJson();
-      List<dynamic> offlineBatches = jsonDecode(offlineBatchesJson);
-      
-      // Get offline batches for this product using the public method
-      final productBatches = await _productService.getOfflineBatchesForProduct(widget.product.id);
-      
-      if (productBatches.isNotEmpty) {
-        // Show syncing message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Syncing ${productBatches.length} offline batches with server...'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        
-        // In a real app, you would attempt to sync these with the server
-        // For now, we'll just reload batches to ensure we get the latest data
-      }
-      
-      // Reload batches from scratch to get fresh data
-      await _loadBatches();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sync completed successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to sync with server: $e';
-        _isLoading = false;
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sync failed: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 } 

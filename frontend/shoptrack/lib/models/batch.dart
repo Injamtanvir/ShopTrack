@@ -1,6 +1,7 @@
 class Batch {
   final String id;
   final String productId;
+  final String productName;
   final String purchaseDate;
   final int quantityPurchased;
   final int remaining;
@@ -8,10 +9,12 @@ class Batch {
   final String? shopId;
   final String createdAt;
   final double? sellingPrice;
+  final bool isInitialBatch;
 
   Batch({
     required this.id,
     required this.productId,
+    this.productName = 'Unknown Product',
     required this.purchaseDate,
     required this.quantityPurchased,
     required this.remaining,
@@ -19,6 +22,7 @@ class Batch {
     this.shopId,
     required this.createdAt,
     this.sellingPrice,
+    this.isInitialBatch = false,
   });
 
   factory Batch.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,7 @@ class Batch {
       return Batch(
         id: json['_id'] ?? json['id'] ?? '',
         productId: json['product_id'] ?? '',
+        productName: json['product_name'] ?? 'Unknown Product',
         purchaseDate: json['purchase_date'] ?? '',
         quantityPurchased: json['quantity_purchased'] ?? json['quantity'] ?? 0,
         remaining: json['remaining'] ?? 0,
@@ -33,6 +38,7 @@ class Batch {
         shopId: json['shop_id'],
         createdAt: json['created_at'] ?? '',
         sellingPrice: (json['selling_price'] is num) ? json['selling_price'].toDouble() : null,
+        isInitialBatch: json['is_initial_batch'] ?? false,
       );
     } catch (e) {
       print('Error parsing batch data: $e');
@@ -41,6 +47,7 @@ class Batch {
       return Batch(
         id: '',
         productId: '',
+        productName: 'Unknown Product', 
         purchaseDate: '',
         quantityPurchased: 0,
         remaining: 0,
@@ -54,6 +61,7 @@ class Batch {
     return {
       '_id': id,
       'product_id': productId,
+      'product_name': productName,
       'purchase_date': purchaseDate,
       'quantity_purchased': quantityPurchased,
       'remaining': remaining,
@@ -61,6 +69,7 @@ class Batch {
       'shop_id': shopId,
       'created_at': createdAt,
       'selling_price': sellingPrice,
+      'is_initial_batch': isInitialBatch,
     };
   }
 

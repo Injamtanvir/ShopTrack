@@ -923,6 +923,7 @@ class ProductView(APIView):
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             shop_id = payload['shop_id']
             user_email = payload['email']
+            user_id = payload.get('user_id', None)
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return Response(
                 {"error": "Invalid or expired token"},
@@ -941,18 +942,24 @@ class ProductView(APIView):
             })
 
             if existing_product:
-                # Update existing product
+                # Update existing product quantities
+                current_quantity = existing_product.get('quantity', 0)
+                new_quantity = current_quantity + data['quantity']
+                available_quantity = existing_product.get('available_quantity', current_quantity)
+                new_available = available_quantity + data['quantity']
+                
                 products_collection.update_one(
                     {"_id": existing_product['_id']},
                     {"$set": {
-                        "quantity": existing_product['quantity'] + data['quantity'],
+                        "quantity": new_quantity,
+                        "available_quantity": new_available,
                         "buying_price": data['buying_price'],
                         "selling_price": data['selling_price'],
                         "updated_at": datetime.now()
                     }}
                 )
 
-                # Also add a new batch record
+                # Also add a new batch record for the added quantity
                 batch_data = {
                     "product_id": str(existing_product['_id']),
                     "product_name": data['name'],
@@ -961,18 +968,20 @@ class ProductView(APIView):
                     "quantity": data['quantity'],
                     "remaining": data['quantity'],
                     "cost_price": data['buying_price'],
+                    "selling_price": data['selling_price'],
                     "shop_id": shop_id,
                     "added_by": user_email,
-                    "added_by_id": user_id if 'user_id' in payload else None,
+                    "added_by_id": user_id,
                     "added_at": datetime.now(),
                     "created_at": datetime.now(),
-                    "is_initial_batch": True  # Mark this as an initial batch
+                    "is_initial_batch": False  # Not an initial batch since product exists
                 }
-                batches_collection.insert_one(batch_data)
-
+                batch_result = batches_collection.insert_one(batch_data)
+                
                 return Response({
                     "message": "Product updated successfully",
-                    "product_id": str(existing_product['_id'])
+                    "product_id": str(existing_product['_id']),
+                    "batch_id": str(batch_result.inserted_id)
                 }, status=status.HTTP_200_OK)
             else:
                 # Create new product
@@ -980,6 +989,7 @@ class ProductView(APIView):
                     "shop_id": shop_id,
                     "name": data['name'],
                     "quantity": data['quantity'],
+                    "available_quantity": data['quantity'],  # Initialize available quantity
                     "quantity_on_hold": 0,  # Initialize on_hold quantity
                     "buying_price": data['buying_price'],
                     "selling_price": data['selling_price'],
@@ -989,28 +999,31 @@ class ProductView(APIView):
                 }
 
                 result = products_collection.insert_one(product_data)
+                product_id = str(result.inserted_id)
 
-                # Also add a new batch record
+                # Always add a new batch record for the initial product quantity
                 batch_data = {
-                    "product_id": str(result.inserted_id),
+                    "product_id": product_id,
                     "product_name": data['name'],
                     "purchase_date": datetime.now(),
                     "quantity_purchased": data['quantity'],
                     "quantity": data['quantity'],
                     "remaining": data['quantity'],
                     "cost_price": data['buying_price'],
+                    "selling_price": data['selling_price'],
                     "shop_id": shop_id,
                     "added_by": user_email,
-                    "added_by_id": user_id if 'user_id' in payload else None,
+                    "added_by_id": user_id,
                     "added_at": datetime.now(),
                     "created_at": datetime.now(),
                     "is_initial_batch": True  # Mark this as an initial batch
                 }
-                batches_collection.insert_one(batch_data)
+                batch_result = batches_collection.insert_one(batch_data)
 
                 return Response({
                     "message": "Product added successfully",
-                    "product_id": str(result.inserted_id)
+                    "product_id": product_id,
+                    "batch_id": str(batch_result.inserted_id)
                 }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1029,15 +1042,9 @@ class ProductView(APIView):
         # Get all products for this shop
         products = list(products_collection.find({"shop_id": shop_id}))
 
-        # Convert ObjectId to string for JSON serialization
+        # Convert ObjectIds to strings for JSON serialization
         for product in products:
             product['_id'] = str(product['_id'])
-
-            # Calculate available quantity (total - on_hold)
-            if 'quantity_on_hold' in product:
-                product['available_quantity'] = product['quantity'] - product['quantity_on_hold']
-            else:
-                product['available_quantity'] = product['quantity']
 
         return Response(products)
 
@@ -1618,17 +1625,21 @@ class BatchView(APIView):
             result = batches_collection.insert_one(batch_data)
             batch_id = str(result.inserted_id)
 
-            # Update product quantity
-            products_collection.update_one(
-                {"_id": ObjectId(product_id)},
-                {
-                    "$inc": {"quantity": quantity},
-                    "$set": {
-                        "updated_at": datetime.now(),
-                        "buying_price": cost_price  # Update latest buying price
-                    }
-                }
-            )
+            # Get current product quantities
+            current_quantity = product.get('quantity', 0)
+            current_available = product.get('available_quantity', current_quantity)
+            
+            # Calculate new quantities
+            new_quantity = current_quantity + quantity
+            new_available = current_available + quantity
+
+            # Update product quantity and available quantity
+            update_data = {
+                "quantity": new_quantity,
+                "available_quantity": new_available,
+                "updated_at": datetime.now(),
+                "buying_price": cost_price  # Update latest buying price
+            }
 
             # If new selling price is provided, update it and log in price history
             if 'new_selling_price' in data and data['new_selling_price']:
@@ -1638,10 +1649,7 @@ class BatchView(APIView):
 
                     if new_selling_price != old_selling_price:
                         # Update product selling price
-                        products_collection.update_one(
-                            {"_id": ObjectId(product_id)},
-                            {"$set": {"selling_price": new_selling_price}}
-                        )
+                        update_data["selling_price"] = new_selling_price
 
                         # Log price change
                         price_history_collection.insert_one({
@@ -1658,9 +1666,17 @@ class BatchView(APIView):
                     # without updating it
                     pass
 
+            # Apply the product updates
+            products_collection.update_one(
+                {"_id": ObjectId(product_id)},
+                {"$set": update_data}
+            )
+
             return Response({
                 "message": "Batch added successfully",
-                "batch_id": batch_id
+                "batch_id": batch_id,
+                "updated_quantity": new_quantity,
+                "updated_available_quantity": new_available
             })
 
         except Exception as e:
@@ -1712,9 +1728,43 @@ class BatchHistoryView(APIView):
                 {"product_id": product_id}
             ).sort("purchase_date", -1))  # Sort by purchase date, newest first
 
+            # If no batches were found but the product exists, create a "virtual" initial batch
+            # This handles cases where a product was created but no batch was recorded
             if not batches:
-                # Return empty list instead of 404 to avoid errors in frontend
-                return Response([])
+                print(f"No batches found for product {product_id}, creating virtual initial batch")
+                virtual_batch = {
+                    "_id": f"virtual_{product_id}",  # Create a virtual ID
+                    "product_id": product_id,
+                    "product_name": product.get("name", "Unknown Product"),
+                    "purchase_date": product.get("created_at", datetime.now()).strftime("%Y-%m-%d"),
+                    "quantity_purchased": product.get("quantity", 0),
+                    "quantity": product.get("quantity", 0),
+                    "remaining": product.get("quantity", 0),
+                    "cost_price": product.get("buying_price", 0),
+                    "selling_price": product.get("selling_price", 0),
+                    "shop_id": shop_id,
+                    "created_at": product.get("created_at", datetime.now()).strftime("%Y-%m-%d"),
+                    "is_initial_batch": True,
+                    "is_virtual": True  # Mark as virtual for the frontend
+                }
+                batches = [virtual_batch]
+                
+                # Also create the actual batch record in the database
+                try:
+                    real_batch = virtual_batch.copy()
+                    # Remove virtual-specific fields
+                    real_batch.pop("_id")
+                    real_batch.pop("is_virtual")
+                    # Add creation metadata
+                    real_batch["added_by"] = "system_recovery"
+                    real_batch["added_at"] = datetime.now()
+                    real_batch["created_at"] = datetime.now()
+                    
+                    batch_result = batches_collection.insert_one(real_batch)
+                    print(f"Created real initial batch with ID: {batch_result.inserted_id}")
+                except Exception as e:
+                    print(f"Error creating real batch: {e}")
+                    # Continue without failing the request
 
             # Format the response with correct field names to match frontend model
             formatted_batches = []
@@ -1728,23 +1778,38 @@ class BatchHistoryView(APIView):
                         "quantity_purchased": batch.get("quantity_purchased", batch.get("quantity", 0)),
                         "remaining": batch.get("remaining", 0),
                         "cost_price": batch.get("cost_price", 0),
-                        "purchase_date": batch["purchase_date"].strftime("%Y-%m-%d"),
+                        "purchase_date": batch.get("purchase_date", "").strftime("%Y-%m-%d") if isinstance(batch.get("purchase_date"), datetime) else batch.get("purchase_date", ""),
                         "shop_id": batch.get("shop_id", shop_id),
-                        "created_at": batch["created_at"].strftime("%Y-%m-%d %H:%M:%S") if "created_at" in batch else datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "selling_price": product.get("selling_price", 0),
-                        "added_by": batch.get("added_by", "System"),
-                        "added_at": batch.get("added_at", batch.get("created_at", datetime.now())).strftime("%Y-%m-%d %H:%M:%S") if isinstance(batch.get("added_at", batch.get("created_at", datetime.now())), datetime) else batch.get("added_at", batch.get("created_at", datetime.now())),
-                        "is_initial_batch": batch.get("is_initial_batch", False)
+                        "created_at": batch.get("created_at", "").strftime("%Y-%m-%d") if isinstance(batch.get("created_at"), datetime) else batch.get("created_at", ""),
+                        "selling_price": batch.get("selling_price", product.get("selling_price", 0)),
+                        "is_initial_batch": batch.get("is_initial_batch", False),
+                        "is_virtual": batch.get("is_virtual", False)
                     }
                     formatted_batches.append(formatted_batch)
                 except Exception as e:
-                    print(f"Error formatting batch {batch.get('_id')}: {e}")
-                    # Skip this batch and continue
+                    print(f"Error formatting batch {batch.get('_id', 'unknown')}: {e}")
+                    # Attempt to include the batch anyway with a fallback structure
+                    formatted_batches.append({
+                        "_id": str(batch.get("_id", f"error_{len(formatted_batches)}")),
+                        "product_id": product_id,
+                        "product_name": product.get('name', 'Unknown Product'),
+                        "quantity_purchased": batch.get("quantity", 0),
+                        "remaining": batch.get("remaining", 0),
+                        "cost_price": product.get("buying_price", 0),
+                        "purchase_date": batch.get("purchase_date", datetime.now().strftime("%Y-%m-%d")),
+                        "created_at": batch.get("created_at", datetime.now().strftime("%Y-%m-%d")),
+                        "selling_price": product.get("selling_price", 0),
+                        "is_initial_batch": True,
+                        "error_in_formatting": True
+                    })
+
+            # Sort batches - initial batch first, then by date (oldest to newest)
+            formatted_batches.sort(key=lambda x: (not x.get('is_initial_batch', False), x.get('purchase_date', '')))
 
             return Response(formatted_batches)
 
         except Exception as e:
-            print(f"Error in BatchHistoryView: {e}")
+            print(f"Error getting batch history: {e}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -2599,110 +2664,154 @@ class OfflinePriceChangesSyncView(APIView):
 
 # Add ProductDetailView class after the ProductView class
 class ProductDetailView(APIView):
-    """
-    API view for handling single product operations by ID.
-    GET: Retrieve a single product
-    DELETE: Delete a product (has same functionality as DeleteProductView)
-    """
+    # Get details of a specific product
     def get(self, request, product_id):
         # Verify JWT token from headers
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             shop_id = payload['shop_id']
-            
-            # Try to find the product - first as ObjectId
-            product = None
-            try:
-                object_id = ObjectId(product_id)
-                product = products_collection.find_one({"_id": object_id, "shop_id": shop_id})
-            except (InvalidId, Exception):
-                # Try as string ID
-                product = products_collection.find_one({"_id": product_id, "shop_id": shop_id})
-            
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # Check if product_id is a valid ObjectId
+            if not is_valid_object_id(product_id):
+                return Response(
+                    {"error": "Invalid product ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the product
+            product = products_collection.find_one({"_id": ObjectId(product_id)})
+
             if not product:
                 return Response(
                     {"error": "Product not found"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-            
+
+            # Check if product belongs to this shop
+            if product['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             # Convert ObjectId to string for JSON serialization
-            if '_id' in product and isinstance(product['_id'], ObjectId):
-                product['_id'] = str(product['_id'])
-                
+            product['_id'] = str(product['_id'])
+
             return Response(product)
-            
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError) as e:
+        except Exception as e:
+            print(f"Error in ProductDetailView GET: {e}")
             return Response(
-                {"error": "Invalid or expired token"},
-                status=status.HTTP_401_UNAUTHORIZED
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
-    def delete(self, request, product_id):
-        # This is essentially the same as DeleteProductView for consistency
-        print(f"ProductDetailView: Delete request for product ID {product_id}")
-        
+
+    def put(self, request, product_id):
         # Verify JWT token from headers
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             shop_id = payload['shop_id']
             user_email = payload['email']
-            role = payload.get('role', '')
-            
-            # Only managers and owners can delete products
-            if role not in ['manager', 'owner']:
-                return Response(
-                    {"error": "Only managers or owners can delete products"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            
-            # Find the product
-            product = None
-            try:
-                # Try with ObjectId
-                if is_valid_object_id(product_id):
-                    object_id = ObjectId(product_id)
-                    product = products_collection.find_one({"_id": object_id, "shop_id": shop_id})
-                    if product:
-                        # Delete the product
-                        result = products_collection.delete_one({"_id": object_id})
-                        
-                        # Delete related records (batches, price history)
-                        batches_collection.delete_many({"product_id": str(object_id)})
-                        price_history_collection.delete_many({"product_id": str(object_id)})
-                        
-                        return Response({
-                            "message": f"Product '{product.get('name', 'Unknown')}' deleted successfully"
-                        })
-            except Exception as e:
-                print(f"Error deleting product: {str(e)}")
-                
-            # Try with string ID if ObjectId failed
-            try:
-                product = products_collection.find_one({"_id": product_id, "shop_id": shop_id})
-                if product:
-                    # Delete the product
-                    result = products_collection.delete_one({"_id": product_id})
-                    
-                    # Delete related records
-                    batches_collection.delete_many({"product_id": product_id})
-                    price_history_collection.delete_many({"product_id": product_id})
-                    
-                    return Response({
-                        "message": f"Product '{product.get('name', 'Unknown')}' deleted successfully"
-                    })
-            except Exception as e:
-                print(f"Error deleting product: {str(e)}")
-            
-            # If we get here, the product was not found or couldn't be deleted
-            return Response(
-                {"error": "Product not found or could not be deleted"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-            
+            user_id = payload.get('user_id', None)
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return Response(
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+
+        try:
+            # Check if product_id is a valid ObjectId
+            if not is_valid_object_id(product_id):
+                return Response(
+                    {"error": "Invalid product ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the existing product
+            product = products_collection.find_one({"_id": ObjectId(product_id)})
+
+            if not product:
+                return Response(
+                    {"error": "Product not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Check if product belongs to this shop
+            if product['shop_id'] != shop_id:
+                return Response(
+                    {"error": "Unauthorized access"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Get update data
+            update_data = request.data
+            
+            # Make sure required fields exist in the product object
+            if 'quantity' not in product:
+                product['quantity'] = 0
+            if 'available_quantity' not in product:
+                product['available_quantity'] = product['quantity']
+            if 'quantity_on_hold' not in product:
+                product['quantity_on_hold'] = 0
+                
+            # Update fields
+            updated_product = {
+                "updated_at": datetime.now()
+            }
+            
+            # Process fields to update
+            for field in ['name', 'buying_price', 'selling_price', 'quantity', 'available_quantity', 'quantity_on_hold']:
+                if field in update_data:
+                    updated_product[field] = update_data[field]
+            
+            # Check if selling price changed and log it in price history
+            if 'selling_price' in update_data and update_data['selling_price'] != product.get('selling_price', 0):
+                price_history_collection.insert_one({
+                    "product_id": product_id,
+                    "old_price": product.get('selling_price', 0),
+                    "new_price": update_data['selling_price'],
+                    "changed_by": user_email,
+                    "changed_by_id": user_id,
+                    "change_date": datetime.now(),
+                    "shop_id": shop_id
+                })
+            
+            # Update the product
+            result = products_collection.update_one(
+                {"_id": ObjectId(product_id)},
+                {"$set": updated_product}
+            )
+            
+            if result.modified_count == 0:
+                # Document might not have been modified if no changes were necessary
+                if result.matched_count == 0:
+                    return Response(
+                        {"error": "Failed to update product"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            
+            # Get the updated product
+            updated_product_doc = products_collection.find_one({"_id": ObjectId(product_id)})
+            updated_product_doc['_id'] = str(updated_product_doc['_id'])
+            
+            return Response({
+                "message": "Product updated successfully",
+                "product": updated_product_doc
+            })
+        except Exception as e:
+            print(f"Error in ProductDetailView PUT: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def delete(self, request, product_id):
+        # This is essentially the same as DeleteProductView for consistency
+        return DeleteProductView().delete(request, product_id)
