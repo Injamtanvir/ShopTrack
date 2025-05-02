@@ -943,10 +943,14 @@ class ProductView(APIView):
 
             if existing_product:
                 # Update existing product quantities
-                current_quantity = existing_product.get('quantity', 0)
+                # Get all batches for this product to recalculate total quantity correctly
+                all_batches = list(batches_collection.find({"product_id": str(existing_product['_id'])}))
+                current_quantity = sum(int(batch.get('quantity', 0)) for batch in all_batches)
                 new_quantity = current_quantity + data['quantity']
-                available_quantity = existing_product.get('available_quantity', current_quantity)
-                new_available = available_quantity + data['quantity']
+                
+                # Calculate available quantity (total - on_hold)
+                current_on_hold = existing_product.get('quantity_on_hold', 0)
+                new_available = new_quantity - current_on_hold
                 
                 products_collection.update_one(
                     {"_id": existing_product['_id']},
@@ -978,10 +982,24 @@ class ProductView(APIView):
                 }
                 batch_result = batches_collection.insert_one(batch_data)
                 
+                # Recalculate product quantity after batch addition
+                all_batches = list(batches_collection.find({"product_id": str(existing_product['_id'])}))
+                total_quantity = sum(int(batch.get('quantity', 0)) for batch in all_batches)
+                
+                # Update with recalculated total to ensure consistency
+                products_collection.update_one(
+                    {"_id": existing_product['_id']},
+                    {"$set": {
+                        "quantity": total_quantity,
+                        "available_quantity": total_quantity - current_on_hold
+                    }}
+                )
+                
                 return Response({
                     "message": "Product updated successfully",
                     "product_id": str(existing_product['_id']),
-                    "batch_id": str(batch_result.inserted_id)
+                    "batch_id": str(batch_result.inserted_id),
+                    "total_quantity": total_quantity
                 }, status=status.HTTP_200_OK)
             else:
                 # Create new product
@@ -1697,39 +1715,55 @@ class BatchHistoryView(APIView):
                 virtual_batch = {
                     "_id": f"virtual_{product_id}",  # Create a virtual ID
                     "product_id": product_id,
-                    "product_name": product.get("name", "Unknown Product"),
-                    "purchase_date": product.get("created_at", datetime.now()).strftime("%Y-%m-%d"),
-                    "quantity_purchased": product.get("quantity", 0),
-                    "quantity": product.get("quantity", 0),
-                    "remaining": product.get("quantity", 0),
-                    "cost_price": product.get("buying_price", 0),
-                    "selling_price": product.get("selling_price", 0),
+                    "product_name": product.get('name', 'Unknown Product'),
+                    "purchase_date": product.get('created_at', datetime.now().isoformat()),
+                    "quantity_purchased": product.get('quantity', 0),
+                    "quantity": product.get('quantity', 0),
+                    "remaining": product.get('quantity', 0) - product.get('quantity_on_hold', 0),
+                    "cost_price": product.get('buying_price', 0),
+                    "selling_price": product.get('selling_price', 0),
                     "shop_id": shop_id,
-                    "created_at": product.get("created_at", datetime.now()).strftime("%Y-%m-%d"),
+                    "added_by": "System (Virtual Batch)",
+                    "added_at": product.get('created_at', datetime.now().isoformat()),
+                    "created_at": product.get('created_at', datetime.now().isoformat()),
                     "is_initial_batch": True,
-                    "is_virtual": True  # Mark as virtual for the frontend
+                    "is_virtual": True
                 }
                 batches = [virtual_batch]
                 
-                # Also create the actual batch record in the database
-                try:
-                    real_batch = virtual_batch.copy()
-                    # Remove virtual-specific fields
-                    real_batch.pop("_id")
-                    real_batch.pop("is_virtual")
-                    # Add creation metadata
-                    real_batch["added_by"] = "system_recovery"
-                    real_batch["added_at"] = datetime.now()
-                    real_batch["created_at"] = datetime.now()
-                    
-                    batch_result = batches_collection.insert_one(real_batch)
-                    print(f"Created real initial batch with ID: {batch_result.inserted_id}")
-                except Exception as e:
-                    print(f"Error creating real batch: {e}")
-                    # Continue without failing the request
-
-            # Format the response with correct field names to match frontend model
+                # Also create a real batch with this data for future consistency
+                virtual_batch_copy = virtual_batch.copy()
+                virtual_batch_copy.pop('_id', None)  # Remove the virtual ID
+                virtual_batch_copy.pop('is_virtual', None)  # Remove the virtual flag
+                batches_collection.insert_one(virtual_batch_copy)
+                print(f"Created real initial batch for product {product_id}")
+            
+            # Calculate total quantity from all batches
+            total_quantity_from_batches = sum(int(batch.get('quantity', 0)) for batch in batches)
+            
+            # Check if the product quantity matches the sum of all batches
+            product_quantity = product.get('quantity', 0)
+            if product_quantity != total_quantity_from_batches:
+                print(f"Warning: Product {product_id} quantity ({product_quantity}) doesn't match batch total ({total_quantity_from_batches})")
+                
+                # Update the product with the correct quantity
+                quantity_on_hold = product.get('quantity_on_hold', 0)
+                products_collection.update_one(
+                    {"_id": ObjectId(product_id)},
+                    {"$set": {
+                        "quantity": total_quantity_from_batches,
+                        "available_quantity": total_quantity_from_batches - quantity_on_hold,
+                        "updated_at": datetime.now().isoformat()
+                    }}
+                )
+                print(f"Updated product {product_id} quantity to match batch total: {total_quantity_from_batches}")
+                
+                # Also update the product object for this response
+                product['quantity'] = total_quantity_from_batches
+                product['available_quantity'] = total_quantity_from_batches - quantity_on_hold
+            
             formatted_batches = []
+            
             for batch in batches:
                 try:
                     # Ensure all fields are present for frontend compatibility
@@ -2425,11 +2459,21 @@ class OfflineBatchSyncView(APIView):
                     result = batches_collection.insert_one(batch_data)
 
                     # Update product quantity
+                    # Get all batches for this product to calculate accurate total
+                    all_batches = list(batches_collection.find({"product_id": product_id}))
+                    total_quantity = sum(int(batch.get('quantity', 0)) for batch in all_batches)
+                    
+                    # Get current product details to calculate available quantity
+                    product_details = products_collection.find_one({"_id": ObjectId(product_id)})
+                    quantity_on_hold = product_details.get('quantity_on_hold', 0) if product_details else 0
+                    
+                    # Update product with recalculated quantities
                     products_collection.update_one(
                         {"_id": ObjectId(product_id)},
                         {
-                            "$inc": {"quantity": quantity},
                             "$set": {
+                                "quantity": total_quantity,
+                                "available_quantity": total_quantity - quantity_on_hold,
                                 "updated_at": datetime.now()
                             }
                         }
@@ -2662,6 +2706,13 @@ class ProductDetailView(APIView):
                     {"error": "Unauthorized access"},
                     status=status.HTTP_403_FORBIDDEN
                 )
+                
+            # Verify and fix quantities if needed
+            quantities_fixed = verify_product_quantities(product_id)
+            
+            # If quantities were fixed, refresh the product data
+            if quantities_fixed:
+                product = products_collection.find_one({"_id": ObjectId(product_id)})
 
             # Convert ObjectId to string for JSON serialization
             product['_id'] = str(product['_id'])
@@ -2729,9 +2780,25 @@ class ProductDetailView(APIView):
             }
             
             # Process fields to update
-            for field in ['name', 'buying_price', 'selling_price', 'quantity', 'available_quantity', 'quantity_on_hold']:
+            for field in ['name', 'buying_price', 'selling_price']:
                 if field in update_data:
                     updated_product[field] = update_data[field]
+            
+            # For quantity fields, recalculate from batches
+            if any(field in update_data for field in ['quantity', 'available_quantity', 'quantity_on_hold']):
+                # If manual quantity update is requested, verify batch consistency first
+                
+                # Get all batches for this product
+                all_batches = list(batches_collection.find({"product_id": product_id}))
+                batches_total_quantity = sum(int(batch.get('quantity', 0)) for batch in all_batches)
+                
+                # If there's a quantity_on_hold update, use it
+                quantity_on_hold = update_data.get('quantity_on_hold', product.get('quantity_on_hold', 0))
+                
+                # Set quantities based on batches and on-hold amount
+                updated_product['quantity'] = batches_total_quantity
+                updated_product['available_quantity'] = batches_total_quantity - quantity_on_hold
+                updated_product['quantity_on_hold'] = quantity_on_hold
             
             # Check if selling price changed and log it in price history
             if 'selling_price' in update_data and update_data['selling_price'] != product.get('selling_price', 0):
@@ -2777,3 +2844,42 @@ class ProductDetailView(APIView):
     def delete(self, request, product_id):
         # This is essentially the same as DeleteProductView for consistency
         return DeleteProductView().delete(request, product_id)
+
+# Utility function to verify and fix product quantities
+def verify_product_quantities(product_id):
+    """Verify that product quantities match batch totals and fix if necessary."""
+    try:
+        # Get product
+        product = products_collection.find_one({"_id": ObjectId(product_id)})
+        if not product:
+            print(f"Product {product_id} not found")
+            return False
+            
+        # Get all batches
+        all_batches = list(batches_collection.find({"product_id": product_id}))
+        
+        # Calculate total from batches
+        total_quantity = sum(int(batch.get('quantity', 0)) for batch in all_batches)
+        
+        # Check if product quantity matches
+        product_quantity = int(product.get('quantity', 0))
+        quantity_on_hold = int(product.get('quantity_on_hold', 0))
+        
+        if product_quantity != total_quantity:
+            print(f"Fixing quantity mismatch for product {product_id}: "
+                  f"Product shows {product_quantity}, batches sum to {total_quantity}")
+            
+            # Update product with correct quantities
+            products_collection.update_one(
+                {"_id": ObjectId(product_id)},
+                {"$set": {
+                    "quantity": total_quantity,
+                    "available_quantity": total_quantity - quantity_on_hold,
+                    "updated_at": datetime.now().isoformat()
+                }}
+            )
+            return True
+        return False
+    except Exception as e:
+        print(f"Error in verify_product_quantities: {e}")
+        return False

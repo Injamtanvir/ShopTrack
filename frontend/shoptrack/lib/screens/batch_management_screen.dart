@@ -47,9 +47,11 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
     _sellingPriceController.text = widget.product.sellingPrice.toString();
     _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
     
-    // Load data
-    _refreshProductData();
-    _loadBatches();
+    // Load data - always refresh product data first to get latest quantities
+    _refreshProductData().then((_) {
+      // After product refresh, then load batches
+      _loadBatches();
+    });
   }
 
   @override
@@ -102,8 +104,33 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
         }
       });
       
-      // Always refresh product data to get the most up-to-date quantities
-      await _refreshProductData();
+      // Calculate total quantity from batches
+      int totalQuantityFromBatches = 0;
+      for (var batch in batches) {
+        totalQuantityFromBatches += batch.quantityPurchased;
+      }
+      
+      // If the product quantity doesn't match the batch total, update the display
+      if (totalQuantityFromBatches != _updatedQuantity) {
+        print('Batch total ($totalQuantityFromBatches) differs from product quantity ($_updatedQuantity)');
+        
+        // Update our display with the batch total
+        setState(() {
+          _updatedQuantity = totalQuantityFromBatches;
+          _updatedAvailable = totalQuantityFromBatches - _updatedOnHold;
+        });
+        
+        // Try to update the server with the corrected values
+        try {
+          await _productService.updateProduct(widget.product.id, {
+            'quantity': totalQuantityFromBatches,
+            'available_quantity': totalQuantityFromBatches - _updatedOnHold
+          });
+          print('Updated server with corrected quantities');
+        } catch (e) {
+          print('Failed to update server with corrected quantities: $e');
+        }
+      }
       
       setState(() {
         _batches = batches;
@@ -145,9 +172,12 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
     });
 
     try {
+      // Parse quantity to ensure it's a valid integer
+      final int newQuantity = int.parse(_quantityController.text);
+      
       final batchData = {
         'product_id': widget.product.id,
-        'quantity': int.parse(_quantityController.text),
+        'quantity': newQuantity,
         'cost_price': double.parse(_costPriceController.text),
         'purchase_date': _dateController.text,
       };
@@ -156,20 +186,30 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
       final newSellingPrice = _sellingPriceController.text.trim();
       if (newSellingPrice.isNotEmpty) {
         batchData['new_selling_price'] = double.parse(newSellingPrice);
+        batchData['selling_price'] = double.parse(newSellingPrice);
       }
 
+      // Add the batch
       final batchId = await _productService.addBatch(batchData);
 
       if (mounted) {
+        // Update our local state to show the new quantity immediately
+        setState(() {
+          _updatedQuantity += newQuantity;
+          _updatedAvailable += newQuantity;
+        });
+        
         // After successfully adding a batch, we need to:
         // 1. Refresh product data to get updated quantities
         // 2. Reload batches to see the new batch
         // 3. Reset the form
         
-        // Refresh product data
+        // Refresh product data - use a slight delay to allow server to process
+        await Future.delayed(Duration(milliseconds: 300));
         await _refreshProductData();
         
-        // Reload batches to include the new one
+        // Reload batches to include the new one - with delay to ensure server has updated
+        await Future.delayed(Duration(milliseconds: 300));
         await _loadBatches();
         
         // Reset form
@@ -254,21 +294,60 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
   // Add method to refresh product data
   Future<void> _refreshProductData() async {
     try {
-      // Get updated product details 
+      // Get updated product details with force refresh to ensure latest data
       final productData = await _productService.getProductDetails(widget.product.id, forceRefresh: true);
 
-      // Update UI to show the latest quantities
       if (mounted && productData != null) {
-        // Calculate total quantity from batches if needed
-        final int totalQuantity = productData['quantity'] ?? 0;
-        final int availableQuantity = productData['available_quantity'] ?? totalQuantity;
-        final int onHoldQuantity = productData['quantity_on_hold'] ?? 0;
-        
-        setState(() {
-          _updatedQuantity = totalQuantity;
-          _updatedAvailable = availableQuantity;
-          _updatedOnHold = onHoldQuantity;
-        });
+        // Get batches to calculate total independently
+        try {
+          final batchData = await _productService.getBatches(widget.product.id);
+          if (batchData.isNotEmpty) {
+            // Calculate total quantity from batches
+            int batchTotalQuantity = 0;
+            for (var batch in batchData) {
+              batchTotalQuantity += batch['quantity'] ?? batch['quantity_purchased'] ?? 0;
+            }
+            
+            // Get quantities from product data
+            final int productTotalQuantity = productData['quantity'] ?? 0;
+            final int onHoldQuantity = productData['quantity_on_hold'] ?? 0;
+            final int availableQuantity = productData['available_quantity'] ?? (productTotalQuantity - onHoldQuantity);
+            
+            // If there's a mismatch, prefer the batch total
+            if (batchTotalQuantity != productTotalQuantity) {
+              print('Quantity mismatch detected: Product shows $productTotalQuantity, batches sum to $batchTotalQuantity');
+              
+              // Update the state with corrected quantities
+              setState(() {
+                _updatedQuantity = batchTotalQuantity;
+                _updatedAvailable = batchTotalQuantity - onHoldQuantity;
+                _updatedOnHold = onHoldQuantity;
+              });
+            } else {
+              // Use product data as is
+              setState(() {
+                _updatedQuantity = productTotalQuantity;
+                _updatedAvailable = availableQuantity;
+                _updatedOnHold = onHoldQuantity;
+              });
+            }
+          } else {
+            // No batches, use product data
+            setState(() {
+              _updatedQuantity = productData['quantity'] ?? 0;
+              _updatedAvailable = productData['available_quantity'] ?? _updatedQuantity;
+              _updatedOnHold = productData['quantity_on_hold'] ?? 0;
+            });
+          }
+        } catch (e) {
+          print('Error fetching batch data for quantity verification: $e');
+          // Fall back to product data
+          setState(() {
+            _updatedQuantity = productData['quantity'] ?? 0;
+            _updatedAvailable = productData['available_quantity'] ?? _updatedQuantity;
+            _updatedOnHold = productData['quantity_on_hold'] ?? 0;
+          });
+        }
       }
       
       print('Product data refreshed successfully: Quantity $_updatedQuantity, Available $_updatedAvailable');

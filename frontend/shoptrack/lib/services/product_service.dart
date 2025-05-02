@@ -494,13 +494,54 @@ class ProductService {
         throw Exception('Authorization token not found');
       }
       
+      // Check if we have cached data and aren't forcing a refresh
+      if (!forceRefresh) {
+        final cachedProductsJson = await _storage.read(key: 'cached_products') ?? '[]';
+        final List<dynamic> cachedProducts = jsonDecode(cachedProductsJson);
+        final cachedProduct = cachedProducts.firstWhere(
+          (product) => product['_id'] == productId || product['id'] == productId,
+          orElse: () => null,
+        );
+        
+        if (cachedProduct != null) {
+          // Return cached data
+          return Map<String, dynamic>.from(cachedProduct);
+        }
+      }
+      
+      // Fetch fresh data from API
       final response = await http.get(
         Uri.parse('${ApiConstants.products}/$productId'),
         headers: {'Authorization': 'Bearer $token'},
       );
       
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final productData = jsonDecode(response.body);
+        
+        // Update cached products
+        try {
+          final cachedProductsJson = await _storage.read(key: 'cached_products') ?? '[]';
+          final List<dynamic> cachedProducts = jsonDecode(cachedProductsJson);
+          
+          // Remove existing product if any
+          final filteredProducts = cachedProducts.where(
+            (product) => product['_id'] != productId && product['id'] != productId
+          ).toList();
+          
+          // Add updated product to cache
+          filteredProducts.add(productData);
+          
+          // Store updated cache
+          await _storage.write(
+            key: 'cached_products',
+            value: jsonEncode(filteredProducts)
+          );
+        } catch (e) {
+          print('Error updating product cache: $e');
+          // Continue without failing - cache update is not critical
+        }
+        
+        return productData;
       } else {
         throw Exception('Failed to get product details: ${response.statusCode}');
       }
@@ -1108,6 +1149,95 @@ class ProductService {
 
   // Public method to get product details
   Future<Map<String, dynamic>> getProductDetails(String productId, {bool forceRefresh = false}) async {
-    return await _getProductDetails(productId, forceRefresh: forceRefresh);
+    Map<String, dynamic> productData = await _getProductDetails(productId, forceRefresh: forceRefresh);
+    
+    // Calculate quantities properly if needed
+    if (productData.containsKey('_id')) {
+      try {
+        // Make sure we have correct quantity calculations
+        if (forceRefresh) {
+          // Get batches to verify quantities
+          final batches = await getBatches(productId);
+          
+          if (batches.isNotEmpty) {
+            // Calculate total from batches
+            final totalFromBatches = batches.fold(0, (total, batch) => 
+                total + (batch['quantity'] ?? batch['quantity_purchased'] ?? 0));
+                
+            // If quantities don't match, prefer the batch-based calculation
+            if (totalFromBatches != productData['quantity']) {
+              print('Correcting product quantity from ${productData['quantity']} to $totalFromBatches based on batches');
+              
+              // Update local data for this response
+              productData['quantity'] = totalFromBatches;
+              
+              // Make sure available quantity is consistent
+              final onHold = productData['quantity_on_hold'] ?? 0;
+              productData['available_quantity'] = totalFromBatches - onHold;
+              
+              // Try to update the server data as well
+              try {
+                await updateProduct(productId, {
+                  'quantity': totalFromBatches, 
+                  'available_quantity': totalFromBatches - onHold
+                });
+              } catch (e) {
+                print('Failed to update server with corrected quantities: $e');
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print('Error calculating quantities: $e');
+      }
+    }
+    
+    return productData;
+  }
+
+  // Verify and fix product quantities against batch data
+  Future<Map<String, dynamic>> verifyProductQuantities(String productId) async {
+    try {
+      // First get the product details
+      final productData = await _getProductDetails(productId, forceRefresh: true);
+      
+      // Then get all batches
+      final batches = await getBatches(productId);
+      
+      if (batches.isEmpty) {
+        return productData;
+      }
+      
+      // Calculate total from batches
+      int totalFromBatches = 0;
+      for (var batch in batches) {
+        totalFromBatches += batch['quantity'] ?? batch['quantity_purchased'] ?? 0;
+      }
+      
+      // If there's a mismatch, update the product
+      if (totalFromBatches != productData['quantity']) {
+        print('Product $productId quantity mismatch: Product shows ${productData['quantity']}, '
+              'batches sum to $totalFromBatches');
+        
+        // Get quantity on hold
+        final onHold = productData['quantity_on_hold'] ?? 0;
+        
+        // Update product with correct quantities
+        await updateProduct(productId, {
+          'quantity': totalFromBatches,
+          'available_quantity': totalFromBatches - onHold
+        });
+        
+        // Get updated product data
+        final updatedProduct = await _getProductDetails(productId, forceRefresh: true);
+        
+        return updatedProduct;
+      }
+      
+      return productData;
+    } catch (e) {
+      print('Error verifying product quantities: $e');
+      return {};
+    }
   }
 } 
