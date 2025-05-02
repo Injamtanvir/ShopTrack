@@ -13,8 +13,8 @@ class ApiService {
   Future<dynamic> _handleApiResponse(http.Response response) async {
     try {
       // Check if response is HTML instead of JSON
-      final body = response.body.trim();
-      if (body.contains('<!DOCTYPE') || body.contains('<html')) {
+      if (response.body.trim().startsWith('<!DOCTYPE') ||
+          response.body.trim().startsWith('<html')) {
         throw Exception('Server returned HTML instead of JSON. This usually indicates a server configuration or URL issue.');
       }
 
@@ -322,12 +322,10 @@ class ApiService {
         'cost_price': buyingPrice, // Also include cost_price for batch creation
       });
       
-      // Check if the productId is a string and starts with offline_product_
-      final productIdStr = productId.toString();
-      if (productIdStr.contains('offline_product_')) {
+      if (productId.startsWith('offline_product_')) {
         // Return offline product data with success message
         return {
-          'product_id': productIdStr,
+          'product_id': productId,
           'message': 'Product added in offline mode. Changes will be synced when connection is restored.',
           'offline': true
         };
@@ -343,8 +341,7 @@ class ApiService {
       print('Error adding product: $e');
       
       // Check if the error is about HTML response
-      final errorMessage = e.toString();
-      if (errorMessage.contains('HTML')) {
+      if (e.toString().contains('HTML')) {
         throw Exception('Server returned HTML instead of JSON. This usually indicates a server configuration or URL issue.');
       }
       
@@ -456,9 +453,8 @@ class ApiService {
       }
       
       // Check if response is HTML instead of JSON
-      final responseBody = response.body.trim();
-      if (responseBody.contains('<!DOCTYPE') || 
-          responseBody.contains('<html')) {
+      if (response.body.trim().startsWith('<!DOCTYPE') || 
+          response.body.trim().startsWith('<html')) {
         // Log the first 100 characters of the response for debugging
         print('HTML response received. First 100 chars: ${response.body.substring(0, min(100, response.body.length))}');
         
@@ -472,10 +468,9 @@ class ApiService {
         );
         
         // Check if retry was successful
-        final retryBody = retryResponse.body.trim();
         if (retryResponse.statusCode != 200 || 
-            (retryBody.contains('<!DOCTYPE') || 
-            retryBody.contains('<html'))) {
+            retryResponse.body.trim().startsWith('<!DOCTYPE') || 
+            retryResponse.body.trim().startsWith('<html')) {
           throw Exception('Server returned HTML instead of JSON after retry. Please check your network connection or try again later.');
         }
         

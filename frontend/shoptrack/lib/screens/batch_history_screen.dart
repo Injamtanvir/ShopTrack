@@ -3,15 +3,10 @@ import '../models/batch.dart';
 import '../widgets/batch_history_card.dart';
 
 class BatchHistoryScreen extends StatefulWidget {
-  static const routeName = '/batch-history';
-  final String productId;
-  final String productName;
   final List<Batch> batches;
 
   const BatchHistoryScreen({
     Key? key,
-    required this.productId,
-    required this.productName,
     required this.batches,
   }) : super(key: key);
 
@@ -82,7 +77,7 @@ class _BatchHistoryScreenState extends State<BatchHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Batches - ${widget.productName}'),
+        title: const Text('Batch History'),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),

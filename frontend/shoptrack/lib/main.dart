@@ -6,7 +6,6 @@ import 'providers/auth_provider.dart';
 import 'providers/connectivity_provider.dart';
 import 'providers/user_provider.dart';
 import 'services/connectivity_service.dart';
-import 'models/batch.dart';
 
 import 'screens/admin_home_screen.dart';
 import 'screens/login_screen.dart';
@@ -25,7 +24,6 @@ import 'screens/pending_invoices_screen.dart';
 import 'screens/invoice_history_screen.dart';
 import 'screens/admin_pending_invoice_screen.dart';
 import 'screens/daily_tracking_screen.dart';
-import 'screens/batch_history_screen.dart';
 
 
 
@@ -110,7 +108,6 @@ class MyApp extends StatelessWidget {
           DailyTrackingScreen.routeName: (ctx) => const DailyTrackingScreen(),
           OwnerHomeScreen.routeName: (ctx) => const OwnerHomeScreen(),
           ShopUsersScreen.routeName: (ctx) => const ShopUsersScreen(),
-          BatchHistoryScreen.routeName: (ctx) => const BatchHistoryScreen(productId: '', productName: '', batches: <Batch>[]),
         },
       ),
     );

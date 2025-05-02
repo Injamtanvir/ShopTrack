@@ -8,7 +8,7 @@ import '../widgets/connectivity_banner.dart';
 import '../services/stats_service.dart';
 import 'login_screen.dart';
 import 'register_sales_person_screen.dart';
-import '../screens/add_product_screen.dart';
+import 'add_product_screen.dart';
 import 'product_list_screen.dart';
 import 'price_list_screen.dart';
 import 'create_invoice_screen.dart';
@@ -383,21 +383,45 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget _buildActionButton({
     required IconData icon,
     required String title,
-    required Function() onTap,
+    required VoidCallback onTap,
     required Color color,
   }) {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(bottom: 12),
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon),
-        label: Text(title),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(vertical: 16),
-          alignment: Alignment.centerLeft,
+    return Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 110,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: kCardShadow,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: kNewTextColor,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

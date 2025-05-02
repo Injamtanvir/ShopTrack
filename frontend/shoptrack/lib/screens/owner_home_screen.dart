@@ -12,7 +12,7 @@ import '../services/shop_info_service.dart';
 import 'login_screen.dart';
 import 'register_manager_screen.dart';
 import 'register_sales_person_screen.dart';
-import '../screens/add_product_screen.dart';
+import 'add_product_screen.dart';
 import 'product_list_screen.dart';
 import 'price_list_screen.dart';
 import 'create_invoice_screen.dart';
@@ -694,9 +694,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               onPressed: () => Navigator.pushNamed(context, ShopUsersScreen.routeName),
               icon: const Icon(Icons.people_outline, size: 16),
               label: const Text('View All'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kOwnerRoleColor,
-                foregroundColor: Colors.white,
+              style: TextButton.styleFrom(
+                foregroundColor: kOwnerRoleColor,
               ),
             ),
           ],

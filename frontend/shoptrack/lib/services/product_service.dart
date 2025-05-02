@@ -34,39 +34,60 @@ class ProductService {
   }
   
   // Add a new product
-  Future<Map<String, dynamic>> addProduct(Map<String, dynamic> productData) async {
+  Future<String> addProduct(Map<String, dynamic> productData) async {
     final token = await _storage.read(key: 'token') ?? '';
     if (token.isEmpty) {
       throw Exception('Authorization token not found');
     }
 
     try {
-      // Check if we need to add shop_id
-      if (!productData.containsKey('shop_id') || productData['shop_id'] == null || productData['shop_id'].isEmpty) {
-        productData['shop_id'] = await _getShopId();
+      // First check if product already exists
+      String? existingProductId;
+      try {
+        final products = await getProducts();
+        final existingProduct = products.firstWhere(
+          (product) => product['name'] == productData['name'],
+          orElse: () => null,
+        );
+        if (existingProduct != null) {
+          existingProductId = existingProduct['_id'];
+        }
+      } catch (e) {
+        print('Error checking for existing product: $e');
+        // Continue with product creation
       }
       
-      // Check if we need to add added_by
-      if (!productData.containsKey('added_by') || productData['added_by'] == null || productData['added_by'].isEmpty) {
-        productData['added_by'] = await _storage.read(key: 'user_id') ?? 'Unknown';
+      if (existingProductId != null) {
+        // If product exists, create a new batch instead of updating directly
+        print('Product already exists. Adding new batch for product: $existingProductId');
+        final batchData = {
+          'product_id': existingProductId,
+          'product_name': productData['name'] ?? 'Unknown Product',
+          'shop_id': productData['shop_id'] ?? await _getShopId(),
+          'quantity': productData['quantity'],
+          'quantity_purchased': productData['quantity'],
+          'cost_price': productData['cost_price'] ?? productData['buying_price'],
+          'selling_price': productData['selling_price'],
+          'purchase_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          'remaining': productData['quantity'],
+          'added_by': await _storage.read(key: 'user_id') ?? 'Unknown',
+          'added_at': DateTime.now().toIso8601String(),
+          'is_initial_batch': false
+        };
+        
+        await addBatch(batchData);
+        
+        // Update the product totals
+        await updateProduct(existingProductId, {
+          'quantity': productData['quantity'], // This will be added to existing
+          'buying_price': productData['buying_price'],
+          'selling_price': productData['selling_price'],
+        });
+        
+        return existingProductId;
       }
       
-      bool isConnected = await _checkRealConnectivity();
-      if (!isConnected) {
-        // Store product locally for future sync
-        _saveOfflineProduct(productData);
-        
-        // Generate a mock product ID
-        String mockId = 'mock_product_${DateTime.now().millisecondsSinceEpoch}';
-        
-        // Mark that this was processed in offline mode
-        await _storage.write(key: 'last_product_offline', value: 'true');
-        
-        // Return local mock data
-        productData['_id'] = mockId;
-        return productData;
-      }
-
+      // For new products, create the product
       final response = await http.post(
         Uri.parse(ApiConstants.products),
         headers: {
@@ -76,87 +97,161 @@ class ProductService {
         body: jsonEncode(productData),
       );
 
-      bool isValidJsonResponse = _isValidJsonResponse(response);
-      
-      // Mark this as not being processed in offline mode by default
-      await _storage.write(key: 'last_product_offline', value: 'false');
-      
-      if (response.statusCode >= 200 && response.statusCode < 300 && isValidJsonResponse) {
-        final data = jsonDecode(response.body);
-        return data;
-      } else {
-        // Try to parse the error message
-        if (isValidJsonResponse) {
-          try {
-            final errorData = jsonDecode(response.body);
-            throw Exception(errorData['error'] ?? 'Failed to add product');
-          } catch (e) {
-            throw Exception('Failed to add product: ${response.statusCode}');
-          }
-        } else {
-          _saveOfflineProduct(productData);
-          // Generate a mock product ID and return it
-          String mockId = 'mock_product_${DateTime.now().millisecondsSinceEpoch}';
-          // Mark that this was processed in offline mode
-          await _storage.write(key: 'last_product_offline', value: 'true');
+      // Check if response contains HTML (indicating a server issue)
+      if ((response.body.contains('<!DOCTYPE') || response.body.contains('<html>')) && 
+          !(response.statusCode >= 200 && response.statusCode < 300)) {
+        print('Server returned HTML instead of JSON when adding product');
+        
+        // Generate a temporary product ID
+        final tempProductId = 'offline_product_${DateTime.now().millisecondsSinceEpoch}';
+        
+        // Save product for offline sync later
+        await _saveOfflineProduct(productData, tempProductId);
+        
+        // Create initial batch for offline product
+        try {
+          final batchData = {
+            'product_id': tempProductId,
+            'product_name': productData['name'] ?? 'Unknown Product',
+            'shop_id': productData['shop_id'] ?? await _getShopId(),
+            'quantity': productData['quantity'],
+            'quantity_purchased': productData['quantity'],
+            'cost_price': productData['cost_price'] ?? productData['buying_price'],
+            'selling_price': productData['selling_price'],
+            'purchase_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+            'remaining': productData['quantity'],
+            'added_by': await _storage.read(key: 'user_id') ?? 'Unknown',
+            'added_at': DateTime.now().toIso8601String(),
+            'is_initial_batch': true,
+            'is_offline': true
+          };
           
-          // Return local mock data
-          productData['_id'] = mockId;
-          return productData;
+          _saveOfflineBatch(batchData);
+        } catch (e) {
+          print('Error creating offline batch for product: $e');
         }
+        
+        return tempProductId;
+      }
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        try {
+          final data = jsonDecode(response.body);
+          print('Successfully added product with ID: ${data['product_id']}');
+          
+          // Always create initial batch for new product
+          try {
+            print('Creating initial batch for product ID: ${data['product_id']}');
+            final batchData = {
+              'product_id': data['product_id'],
+              'product_name': productData['name'] ?? 'Unknown Product',
+              'shop_id': productData['shop_id'] ?? await _getShopId(),
+              'quantity': productData['quantity'],
+              'quantity_purchased': productData['quantity'], 
+              'cost_price': productData['cost_price'] ?? productData['buying_price'],
+              'selling_price': productData['selling_price'],
+              'purchase_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+              'remaining': productData['quantity'],
+              'added_by': await _storage.read(key: 'user_id') ?? 'Unknown',
+              'added_at': DateTime.now().toIso8601String(),
+              'is_initial_batch': true
+            };
+            
+            final batchId = await addBatch(batchData);
+            print('Initial batch created with ID: $batchId');
+          } catch (e) {
+            print('Error creating initial batch for new product: $e');
+            // Try alternative approach for batch creation
+            try {
+              // Try the direct API endpoint for batches
+              await _createInitialBatchDirectly(data['product_id'], productData);
+            } catch (innerE) {
+              print('Alternative batch creation also failed: $innerE');
+            }
+          }
+          
+          return data['product_id'];
+        } catch (e) {
+          print('Error parsing product response: $e');
+          // Generate a temporary product ID and save offline
+          final tempProductId = 'offline_product_${DateTime.now().millisecondsSinceEpoch}';
+          await _saveOfflineProduct(productData, tempProductId);
+          return tempProductId;
+        }
+      } else {
+        throw Exception('Failed to add product: ${response.statusCode}');
       }
     } catch (e) {
       print('Error adding product: $e');
-      // Store product locally for future sync
-      _saveOfflineProduct(productData);
-      
-      // Generate a mock product ID
-      String mockId = 'mock_product_${DateTime.now().millisecondsSinceEpoch}';
-      
-      // Mark that this was processed in offline mode
-      await _storage.write(key: 'last_product_offline', value: 'true');
-      
-      // Return local mock data
-      productData['_id'] = mockId;
-      return productData;
+      // Save product offline if there's a network error
+      final tempProductId = 'offline_product_${DateTime.now().millisecondsSinceEpoch}';
+      await _saveOfflineProduct(productData, tempProductId);
+      return tempProductId;
     }
   }
   
-  // Save product data for offline sync
-  Future<void> _saveOfflineProduct(Map<String, dynamic> productData) async {
+  // Helper method for direct batch creation (alternative approach)
+  Future<String> _createInitialBatchDirectly(String productId, Map<String, dynamic> productData) async {
+    final token = await _storage.read(key: 'token') ?? '';
+    if (token.isEmpty) {
+      throw Exception('Authorization token not found');
+    }
+    
+    final batchData = {
+      'product_id': productId,
+      'product_name': productData['name'] ?? 'Unknown Product',
+      'shop_id': productData['shop_id'] ?? await _getShopId(),
+      'quantity': productData['quantity'],
+      'quantity_purchased': productData['quantity'],
+      'cost_price': productData['cost_price'] ?? productData['buying_price'],
+      'selling_price': productData['selling_price'],
+      'purchase_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      'remaining': productData['quantity'],
+      'added_by': await _storage.read(key: 'user_id') ?? 'Unknown',
+      'added_at': DateTime.now().toIso8601String(),
+      'is_initial_batch': true
+    };
+    
+    final response = await http.post(
+      Uri.parse(ApiConstants.batches),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(batchData),
+    );
+    
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body);
+      return data['batch_id'] ?? 'unknown_batch_id';
+    } else {
+      throw Exception('Failed to create initial batch: ${response.statusCode}');
+    }
+  }
+  
+  // Helper method to save product offline for later sync
+  Future<void> _saveOfflineProduct(Map<String, dynamic> productData, String tempId) async {
     try {
       // Get existing offline products
-      final offlineProductsStr = await _storage.read(key: 'offline_products') ?? '[]';
-      List<dynamic> offlineProducts = jsonDecode(offlineProductsStr);
+      final offlineProductsJson = await _storage.read(key: 'offline_products') ?? '[]';
+      List<dynamic> offlineProducts = jsonDecode(offlineProductsJson);
       
-      // Add timestamp
+      // Add temporary ID and timestamp
+      productData['_id'] = tempId;
       productData['offline_created_at'] = DateTime.now().toIso8601String();
       
-      // Add this product to the list
+      // Add to offline products
       offlineProducts.add(productData);
       
-      // Save updated list
-      await _storage.write(key: 'offline_products', value: jsonEncode(offlineProducts));
+      // Save back to storage
+      await _storage.write(
+        key: 'offline_products', 
+        value: jsonEncode(offlineProducts)
+      );
       
-      print('Saved product for offline sync: ${productData['name']}');
+      print('Saved product to offline storage for future sync');
     } catch (e) {
       print('Error saving offline product: $e');
-    }
-  }
-  
-  // Test if we have a real connection to the server
-  Future<bool> testConnection() async {
-    try {
-      // Try to do a simple API call to test connectivity
-      final response = await http.get(
-        Uri.parse(ApiConstants.baseUrl),
-      ).timeout(Duration(seconds: 5));
-      
-      // If we get a response, we're connected (even if it's an error response)
-      return response.statusCode >= 200;
-    } catch (e) {
-      print('Connection test failed: $e');
-      return false;
     }
   }
   
@@ -198,23 +293,18 @@ class ProductService {
 
     print('Adding batch with data: ${batchData.toString()}');
 
-    bool isConnected = await _checkRealConnectivity();
-    if (!isConnected) {
-      // Only show offline message if truly offline
-      print('Device is offline. Saving batch for later sync.');
-      _saveOfflineBatch(batchData);
-      
-      // Update product quantity offline
+    // First update the product quantity
+    String productId = batchData['product_id'];
+    int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
+    if (quantity > 0 && productId != null && productId.isNotEmpty) {
       try {
-        int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
-        if (quantity > 0) {
-          await updateProductQuantity(batchData['product_id'], quantity);
-        }
+        print('Updating product quantity with batch quantity: $quantity');
+        await updateProductQuantity(productId, quantity);
+        print('Successfully updated product quantity');
       } catch (e) {
-        print('Error updating offline product quantity: $e');
+        print('Error updating product quantity: $e');
+        // Continue with batch creation even if product update fails
       }
-      
-      return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
     }
 
     try {
@@ -232,11 +322,10 @@ class ProductService {
         body: jsonEncode(batchData),
       );
 
-      bool isValidJsonResponse = _isValidJsonResponse(response);
-      
-      // Check if response is HTML or non-JSON
-      if (!isValidJsonResponse) {
-        print('Received non-JSON response when adding batch');
+      // Check if response is HTML
+      if (response.body.trim().startsWith('<!DOCTYPE') || 
+          response.body.trim().startsWith('<html>')) {
+        print('Received HTML response when adding batch instead of JSON');
         
         // Try with alternate URL
         print('Retrying batch creation with alternate URL...');
@@ -251,11 +340,11 @@ class ProductService {
           body: jsonEncode(batchData),
         );
         
-        isValidJsonResponse = _isValidJsonResponse(response);
-        
         // If still HTML response, try one more variation
-        if (!isValidJsonResponse) {
-          print('Still receiving non-JSON. Trying with product_id in URL...');
+        if (response.body.trim().startsWith('<!DOCTYPE') || 
+            response.body.trim().startsWith('<html>')) {
+            
+          print('Still receiving HTML. Trying with product_id in URL...');
           final productUrl = '$altUrl${batchData['product_id']}';
           
           response = await http.post(
@@ -266,228 +355,87 @@ class ProductService {
             },
             body: jsonEncode(batchData),
           );
-          
-          isValidJsonResponse = _isValidJsonResponse(response);
         }
       }
 
       String batchId = 'batch_id_unknown_${DateTime.now().millisecondsSinceEpoch}';
-      bool useOfflineMode = false;
       
-      if (response.statusCode >= 200 && response.statusCode < 300 && isValidJsonResponse) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         try {
           final data = jsonDecode(response.body);
           batchId = data['batch_id'] ?? batchId;
-          useOfflineMode = false;
         } catch (e) {
           print('Error parsing batch creation response: $e');
           // Store batch locally for future sync
           _saveOfflineBatch(batchData);
-          batchId = 'server_batch_id_${DateTime.now().millisecondsSinceEpoch}';
-          useOfflineMode = false; // Server responded, but with parsing issues - not really offline
+          batchId = 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         }
       } else {
         // For server errors, still try to parse the error message
         try {
-          if (isValidJsonResponse) {
-            final errorData = jsonDecode(response.body);
-            print('Server error: ${errorData['error'] ?? response.statusCode}');
-          } else {
-            print('Server returned non-JSON response with status code: ${response.statusCode}');
-          }
+          final errorData = jsonDecode(response.body);
+          print('Server error: ${errorData['error'] ?? response.statusCode}');
           // Store batch locally for future sync
           _saveOfflineBatch(batchData);
-          batchId = 'server_error_batch_id_${DateTime.now().millisecondsSinceEpoch}';
-          useOfflineMode = false; // Server responded with error - not really offline
+          batchId = 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         } catch (e) {
           print('Failed to add batch and parse error: ${response.statusCode}');
           // Store batch locally for future sync
           _saveOfflineBatch(batchData);
-          batchId = 'server_error_batch_id_${DateTime.now().millisecondsSinceEpoch}';
-          useOfflineMode = false; // Server responded with error - not really offline
+          batchId = 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
         }
       }
-      
-      // Always update product quantity, regardless of batch creation success
-      // This ensures product quantities are updated even if batch creation had issues
-      try {
-        int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
-        if (quantity > 0) {
-          await updateProductQuantity(batchData['product_id'], quantity);
-          print('Updated product quantity after batch creation');
-        }
-      } catch (e) {
-        print('Error updating product quantity: $e');
-      }
-      
-      // Store whether this was processed in offline mode
-      await _storage.write(key: 'last_batch_offline', value: useOfflineMode.toString());
       
       return batchId;
     } catch (e) {
       print('Error adding batch: $e');
       // Store batch locally for future sync
       _saveOfflineBatch(batchData);
-      
-      // Try to update product quantity despite error
-      try {
-        int quantity = batchData['quantity'] ?? batchData['quantity_purchased'] ?? 0;
-        if (quantity > 0) {
-          await updateProductQuantity(batchData['product_id'], quantity);
-        }
-      } catch (e) {
-        print('Error updating offline product quantity: $e');
-      }
-      
-      // Mark as true offline error
-      await _storage.write(key: 'last_batch_offline', value: 'true');
-      
       return 'offline_batch_id_${DateTime.now().millisecondsSinceEpoch}';
     }
   }
   
-  // Check if response contains valid JSON
-  bool _isValidJsonResponse(http.Response response) {
-    if (response.body.isEmpty) return false;
-    
-    // Check for HTML content
-    if (response.body.trim().startsWith('<!DOCTYPE') || 
-        response.body.trim().startsWith('<html>')) {
-      return false;
-    }
-    
-    // Try to parse as JSON
-    try {
-      jsonDecode(response.body);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-  
-  // Better connectivity check
-  Future<bool> _checkRealConnectivity() async {
-    try {
-      // Try to make a small API call to check real connectivity to our server
-      final response = await http.get(
-        Uri.parse(ApiConstants.baseUrl),
-        headers: {'Connection': 'close'},
-      ).timeout(Duration(seconds: 5));
-      
-      // Even if we get an error response, it means we have connectivity
-      return response.statusCode >= 200;
-    } catch (e) {
-      print('Real connectivity check failed: $e');
-      return false;
-    }
-  }
-  
-  // Public version of product quantity update
+  // Update a product's quantity after adding a batch
   Future<void> updateProductQuantity(String productId, int quantityToAdd) async {
-    return _updateProductQuantity(productId, quantityToAdd);
-  }
-  
-  // Helper method to update product quantity when adding batch
-  Future<void> _updateProductQuantity(String productId, int quantityToAdd) async {
     try {
       final token = await _storage.read(key: 'token') ?? '';
       if (token.isEmpty) {
         throw Exception('Authorization token not found');
       }
       
-      print('Updating product quantity - fetching current data for product: $productId');
+      // First get current product data
+      final productData = await _getProductDetails(productId);
+      final int currentTotal = productData['quantity'] ?? 0;
+      final int currentAvailable = productData['available_quantity'] ?? currentTotal;
       
-      // Try to get product details
-      Map<String, dynamic> productData;
-      int currentQuantity = 0;
-      int currentAvailable = 0;
+      // Calculate new quantities
+      final int newTotal = currentTotal + quantityToAdd;
+      final int newAvailable = currentAvailable + quantityToAdd;
       
-      try {
-        final response = await http.get(
-          Uri.parse('${ApiConstants.products}/$productId'),
-          headers: {'Authorization': 'Bearer $token'},
-        );
-        
-        if (response.statusCode == 200) {
-          productData = jsonDecode(response.body);
-          currentQuantity = productData['quantity'] ?? 0;
-          currentAvailable = productData['available_quantity'] ?? currentQuantity;
-        } else {
-          throw Exception('Failed to get product details');
-        }
-      } catch (e) {
-        print('Error getting product details: $e');
-        throw e;
-      }
+      print('Updating product $productId quantities: Total $currentTotal -> $newTotal, Available $currentAvailable -> $newAvailable');
       
-      final newQuantity = currentQuantity + quantityToAdd;
-      final newAvailable = currentAvailable + quantityToAdd;
+      // Update product with new quantities
+      final response = await http.put(
+        Uri.parse('${ApiConstants.products}/$productId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'quantity': newTotal,
+          'available_quantity': newAvailable,
+        }),
+      );
       
-      print('Product quantity update: Current: $currentQuantity, Adding: $quantityToAdd, New: $newQuantity');
-      
-      // Update product with new quantity using PUT
-      try {
-        final updateResponse = await http.put(
-          Uri.parse('${ApiConstants.products}/$productId'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'quantity': newQuantity,
-            'available_quantity': newAvailable,
-          }),
-        );
-        
-        if (updateResponse.statusCode >= 200 && updateResponse.statusCode < 300) {
-          print('Product quantity successfully updated from $currentQuantity to $newQuantity');
-        } else {
-          print('Failed to update product quantity using PUT. Status: ${updateResponse.statusCode}');
-          print('Response: ${updateResponse.body}');
-          
-          // Try using PATCH as fallback
-          final patchResponse = await http.patch(
-            Uri.parse('${ApiConstants.products}/$productId'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'quantity': newQuantity,
-              'available_quantity': newAvailable,
-            }),
-          );
-          
-          if (patchResponse.statusCode >= 200 && patchResponse.statusCode < 300) {
-            print('Product quantity successfully updated via PATCH');
-          } else {
-            // Try alternative endpoint as last resort
-            final altResponse = await http.put(
-              Uri.parse('${ApiConstants.baseUrl}/products/$productId'),
-              headers: {
-                'Authorization': 'Bearer $token',
-                'Content-Type': 'application/json',
-              },
-              body: jsonEncode({
-                'quantity': newQuantity,
-                'available_quantity': newAvailable,
-              }),
-            );
-            
-            if (altResponse.statusCode >= 200 && altResponse.statusCode < 300) {
-              print('Product quantity successfully updated via alternative endpoint');
-            } else {
-              throw Exception('Failed to update product quantity. Status: ${patchResponse.statusCode}');
-            }
-          }
-        }
-      } catch (e) {
-        print('Error in HTTP request to update product: $e');
-        throw e;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('Successfully updated product quantities');
+      } else {
+        print('Error updating product quantities: ${response.statusCode}');
+        throw Exception('Failed to update product quantities: ${response.statusCode}');
       }
     } catch (e) {
-      print('Failed to update product quantity: $e');
-      // Continue without failing the whole operation
+      print('Error updating product quantity: $e');
+      throw Exception('Failed to update product quantity: $e');
     }
   }
   
@@ -887,21 +835,6 @@ class ProductService {
           print('Product updated successfully with PATCH');
           return;
         } else {
-          // Try direct PUT to the product endpoint (alternative URL format)
-          final directResponse = await http.put(
-            Uri.parse('${ApiConstants.baseUrl}/products/$productId'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode(finalUpdateData),
-          );
-          
-          if (directResponse.statusCode >= 200 && directResponse.statusCode < 300) {
-            print('Product updated successfully with direct PUT');
-            return;
-          }
-          
           throw Exception('Failed to update product: ${response.statusCode}');
         }
       }
@@ -1172,5 +1105,10 @@ class ProductService {
   // Public method to get shop ID
   Future<String> getShopId() async {
     return await _getShopId();
+  }
+
+  // Public method to get product details
+  Future<Map<String, dynamic>> getProductDetails(String productId) async {
+    return await _getProductDetails(productId);
   }
 } 

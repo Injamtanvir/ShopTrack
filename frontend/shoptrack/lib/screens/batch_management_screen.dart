@@ -5,41 +5,50 @@ import '../models/product.dart';
 import '../services/product_service.dart';
 import '../constants/theme_constants.dart';
 import 'dart:convert';
-import '../widgets/custom_snackbar.dart';
-import 'batch_history_screen.dart';
-import 'batch_detail_screen.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class BatchManagementScreen extends StatefulWidget {
-  static const routeName = '/batch-management';
   final Product product;
 
   const BatchManagementScreen({Key? key, required this.product}) : super(key: key);
 
   @override
-  _BatchManagementScreenState createState() => _BatchManagementScreenState();
+  State<BatchManagementScreen> createState() => _BatchManagementScreenState();
 }
 
 class _BatchManagementScreenState extends State<BatchManagementScreen> {
   final ProductService _productService = ProductService();
-  final _storage = const FlutterSecureStorage();
   final _formKey = GlobalKey<FormState>();
-  
-  bool _isExpanded = false;
-  bool _isLoading = false;
-  bool _loadingBatches = false;
-  List<dynamic> _batches = [];
+  bool _isLoading = true;
+  List<Batch> _batches = [];
   String? _errorMessage;
+  bool _expandAddBatch = false;
   
-  TextEditingController _quantityController = TextEditingController();
-  TextEditingController _costPriceController = TextEditingController();
-  TextEditingController _sellingPriceController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
+  // Variables to store updated product quantities
+  int _updatedQuantity = 0;
+  int _updatedAvailable = 0;
+  int _updatedOnHold = 0;
+
+  // Controllers for adding new batch
+  final _quantityController = TextEditingController();
+  final _costPriceController = TextEditingController();
+  final _sellingPriceController = TextEditingController();
+  final _dateController = TextEditingController();
+  bool _isAddingBatch = false;
 
   @override
   void initState() {
     super.initState();
+    // Initialize updated quantities from product
+    _updatedQuantity = widget.product.quantity;
+    _updatedAvailable = widget.product.availableQuantity;
+    _updatedOnHold = widget.product.quantityOnHold;
+    
+    // Initialize selling price from product
     _sellingPriceController.text = widget.product.sellingPrice.toString();
+    _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    
+    // Load data
+    _refreshProductData();
     _loadBatches();
   }
 
@@ -48,12 +57,13 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
     _quantityController.dispose();
     _costPriceController.dispose();
     _sellingPriceController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
   Future<void> _loadBatches() async {
     setState(() {
-      _loadingBatches = true;
+      _isLoading = true;
       _errorMessage = null;
     });
 
@@ -74,117 +84,197 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
             !((batch['_id'] as String?)?.startsWith('mock_') ?? false)).toList();
       }
       
-      // Sort batches by date (newest first)
-      filteredBatchData.sort((a, b) {
-        final dateA = a['purchase_date'] ?? a['created_at'] ?? '';
-        final dateB = b['purchase_date'] ?? b['created_at'] ?? '';
-        return dateB.compareTo(dateA);
+      final batches = filteredBatchData.map((data) => Batch.fromJson(data)).toList();
+      
+      // Sort batches - initial batch first, then by date (oldest to newest)
+      batches.sort((a, b) {
+        // Initial batch always comes first
+        if (a.isInitialBatch && !b.isInitialBatch) return -1;
+        if (!a.isInitialBatch && b.isInitialBatch) return 1;
+        
+        // Otherwise sort by date
+        try {
+          final dateA = DateFormat('yyyy-MM-dd').parse(a.purchaseDate);
+          final dateB = DateFormat('yyyy-MM-dd').parse(b.purchaseDate);
+          return dateA.compareTo(dateB);
+        } catch (e) {
+          return 0; // Keep original order if parsing fails
+        }
       });
       
       setState(() {
-        _batches = filteredBatchData;
-        _loadingBatches = false;
+        _batches = batches;
+        _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load batches: $e';
-        _loadingBatches = false;
+        _isLoading = false;
       });
     }
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    final DateTime currentDate = _dateController.text.isNotEmpty 
+        ? DateTime.parse(_dateController.text) 
+        : DateTime.now();
+    
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: currentDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
+      lastDate: DateTime.now(),
     );
-    if (picked != null && picked != _selectedDate) {
+    
+    if (picked != null && picked != currentDate) {
       setState(() {
-        _selectedDate = picked;
+        _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
       });
     }
   }
 
-  Future<void> _submitBatch() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  Future<void> _addBatch() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      try {
-        final shopId = await _storage.read(key: 'shop_id') ?? '';
-        final userId = await _storage.read(key: 'user_id') ?? '';
+    setState(() {
+      _isAddingBatch = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final batchData = {
+        'product_id': widget.product.id,
+        'quantity': int.parse(_quantityController.text),
+        'cost_price': double.parse(_costPriceController.text),
+        'purchase_date': _dateController.text,
+      };
+
+      // If selling price is changed and not empty, add it to the batch
+      final newSellingPrice = _sellingPriceController.text.trim();
+      if (newSellingPrice.isNotEmpty) {
+        batchData['new_selling_price'] = double.parse(newSellingPrice);
+      }
+
+      final batchId = await _productService.addBatch(batchData);
+
+      if (mounted) {
+        // After successfully adding a batch, we need to:
+        // 1. Refresh product data to get updated quantities
+        // 2. Reload batches to see the new batch
+        // 3. Reset the form
         
-        final Map<String, dynamic> batchData = {
-          'product_id': widget.product.id,
-          'product_name': widget.product.name,
-          'shop_id': shopId,
-          'quantity': int.parse(_quantityController.text),
-          'quantity_purchased': int.parse(_quantityController.text),
-          'cost_price': double.parse(_costPriceController.text),
-          'selling_price': double.parse(_sellingPriceController.text),
-          'purchase_date': _selectedDate.toString().split(' ')[0],
-          'remaining': int.parse(_quantityController.text),
-          'added_by': userId,
-          'is_initial_batch': false
-        };
+        // Refresh product data
+        await _refreshProductData();
         
-        final batchId = await _productService.addBatch(batchData);
-        
-        // Check if this was processed in offline mode
-        final wasOffline = await _storage.read(key: 'last_batch_offline') == 'true';
-        
-        // Only show offline message if truly offline
-        if (wasOffline) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Batch was saved in offline mode due to server issues. Changes will be synced when connection is restored.'),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Batch added successfully!'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-        }
-        
-        // Refresh the product and batches
+        // Reload batches to include the new one
         await _loadBatches();
         
-        // Clear form fields and collapse form
+        // Reset form
         _quantityController.clear();
         _costPriceController.clear();
+        _sellingPriceController.clear();
+        _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        
         setState(() {
-          _isExpanded = false;
-          _isLoading = false;
-        });
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Failed to add batch: $e';
+          _isAddingBatch = false;
+          _expandAddBatch = false; // Collapse the add batch form
         });
         
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to add batch: $e'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Batch added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isAddingBatch = false;
+          _errorMessage = e.toString();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  // Get shop ID
+  Future<String> _getShopId() async {
+    try {
+      final ProductService productService = ProductService();
+      return await productService.getShopId();
+    } catch (e) {
+      print('Error getting shop ID: $e');
+      return '';
+    }
+  }
+  
+  // Force sync batches with server
+  Future<void> _syncWithServer() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Refresh product data
+      await _refreshProductData();
+      
+      // Reload batches
+      await _loadBatches();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Batches synced successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to sync batches: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Add method to refresh product data
+  Future<void> _refreshProductData() async {
+    try {
+      // Get updated product details
+      final productData = await _productService.getProductDetails(widget.product.id);
+      
+      // Create a product instance from the updated data for the UI
+      // (we don't modify the original product as its properties are final)
+      final updatedProduct = Product.fromJson(productData);
+      
+      // Update UI to show the latest quantities
+      if (mounted) {
+        setState(() {
+          // Use updatedProduct in UI rendering instead of widget.product
+          _updatedQuantity = updatedProduct.quantity;
+          _updatedAvailable = updatedProduct.availableQuantity;
+          _updatedOnHold = updatedProduct.quantityOnHold;
+          
+          if (updatedProduct.sellingPrice != widget.product.sellingPrice) {
+            _sellingPriceController.text = updatedProduct.sellingPrice.toString();
+          }
+        });
+      }
+      
+      print('Product data refreshed successfully');
+    } catch (e) {
+      print('Error refreshing product data: $e');
     }
   }
 
@@ -193,50 +283,54 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Batches for ${widget.product.name}'),
+        backgroundColor: kNewPrimaryColor,
+        foregroundColor: Colors.white,
         actions: [
+          // Sync button to force sync with server
           IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _loadBatches,
+            icon: Icon(Icons.sync),
+            tooltip: 'Sync with server',
+            onPressed: () => _syncWithServer(),
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product summary card
+            // Product info card
             Card(
-              margin: EdgeInsets.all(16),
+              elevation: 2,
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       widget.product.name,
-                      style: TextStyle(
-                        fontSize: 20,
+                      style: const TextStyle(
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Total Quantity: ${widget.product.quantity}'),
-                              Text('On Hold: ${widget.product.quantity - widget.product.availableQuantity}'),
-                              Text('Available: ${widget.product.availableQuantity}'),
-                            ],
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Total Quantity: ${_updatedQuantity}'),
+                            Text('On Hold: ${_updatedOnHold}'),
+                            Text('Available: ${_updatedAvailable}'),
+                          ],
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text('Current Selling Price: \$${widget.product.sellingPrice.toStringAsFixed(2)}'),
-                            Text('Last Updated: ${widget.product.updatedAt.split('T')[0]}'),
+                            Text('Last Updated: ${DateFormat('yyyy-MM-dd').format(DateTime.parse(widget.product.updatedAt))}'),
                           ],
                         ),
                       ],
@@ -245,209 +339,194 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
                 ),
               ),
             ),
-
-            // Add New Batch section
-            Card(
-              margin: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  ListTile(
-                    title: Text(
-                      'Add New Batch',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    trailing: Icon(
-                      _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    ),
-                    onTap: () {
-                      setState(() {
-                        _isExpanded = !_isExpanded;
-                      });
-                    },
-                  ),
-                  if (_isExpanded)
-                    Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+            
+            const SizedBox(height: 16),
+            
+            // Add new batch section
+            ExpansionTile(
+              title: const Text(
+                'Add New Batch',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              initiallyExpanded: _expandAddBatch,
+              onExpansionChanged: (expanded) {
+                setState(() {
+                  _expandAddBatch = expanded;
+                });
+              },
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Date field and picker
+                        Row(
                           children: [
-                            TextFormField(
-                              controller: _quantityController,
-                              decoration: InputDecoration(
-                                labelText: 'Quantity',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a quantity';
-                                }
-                                if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                                  return 'Please enter a valid quantity';
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: 16),
-                            TextFormField(
-                              controller: _costPriceController,
-                              decoration: InputDecoration(
-                                labelText: 'Cost Price',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.numberWithOptions(decimal: true),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a cost price';
-                                }
-                                if (double.tryParse(value) == null || double.parse(value) <= 0) {
-                                  return 'Please enter a valid cost price';
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: 16),
-                            TextFormField(
-                              controller: _sellingPriceController,
-                              decoration: InputDecoration(
-                                labelText: 'Selling Price',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.numberWithOptions(decimal: true),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a selling price';
-                                }
-                                if (double.tryParse(value) == null || double.parse(value) <= 0) {
-                                  return 'Please enter a valid selling price';
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: 16),
-                            GestureDetector(
-                              onTap: () => _selectDate(context),
-                              child: AbsorbPointer(
-                                child: InputDecorator(
-                                  decoration: InputDecoration(
-                                    labelText: 'Purchase Date',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        _selectedDate.toString().split(' ')[0],
-                                      ),
-                                      Icon(Icons.calendar_today),
-                                    ],
-                                  ),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _dateController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Purchase Date',
+                                  border: OutlineInputBorder(),
                                 ),
+                                readOnly: true,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please select a date';
+                                  }
+                                  return null;
+                                },
+                                onTap: () => _selectDate(context),
                               ),
                             ),
-                            SizedBox(height: 24),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _submitBatch,
-                                child: _isLoading
-                                    ? CircularProgressIndicator(color: Colors.white)
-                                    : Text('Add Batch'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
+                            IconButton(
+                              onPressed: () => _selectDate(context),
+                              icon: const Icon(Icons.calendar_today),
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        
+                        // Quantity
+                        TextFormField(
+                          controller: _quantityController,
+                          decoration: const InputDecoration(
+                            labelText: 'Quantity *',
+                            hintText: 'Enter quantity purchased',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter quantity';
+                            }
+                            if (int.tryParse(value) == null || int.parse(value) <= 0) {
+                              return 'Please enter a valid quantity';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Cost price
+                        TextFormField(
+                          controller: _costPriceController,
+                          decoration: const InputDecoration(
+                            labelText: 'Cost Price Per Unit *',
+                            hintText: 'Enter cost price',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter cost price';
+                            }
+                            if (double.tryParse(value) == null || double.parse(value) <= 0) {
+                              return 'Please enter a valid cost price';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Selling price
+                        TextFormField(
+                          controller: _sellingPriceController,
+                          decoration: const InputDecoration(
+                            labelText: 'New Selling Price (optional)',
+                            hintText: 'Enter new selling price if changed',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty) {
+                              if (double.tryParse(value) == null || double.parse(value) <= 0) {
+                                return 'Please enter a valid selling price';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Add button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isAddingBatch ? null : _addBatch,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kNewPrimaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: _isAddingBatch
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Add Batch'),
+                          ),
+                        ),
+                      ],
                     ),
-                ],
-              ),
-            ),
-
-            // Batch History section
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                'Batch History',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            
-            if (_loadingBatches)
-              Center(
-                child: CircularProgressIndicator(),
-              )
-            else if (_errorMessage != null)
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Colors.red),
                   ),
                 ),
-              )
-            else if (_batches.isEmpty)
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('No batch history found'),
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: NeverScrollableScrollPhysics(),
-                itemCount: _batches.length,
-                itemBuilder: (context, index) {
-                  final batch = _batches[index];
-                  final isInitialBatch = batch['is_initial_batch'] == true;
-                  
-                  return Card(
-                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: ListTile(
-                      title: Text(
-                        isInitialBatch ? 'Initial Batch (#1)' : 'Batch #${index + 1}',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Date: ${batch['purchase_date'] ?? batch['created_at']?.toString().split('T')[0] ?? 'Unknown'}'),
-                          Text('Quantity: ${batch['quantity_purchased'] ?? batch['quantity']} units'),
-                          Text('Remaining: ${batch['remaining']} units'),
-                          Text('Cost Price: \$${(batch['cost_price'] ?? 0).toStringAsFixed(2)}'),
-                          Text('Selling Price: \$${(batch['selling_price'] ?? 0).toStringAsFixed(2)}'),
-                        ],
-                      ),
-                      isThreeLine: true,
-                      onTap: () {
-                        // Navigate to batch detail screen
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => BatchDetailScreen(
-                              batchData: batch,
-                              productName: widget.product.name,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Batches list
+            const Text(
+              'Batch History',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 8),
+            
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                      ? Center(child: Text(_errorMessage!))
+                      : _batches.isEmpty
+                          ? const Center(child: Text('No batches found'))
+                          : ListView.builder(
+                              itemCount: _batches.length,
+                              itemBuilder: (context, index) {
+                                final batch = _batches[index];
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: ListTile(
+                                    title: Text(batch.isInitialBatch 
+                                      ? 'Initial Batch (#${index + 1})' 
+                                      : 'Batch #${index + 1}'),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Date: ${batch.purchaseDate}'),
+                                        Text('Quantity: ${batch.quantityPurchased} units'),
+                                        Text('Remaining: ${batch.remaining} units'),
+                                        Text('Cost Price: \$${batch.costPrice.toStringAsFixed(2)}'),
+                                        if (batch.sellingPrice != null)
+                                          Text('Selling Price: \$${batch.sellingPrice!.toStringAsFixed(2)}'),
+                                      ],
+                                    ),
+                                    isThreeLine: true,
+                                  ),
+                                );
+                              },
+                            ),
+            ),
           ],
         ),
       ),

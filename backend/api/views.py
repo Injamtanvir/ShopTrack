@@ -1557,130 +1557,87 @@ class BatchView(APIView):
             user_email = payload['email']
             user_id = payload.get('user_id', 'unknown')
 
-            # Check if user is manager or owner
-            if payload['role'] not in ['manager', 'owner']:
-                return Response(
-                    {"error": "Only managers and owners can add batches"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            return Response(
-                {"error": "Invalid or expired token"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        try:
-            # Get the product
-            try:
-                product = products_collection.find_one({"_id": ObjectId(product_id)})
-            except InvalidId:
-                return Response(
-                    {"error": "Invalid product ID format"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
+            # Check if product exists
+            product = products_collection.find_one({"_id": ObjectId(product_id)})
             if not product:
                 return Response(
                     {"error": "Product not found"},
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # Check if product belongs to this shop
-            if product['shop_id'] != shop_id:
-                return Response(
-                    {"error": "Unauthorized access"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            # Extract batch data from request
+            batch_data = request.data.copy()
 
-            # Parse and validate the request data
-            data = request.data
-            try:
-                quantity = int(data['quantity'])
-                cost_price = float(data['cost_price'])
-                purchase_date = datetime.strptime(data['purchase_date'], '%Y-%m-%d')
-            except (ValueError, KeyError) as e:
-                return Response(
-                    {"error": f"Invalid data format: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            # Add required fields if not provided
+            if 'shop_id' not in batch_data:
+                batch_data['shop_id'] = shop_id
+            if 'added_by' not in batch_data:
+                batch_data['added_by'] = user_email
+            if 'product_id' not in batch_data:
+                batch_data['product_id'] = product_id
+            if 'product_name' not in batch_data and 'name' in product:
+                batch_data['product_name'] = product['name']
+            
+            # Add timestamp for batch creation
+            batch_data['created_at'] = datetime.utcnow().isoformat()
 
-            # Create batch document with all fields needed by frontend
-            batch_data = {
-                "product_id": product_id,
-                "product_name": product.get('name', 'Unknown Product'),
-                "shop_id": shop_id,
-                "quantity": quantity,
-                "quantity_purchased": quantity,  # For compatibility with frontend
-                "remaining": quantity,
-                "cost_price": cost_price,
-                "purchase_date": purchase_date,
-                "added_by": user_email,
-                "added_by_id": user_id,
-                "added_at": datetime.now(),
-                "created_at": datetime.now(),
-                "is_initial_batch": data.get('is_initial_batch', False)
-            }
+            # Set default values for tracking
+            if 'is_initial_batch' not in batch_data:
+                batch_data['is_initial_batch'] = False
+                
+            # Ensure we have quantity and remaining values properly set
+            quantity = int(batch_data.get('quantity', 0))
+            
+            # Set quantity_purchased if only quantity is provided
+            if 'quantity_purchased' not in batch_data and 'quantity' in batch_data:
+                batch_data['quantity_purchased'] = quantity
+            
+            # Set remaining to be equal to quantity if not specified
+            if 'remaining' not in batch_data:
+                batch_data['remaining'] = quantity
 
-            # Insert batch
-            result = batches_collection.insert_one(batch_data)
-            batch_id = str(result.inserted_id)
-
-            # Get current product quantities
-            current_quantity = product.get('quantity', 0)
-            current_available = product.get('available_quantity', current_quantity)
+            # Insert the batch into batches collection
+            batch_id = batches_collection.insert_one(batch_data).inserted_id
+            
+            # Also update the product's total quantity and available quantity
+            current_quantity = int(product.get('quantity', 0))
+            current_available = int(product.get('available_quantity', 0))
             
             # Calculate new quantities
             new_quantity = current_quantity + quantity
             new_available = current_available + quantity
-
-            # Update product quantity and available quantity
-            update_data = {
-                "quantity": new_quantity,
-                "available_quantity": new_available,
-                "updated_at": datetime.now(),
-                "buying_price": cost_price  # Update latest buying price
-            }
-
-            # If new selling price is provided, update it and log in price history
-            if 'new_selling_price' in data and data['new_selling_price']:
-                try:
-                    new_selling_price = float(data['new_selling_price'])
-                    old_selling_price = product.get('selling_price', 0)
-
-                    if new_selling_price != old_selling_price:
-                        # Update product selling price
-                        update_data["selling_price"] = new_selling_price
-
-                        # Log price change
-                        price_history_collection.insert_one({
-                            "product_id": product_id,
-                            "old_price": old_selling_price,
-                            "new_price": new_selling_price,
-                            "changed_by": user_email,
-                            "changed_by_id": user_id,
-                            "change_date": datetime.now(),
-                            "shop_id": shop_id
-                        })
-                except ValueError:
-                    # If there's an error parsing the new selling price, just continue
-                    # without updating it
-                    pass
-
-            # Apply the product updates
+            
+            # Update product with new quantities
             products_collection.update_one(
                 {"_id": ObjectId(product_id)},
-                {"$set": update_data}
+                {
+                    "$set": {
+                        "quantity": new_quantity,
+                        "available_quantity": new_available,
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                }
             )
 
-            return Response({
-                "message": "Batch added successfully",
-                "batch_id": batch_id,
-                "updated_quantity": new_quantity,
-                "updated_available_quantity": new_available
-            })
+            return Response(
+                {
+                    "batch_id": str(batch_id),
+                    "message": "Batch added successfully",
+                    "product_quantity_updated": {
+                        "previous": current_quantity,
+                        "added": quantity,
+                        "new_total": new_quantity
+                    }
+                },
+                status=status.HTTP_201_CREATED
+            )
 
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
         except Exception as e:
-            print(f"Error adding batch: {e}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
