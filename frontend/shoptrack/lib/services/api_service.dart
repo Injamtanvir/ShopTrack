@@ -14,7 +14,7 @@ class ApiService {
     try {
       // Check if response is HTML instead of JSON
       final body = response.body.trim();
-      if (body is String && (body.startsWith('<!DOCTYPE') || body.startsWith('<html'))) {
+      if (body.contains('<!DOCTYPE') || body.contains('<html')) {
         throw Exception('Server returned HTML instead of JSON. This usually indicates a server configuration or URL issue.');
       }
 
@@ -457,8 +457,8 @@ class ApiService {
       
       // Check if response is HTML instead of JSON
       final responseBody = response.body.trim();
-      if (responseBody is String && (responseBody.startsWith('<!DOCTYPE') || 
-          responseBody.startsWith('<html'))) {
+      if (responseBody.contains('<!DOCTYPE') || 
+          responseBody.contains('<html')) {
         // Log the first 100 characters of the response for debugging
         print('HTML response received. First 100 chars: ${response.body.substring(0, min(100, response.body.length))}');
         
@@ -474,8 +474,8 @@ class ApiService {
         // Check if retry was successful
         final retryBody = retryResponse.body.trim();
         if (retryResponse.statusCode != 200 || 
-            (retryBody is String && (retryBody.startsWith('<!DOCTYPE') || 
-            retryBody.startsWith('<html')))) {
+            (retryBody.contains('<!DOCTYPE') || 
+            retryBody.contains('<html'))) {
           throw Exception('Server returned HTML instead of JSON after retry. Please check your network connection or try again later.');
         }
         

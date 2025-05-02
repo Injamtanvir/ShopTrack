@@ -10,6 +10,8 @@ class BatchHistoryScreen extends StatefulWidget {
 
   const BatchHistoryScreen({
     Key? key,
+    required this.productId,
+    required this.productName,
     required this.batches,
   }) : super(key: key);
 
@@ -80,7 +82,7 @@ class _BatchHistoryScreenState extends State<BatchHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Batch History'),
+        title: Text('Batches - ${widget.productName}'),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
