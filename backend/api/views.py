@@ -1781,7 +1781,7 @@ class BatchHistoryView(APIView):
                         "purchase_date": batch.get("purchase_date", "").strftime("%Y-%m-%d") if isinstance(batch.get("purchase_date"), datetime) else batch.get("purchase_date", ""),
                         "shop_id": batch.get("shop_id", shop_id),
                         "created_at": batch.get("created_at", "").strftime("%Y-%m-%d") if isinstance(batch.get("created_at"), datetime) else batch.get("created_at", ""),
-                        "selling_price": batch.get("selling_price", product.get("selling_price", 0)),
+                        "selling_price": product.get("selling_price", 0),  # Always use current product selling price
                         "is_initial_batch": batch.get("is_initial_batch", False),
                         "is_virtual": batch.get("is_virtual", False)
                     }
