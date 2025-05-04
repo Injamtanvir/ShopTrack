@@ -9,8 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:universal_html/html.dart' as html;
 import '../models/invoice.dart';
 
-class InvoiceUtils {
-  // Generate a PDF from an Invoice object
+class InvoiceUtils{
   static Future<dynamic> generateInvoicePdf(Invoice invoice) async {
     final pdf = pw.Document();
 
@@ -31,7 +30,6 @@ class InvoiceUtils {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Header with shop info and logo
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
@@ -41,7 +39,7 @@ class InvoiceUtils {
               ),
               pw.SizedBox(height: 20),
               
-              // Bill to section
+
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: pw.CrossAxisAlignment.start,

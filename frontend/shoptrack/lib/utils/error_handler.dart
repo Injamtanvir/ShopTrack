@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
 class ErrorHandler {
-  // Handle network errors and other exceptions
   static String getErrorMessage(dynamic error) {
     String errorMessage = error.toString();
-    
-    // Check for common network connectivity errors
+
     if (errorMessage.contains('SocketException') || 
         errorMessage.contains('Failed host lookup') ||
         errorMessage.contains('No address associated with hostname') ||
@@ -16,12 +14,10 @@ class ErrorHandler {
         errorMessage.contains('No internet')) {
       return 'No internet connection. Please connect your device to a network.';
     }
-    
-    // Return the original error for other types of errors
+
     return errorMessage;
   }
 
-  // Show a standardized error dialog
   static void showErrorDialog(BuildContext context, dynamic error) {
     final errorMessage = getErrorMessage(error);
     
@@ -40,7 +36,6 @@ class ErrorHandler {
     );
   }
 
-  // Show a standardized error snackbar
   static void showErrorSnackBar(BuildContext context, dynamic error) {
     final errorMessage = getErrorMessage(error);
     

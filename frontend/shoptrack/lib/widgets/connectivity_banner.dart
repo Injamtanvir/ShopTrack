@@ -1,9 +1,11 @@
+//CONNECTIVITY BANNER IS FROM GITHUB RESOURCES
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/theme_constants.dart';
 import '../providers/connectivity_provider.dart';
 
-class ConnectivityBanner extends StatefulWidget {
+class ConnectivityBanner extends StatefulWidget{
   final Widget child;
 
   const ConnectivityBanner({
@@ -15,26 +17,22 @@ class ConnectivityBanner extends StatefulWidget {
   State<ConnectivityBanner> createState() => _ConnectivityBannerState();
 }
 
-class _ConnectivityBannerState extends State<ConnectivityBanner> {
+class _ConnectivityBannerState extends State<ConnectivityBanner>{
   bool _showRestoreMessage = false;
 
   @override
   Widget build(BuildContext context) {
-    // Listen to network status changes
     return Consumer<ConnectivityProvider>(
-      builder: (context, connectivityProvider, _) {
-        // Show the "Connection Restored" message briefly when we come back online
+      builder: (context, connectivityProvider, _){
         if (connectivityProvider.isOnline && connectivityProvider.showBanner) {
-          // Show restoration message briefly
           _showRestoreMessage = true;
-          
-          // Auto-hide restoration message after 3 seconds
+
+          //AUTO HANDLE MESSAGE RESTORE IN EVERY 3 SECOND
           Future.delayed(const Duration(seconds: 3), () {
             if (mounted) {
               setState(() {
                 _showRestoreMessage = false;
               });
-              // Hide the main banner too since we're back online
               connectivityProvider.hideBanner();
             }
           });
@@ -43,17 +41,16 @@ class _ConnectivityBannerState extends State<ConnectivityBanner> {
         return Stack(
           children: [
             widget.child,
-            
-            // Offline banner (red warning)
+
             if (connectivityProvider.isOffline && connectivityProvider.showBanner)
               _buildNetworkBanner(
                 message: 'No internet connection. Some features will be disabled.',
                 icon: Icons.wifi_off,
-                color: kNewErrorColor,
+                // color: kNewErrorColor,
+                color: Colors.redAccent,
                 onClose: () => connectivityProvider.hideBanner(),
               ),
-              
-            // Connection restored banner (green success)
+
             if (connectivityProvider.isOnline && _showRestoreMessage)
               _buildNetworkBanner(
                 message: 'Internet connection restored.',

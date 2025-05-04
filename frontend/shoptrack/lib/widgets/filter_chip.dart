@@ -22,7 +22,7 @@ class FilterChipWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selectedColor ?? AppColors.primary;
-    
+
     return FilterChip(
       label: Text(
         label,
@@ -89,7 +89,7 @@ class FilterChipGroup<T> extends StatelessWidget {
         runSpacing: AppSpacing.small,
         children: options.map((option) {
           final isSelected = selectedOption == option;
-          
+
           return FilterChipWidget(
             label: labelBuilder(option),
             isSelected: isSelected,
@@ -107,4 +107,4 @@ class FilterChipGroup<T> extends StatelessWidget {
       ),
     );
   }
-} 
+}

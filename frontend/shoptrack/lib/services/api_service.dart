@@ -9,10 +9,10 @@ import '../services/product_service.dart';
 class ApiService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Updated method with async keyword
+
   Future<dynamic> _handleApiResponse(http.Response response) async {
     try {
-      // Check if response is HTML instead of JSON
+
       if (response.body.trim().startsWith('<!DOCTYPE') ||
           response.body.trim().startsWith('<html')) {
         throw Exception('Server returned HTML instead of JSON. This usually indicates a server configuration or URL issue.');

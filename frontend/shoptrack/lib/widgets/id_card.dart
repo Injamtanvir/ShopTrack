@@ -4,7 +4,7 @@ import 'dart:math';
 class IDCard extends StatefulWidget {
   final Map<String, dynamic> userData;
   final Map<String, dynamic> shopData;
-  final bool isUserCard; // To distinguish between user and shop card
+  final bool isUserCard;
   
   const IDCard({
     Key? key, 

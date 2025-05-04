@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/batch.dart';
 
-class BatchHistoryCard extends StatelessWidget {
+class BatchHistoryCard extends StatelessWidget{
   final Batch batch;
   final VoidCallback? onTap;
 
@@ -15,7 +15,7 @@ class BatchHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('MMM dd, yyyy');
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final currencyFormat = NumberFormat.currency(symbol: '\৳');
     final percentFormat = NumberFormat.decimalPercentPattern(decimalDigits: 1);
 
     return Card(
@@ -147,9 +147,11 @@ class BatchHistoryCard extends StatelessWidget {
   Color _getProgressColor(double ratio) {
     if (ratio <= 0.2) {
       return Colors.red;
-    } else if (ratio <= 0.5) {
+    }
+    else if (ratio <= 0.5) {
       return Colors.orange;
-    } else {
+    }
+    else {
       return Colors.green;
     }
   }

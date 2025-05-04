@@ -5,27 +5,27 @@ class AppColors {
   static const primary = Color(0xFF2196F3);
   static const primaryLight = Color(0xFF64B5F6);
   static const primaryDark = Color(0xFF1976D2);
-  
+
   // Secondary colors
   static const secondary = Color(0xFF4CAF50);
   static const secondaryLight = Color(0xFF81C784);
   static const secondaryDark = Color(0xFF388E3C);
-  
+
   // Accent colors
   static const accent = Color(0xFFFFC107);
   static const accentLight = Color(0xFFFFD54F);
   static const accentDark = Color(0xFFFFA000);
-  
+
   // Text colors
   static const textPrimary = Color(0xFF212121);
   static const textSecondary = Color(0xFF757575);
   static const textLight = Color(0xFFBDBDBD);
-  
+
   // Background colors
   static const background = Color(0xFFF5F5F5);
   static const surface = Color(0xFFFFFFFF);
   static const cardBackground = Color(0xFFFFFFFF);
-  
+
   // Status colors
   static const success = Color(0xFF4CAF50);
   static const warning = Color(0xFFFFA000);
@@ -38,13 +38,13 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   static const LinearGradient secondaryGradient = LinearGradient(
     colors: [secondary, secondaryLight],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   static const LinearGradient accentGradient = LinearGradient(
     colors: [accent, accentLight],
     begin: Alignment.topLeft,
@@ -88,13 +88,13 @@ class AppShadows {
     blurRadius: 4,
     offset: const Offset(0, 2),
   );
-  
+
   static BoxShadow medium = BoxShadow(
     color: Colors.black.withOpacity(0.1),
     blurRadius: 8,
     offset: const Offset(0, 4),
   );
-  
+
   static BoxShadow large = BoxShadow(
     color: Colors.black.withOpacity(0.15),
     blurRadius: 16,
@@ -124,40 +124,40 @@ class AppTextStyles {
     fontWeight: FontWeight.bold,
     color: AppColors.textPrimary,
   );
-  
+
   static const heading2 = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.bold,
     color: AppColors.textPrimary,
   );
-  
+
   static const heading3 = TextStyle(
     fontSize: 18,
     fontWeight: FontWeight.bold,
     color: AppColors.textPrimary,
   );
-  
+
   static const subheading = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w500,
     color: AppColors.textPrimary,
   );
-  
+
   static const body = TextStyle(
     fontSize: 14,
     color: AppColors.textPrimary,
   );
-  
+
   static const bodyLarge = TextStyle(
     fontSize: 16,
     color: AppColors.textPrimary,
   );
-  
+
   static const caption = TextStyle(
     fontSize: 12,
     color: AppColors.textSecondary,
   );
-  
+
   static const button = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w500,
@@ -231,4 +231,4 @@ class AppTheme {
       color: AppColors.cardBackground,
     ),
   );
-} 
+}

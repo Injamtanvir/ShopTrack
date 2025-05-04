@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_styles.dart';
 
-class DashboardCard extends StatelessWidget {
+class DashboardCard extends StatelessWidget{
   final IconData icon;
   final Color iconColor;
   final Color backgroundColor;
@@ -54,7 +54,7 @@ class DashboardCard extends StatelessWidget {
     );
   }
 
-  Widget _buildIconHeader() {
+  Widget _buildIconHeader(){
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(

@@ -25,7 +25,7 @@ class Product {
     // The backend stores half the actual on-hold quantity due to our adjustment
     // So we need to multiply by 2 to show the real quantity to the user
     int rawOnHold = json['quantity_on_hold'] ?? 0;
-    int correctedOnHold = rawOnHold * 2;
+    int correctedOnHold = rawOnHold ;
     
     return Product(
       id: json['_id'],
@@ -46,7 +46,7 @@ class Product {
       '_id': id,
       'name': name,
       'quantity': quantity,
-      'quantity_on_hold': quantityOnHold ~/ 2, // Convert back to what backend expects
+      'quantity_on_hold': quantityOnHold, // Convert back to what backend expects
       'available_quantity': availableQuantity,
       'buying_price': buyingPrice,
       'selling_price': sellingPrice,

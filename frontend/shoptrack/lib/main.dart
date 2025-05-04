@@ -29,10 +29,7 @@ import 'screens/daily_tracking_screen.dart';
 
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Create the connectivity service as a singleton
   final connectivityService = ConnectivityService();
 
   runApp(MyApp(connectivityService: connectivityService));
@@ -104,7 +101,6 @@ class MyApp extends StatelessWidget {
           PendingInvoicesScreen.routeName: (ctx) => const PendingInvoicesScreen(),
           InvoiceHistoryScreen.routeName: (ctx) => const InvoiceHistoryScreen(),
           AdminPendingInvoicesScreen.routeName: (ctx) => const AdminPendingInvoicesScreen(),
-          // Then add this to your routes map in the MaterialApp widget
           DailyTrackingScreen.routeName: (ctx) => const DailyTrackingScreen(),
           OwnerHomeScreen.routeName: (ctx) => const OwnerHomeScreen(),
           ShopUsersScreen.routeName: (ctx) => const ShopUsersScreen(),
@@ -132,13 +128,13 @@ class _InitScreenState extends State<InitScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       
       await authProvider.initialize();
-      
-      // If user is logged in, sync with UserProvider
+
+      //fOR LOGGED IN USER
       if (authProvider.isLoggedIn && authProvider.user != null) {
         userProvider.setUser(authProvider.user!);
       }
       
-      if (mounted) {
+      if (mounted){
         setState(() {
           _initialized = true;
         });
@@ -147,7 +143,7 @@ class _InitScreenState extends State<InitScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context){
     if (!_initialized) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -158,12 +154,15 @@ class _InitScreenState extends State<InitScreen> {
     if (authProvider.isLoggedIn) {
       if (authProvider.isOwner) {
         return const OwnerHomeScreen();
-      } else if (authProvider.isManager) {
+      }
+      else if (authProvider.isManager) {
         return const AdminHomeScreen();
-      } else {
+      }
+      else {
         return const SellerHomeScreen();
       }
-    } else {
+    }
+    else {
       return const LoginScreen();
     }
   }

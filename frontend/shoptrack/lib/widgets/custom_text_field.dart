@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class CustomTextField extends StatelessWidget {
+class CustomTextField extends StatelessWidget{
   final String label;
   final TextEditingController controller;
   final String? Function(String?)? validator;
   final bool obscureText;
   final TextInputType keyboardType;
   final Widget? suffixIcon;
-  final dynamic prefixIcon; // Can be IconData or Widget
+  final dynamic prefixIcon;
   final int? maxLines;
   final int? maxLength;
   final String? hintText;
@@ -29,7 +29,7 @@ class CustomTextField extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context){
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

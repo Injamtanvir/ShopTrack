@@ -12,7 +12,6 @@ class ConnectivityService {
   bool _isConnected = true;
 
   ConnectivityService() {
-    // Configure check interval (equivalent to previous checkInterval)
     _checkTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       checkConnectivity();
     });
@@ -21,18 +20,15 @@ class ConnectivityService {
   }
 
   void _init() {
-    // Listen to connectivity changes
     _connectionChecker.onStatusChange.listen((InternetConnectionStatus status) {
       final bool isConnected = status == InternetConnectionStatus.connected;
 
-      // Only notify listeners if the connection status has changed
       if (isConnected != _isConnected) {
         _isConnected = isConnected;
         _updateConnectionStatus(isConnected);
       }
     });
-    
-    // Initial check
+
     checkConnectivity();
   }
 
